@@ -43,6 +43,7 @@ set(FIRMWARE_SOURCES
   ${FIRMWARE_DIR}/main.ino
   ${FIRMWARE_DIR}/display.cpp
   ${FIRMWARE_DIR}/indicators.cpp
+  ${FIRMWARE_DIR}/rtc_state.cpp
   ${FIRMWARE_DIR}/util.cpp
   ${FIRMWARE_DIR}/battery.cpp
   ${FIRMWARE_DIR}/beeper.cpp
@@ -62,6 +63,7 @@ add_executable(sim
   shim/Arduino.cpp
   shim/TFT_eSPI.cpp
   src/sim_panel.cpp
+  src/sim_rtc.cpp
   src/sim_input.cpp
   src/sim_qmi.cpp
   src/sim_main.cpp
@@ -100,18 +102,22 @@ enable_testing()
 
 add_executable(firmware_tests
   ${FIRMWARE_DIR}/indicators.cpp
+  ${FIRMWARE_DIR}/rtc_state.cpp
+  ${FIRMWARE_DIR}/rtc_state.cpp
   ${FIRMWARE_DIR}/util.cpp
   shim/Arduino.cpp
   src/sim_panel.cpp
+  src/sim_rtc.cpp
   src/sim_input.cpp
   tests/stubs.cpp
   tests/test_util.cpp
   tests/test_indicators.cpp
+  tests/test_rtc_state.cpp
   tests/main.cpp
 )
 
-set_source_files_properties(${FIRMWARE_DIR}/util.cpp PROPERTIES
-  COMPILE_OPTIONS "-include;Arduino.h")
+set_source_files_properties(${FIRMWARE_DIR}/util.cpp ${FIRMWARE_DIR}/rtc_state.cpp
+  PROPERTIES COMPILE_OPTIONS "-include;Arduino.h")
 
 target_include_directories(firmware_tests PRIVATE
   ${FIRMWARE_DIR}

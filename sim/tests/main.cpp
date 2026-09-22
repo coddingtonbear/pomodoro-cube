@@ -7,6 +7,11 @@ void testRemainingPercent();
 void testArcColorStops();
 void testArcColorIsGradual();
 void testLowBatteryThreshold();
+void testColdBootIsRejected();
+void testInitialiseStampsAndClears();
+void testInitialiseIsDeterministic();
+void testSurvivingBlockIsKept();
+void testLayoutChangeInvalidates();
 
 int main() {
   testTimerSelection();
@@ -14,6 +19,11 @@ int main() {
   testArcColorStops();
   testArcColorIsGradual();
   testLowBatteryThreshold();
+  testColdBootIsRejected();
+  testInitialiseStampsAndClears();
+  testInitialiseIsDeterministic();
+  testSurvivingBlockIsKept();
+  testLayoutChangeInvalidates();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());

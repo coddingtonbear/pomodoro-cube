@@ -13,6 +13,11 @@
 #define OUTPUT 0x03
 #define INPUT_PULLUP 0x05
 
+// On the device this places a variable in RTC memory, which survives deep
+// sleep. The simulator has no such memory: sim_rtc.cpp persists the block to a
+// file across the simulated cold boot instead.
+#define RTC_DATA_ATTR
+
 // ---- ESP32 GPIO numbering -------------------------------------------------
 enum gpio_num_t {
   GPIO_NUM_0 = 0, GPIO_NUM_1, GPIO_NUM_2, GPIO_NUM_3, GPIO_NUM_4,

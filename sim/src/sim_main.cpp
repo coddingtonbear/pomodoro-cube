@@ -16,6 +16,7 @@
 #include "sim_host.h"
 #include "sim_input.h"
 #include "sim_panel.h"
+#include "sim_rtc.h"
 
 // Defined by the firmware's main.ino.
 void setup();
@@ -101,6 +102,7 @@ void shutdown() {
 // fires, so wake is modelled by re-executing this process from scratch.
 [[noreturn]] void reboot() {
   shutdown();
+  ::setenv("SIM_WOKE_FROM_SLEEP", "1", 1);
   execv("/proc/self/exe", g_argv);
   std::perror("execv");
   std::exit(1);
@@ -356,6 +358,8 @@ int main(int argc, char **argv) {
   applyOrientationFromEnv();
   applyBatteryFromEnv();
   applyKeysFromEnv();
+
+  SimRtc::restore(std::getenv("SIM_WOKE_FROM_SLEEP") != nullptr);
   SimHost::delayHook = onDelay;
 
   std::printf(
@@ -373,6 +377,9 @@ int main(int argc, char **argv) {
       updateTitle();
     }
   } catch (const SimDeepSleep &) {
+    // RTC memory survives deep sleep on the device; persist it so the re-exec
+    // comes back to the same block.
+    SimRtc::persist();
     waitForWake();
   }
 }

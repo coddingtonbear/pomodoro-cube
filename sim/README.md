@@ -95,8 +95,11 @@ cmake --build build && ctest --test-dir build --output-on-failure
 ## What is and isn't simulated
 
 Faithful: the LVGL render path and the SquareLine UI, panel rotation, the
-countdown and its debounce, battery percentage and bar colours, the deep-sleep
-transitions.
+countdown and its debounce, the arc and battery indicator, the deep-sleep
+transitions, and RTC memory — the block survives a simulated deep sleep and is
+filled with junk on a cold boot, exactly as the real thing would be, so the
+magic-word guard is genuinely exercised rather than getting away with a benign
+block of zeroes.
 
 Stubbed: the beeper is silent — `tone()` only sets a flag that shows up in the
 window title as `BEEP`, so the sequence timing is visible but not audible. I2C,
@@ -108,7 +111,7 @@ host clock, so this says nothing about how the real ESP32 performs at 80 MHz.
 ```
 shim/     Arduino.h, TFT_eSPI, Wire, driver/rtc_io -- the hardware APIs faked
 src/      the simulated panel, input state, IMU stand-in and SDL entry point
-tests/    host tests for util.cpp, plus link stubs for its hardware calls
+tests/    host tests for the firmware's pure logic, plus link stubs
 ```
 
 `shim/` is deliberately minimal: only the calls this firmware actually makes are

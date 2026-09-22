@@ -7,6 +7,7 @@
 #include "qmi.h"
 #include <lvgl.h>
 #include "beeper.h"
+#include "rtc_state.h"
 
 
 int remSeconds = 0;          // remaining seconds
@@ -18,6 +19,10 @@ unsigned long startedBeeping = 0;
 void setup() {
   Serial.begin(115200);
   setCpuFrequencyMhz(80);  // reducing CPU clock to 80MHz
+
+  // Before anything reads it: keeps what survived deep sleep, discards what
+  // did not.
+  RtcState::begin();
   
   QMI::setup(); 
 
@@ -58,7 +63,11 @@ void loop() {
     remSeconds--;
     Display::updateTimer(remSeconds, selSeconds);
     lastTick = millis();
-    if (remSeconds == 0) startedBeeping = millis();
+    if (remSeconds == 0) {
+      startedBeeping = millis();
+      // Only work timers count as pomodoros; breaks do not.
+      if (selSeconds == TIMER_WORK_SECONDS) RtcState::data().pomodoroCount++;
+    }
   }
 
   if (remSeconds == 0) {

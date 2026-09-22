@@ -1,0 +1,87 @@
+// Tests for the magic-word guard on RTC memory. The point of the guard is that
+// a cold boot leaves arbitrary bits behind, so these exercise junk as well as
+// well-formed blocks.
+#include "rtc_state.h"
+
+#include <cstring>
+#include <random>
+
+#include "check.h"
+
+namespace {
+
+// Stands in for RTC memory after a power cycle: not zeroed, just whatever was
+// there. Zeroes would let a broken guard pass by accident.
+RtcState::Data junkBlock(uint32_t seed) {
+  RtcState::Data data;
+  std::mt19937 rng(seed);
+  auto *bytes = reinterpret_cast<unsigned char *>(&data);
+  for (size_t i = 0; i < sizeof(RtcState::Data); i++) {
+    bytes[i] = (unsigned char)(rng() & 0xFF);
+  }
+  return data;
+}
+
+}  // namespace
+
+void testColdBootIsRejected() {
+  // A handful of seeds, because one unlucky block proves nothing either way.
+  for (uint32_t seed = 1; seed <= 64; seed++) {
+    RtcState::Data data = junkBlock(seed);
+    if (data.magic == RtcState::MAGIC) continue;  // astronomically unlikely
+    CHECK_MSG(!RtcState::isInitialised(data), "junk must not look initialised");
+  }
+
+  // All-zero memory is the other plausible cold-boot state.
+  RtcState::Data zeroed;
+  std::memset(&zeroed, 0, sizeof(zeroed));
+  CHECK(!RtcState::isInitialised(zeroed));
+}
+
+void testInitialiseStampsAndClears() {
+  RtcState::Data data = junkBlock(99);
+  RtcState::initialise(data);
+
+  CHECK(RtcState::isInitialised(data));
+  CHECK(data.pomodoroCount == 0);
+  CHECK(!data.pauseValid);
+  CHECK(data.pausedRemaining == 0);
+  CHECK(data.pausedSelected == 0);
+  CHECK(data.pausedFace == Orientation::UNDEFINED);
+}
+
+void testInitialiseIsDeterministic() {
+  // Two blocks initialised from different junk must come out identical, padding
+  // included -- otherwise a future checksum over the block would be unstable.
+  RtcState::Data a = junkBlock(11);
+  RtcState::Data b = junkBlock(22);
+  RtcState::initialise(a);
+  RtcState::initialise(b);
+
+  CHECK(std::memcmp(&a, &b, sizeof(RtcState::Data)) == 0);
+}
+
+void testSurvivingBlockIsKept() {
+  // What deep sleep should look like: the block comes back untouched.
+  RtcState::Data data;
+  RtcState::initialise(data);
+  data.pomodoroCount = 7;
+  data.pauseValid = true;
+  data.pausedFace = Orientation::DEG_90;
+  data.pausedRemaining = 143;
+  data.pausedSelected = 300;
+
+  CHECK(RtcState::isInitialised(data));
+  CHECK(data.pomodoroCount == 7);
+  CHECK(data.pausedRemaining == 143);
+}
+
+void testLayoutChangeInvalidates() {
+  // A firmware whose Data layout changed bumps MAGIC, so the old block is
+  // discarded rather than misread as the new shape.
+  RtcState::Data data;
+  RtcState::initialise(data);
+  data.magic = RtcState::MAGIC - 1;  // stamped by a previous firmware version
+
+  CHECK(!RtcState::isInitialised(data));
+}
