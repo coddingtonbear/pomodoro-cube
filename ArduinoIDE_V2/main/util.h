@@ -4,7 +4,6 @@
 
 namespace Util {
 
-int calcBattPercentage(float voltage);
 void updateBattery();
 Orientation calcOrientation(float ax, float ay, float az);
 void deepSleep(bool playSound);

@@ -15,8 +15,9 @@ extern void ui_Screen1_screen_init(void);
 extern void ui_Screen1_screen_destroy(void);
 extern lv_obj_t * ui_Screen1;
 extern lv_obj_t * ui_Arc1;
-extern lv_obj_t * ui_Battery;
-extern lv_obj_t * ui_BatteryLabel;
+extern lv_obj_t * ui_LowBattery;
+extern lv_obj_t * ui_LowBatteryTip;
+extern lv_obj_t * ui_LowBatteryVoltage;
 extern lv_obj_t * ui_Countdown;
 // CUSTOM VARIABLES
 

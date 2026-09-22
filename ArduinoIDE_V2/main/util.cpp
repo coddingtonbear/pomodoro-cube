@@ -12,23 +12,9 @@
 VoltageSmoother<10> vFilter;
 
 
-int Util::calcBattPercentage(float voltage) {
-  // Constrain bounds
-  if (voltage <= BAT_EMPTY_VOLTAGE) return 1;
-  if (voltage >= BAT_FULL_VOLTAGE) return 100;
-
-  //  Linear interpolation for floats
-  float percentage = ((voltage - BAT_EMPTY_VOLTAGE) / (BAT_FULL_VOLTAGE - BAT_EMPTY_VOLTAGE)) * 99.0f + 1.0f;
-
-  return (int)percentage;
-}
-
 void Util::updateBattery() {
-  float voltage = Battery::getVoltage();
-  vFilter.add(voltage);
-  float smoothedVoltage = vFilter.getAverage();
-  int percentage = Util::calcBattPercentage(smoothedVoltage);
-  Display::updateBattery(percentage);
+  vFilter.add(Battery::getVoltage());
+  Display::updateBattery(vFilter.getAverage());
 }
 
 Orientation Util::calcOrientation(float ax, float ay, float az) {

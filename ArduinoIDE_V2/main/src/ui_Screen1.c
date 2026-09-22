@@ -7,8 +7,9 @@
 
 lv_obj_t * ui_Screen1 = NULL;
 lv_obj_t * ui_Arc1 = NULL;
-lv_obj_t * ui_Battery = NULL;
-lv_obj_t * ui_BatteryLabel = NULL;
+lv_obj_t * ui_LowBattery = NULL;
+lv_obj_t * ui_LowBatteryTip = NULL;
+lv_obj_t * ui_LowBatteryVoltage = NULL;
 lv_obj_t * ui_Countdown = NULL;
 // event funtions
 
@@ -25,42 +26,67 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_align(ui_Arc1, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_Arc1, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE |
                       LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE);     /// Flags
-    lv_arc_set_value(ui_Arc1, 50);
+    lv_arc_set_value(ui_Arc1, 100);
     lv_obj_set_style_arc_width(ui_Arc1, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(0x2095F6), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_COLOR_FULL), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_opa(ui_Arc1, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_width(ui_Arc1, 15, LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
+    // The knob tracks the indicator colour, so the leading dot doesn't sit
+    // there in the theme's blue while the arc shades green to red.
+    lv_obj_set_style_bg_color(ui_Arc1, lv_color_hex(ARC_COLOR_FULL), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_color(ui_Arc1, lv_color_hex(0x5D5D5D), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_opa(ui_Arc1, 255, LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_width(ui_Arc1, 3, LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_spread(ui_Arc1, 1, LV_PART_KNOB | LV_STATE_DEFAULT);
 
-    ui_Battery = lv_bar_create(ui_Screen1);
-    lv_bar_set_value(ui_Battery, 25, LV_ANIM_OFF);
-    lv_bar_set_start_value(ui_Battery, 0, LV_ANIM_OFF);
-    lv_obj_set_width(ui_Battery, 50);
-    lv_obj_set_height(ui_Battery, 12);
-    lv_obj_set_x(ui_Battery, 0);
-    lv_obj_set_y(ui_Battery, 110);
-    lv_obj_set_align(ui_Battery, LV_ALIGN_CENTER);
-    lv_obj_set_style_bg_color(ui_Battery, lv_color_hex(0x0A4700), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_Battery, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // Low-battery warning: an empty battery outline, drawn rather than taken
+    // from a font so its size doesn't depend on which montserrat sizes the
+    // LVGL build happens to enable. Hidden unless the charge is actually low.
+    ui_LowBattery = lv_obj_create(ui_Screen1);
+    lv_obj_set_width(ui_LowBattery, 42);
+    lv_obj_set_height(ui_LowBattery, 20);
+    lv_obj_set_x(ui_LowBattery, -3);
+    lv_obj_set_y(ui_LowBattery, 78);
+    lv_obj_set_align(ui_LowBattery, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_LowBattery, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(ui_LowBattery, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_bg_opa(ui_LowBattery, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(ui_LowBattery, lv_color_hex(LOW_BATTERY_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_opa(ui_LowBattery, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_LowBattery, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui_LowBattery, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(ui_LowBattery, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_bg_color(ui_Battery, lv_color_hex(0x0FFF00), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_Battery, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    // A sibling rather than a child: children are clipped to their parent, so
+    // a terminal hung off the body's right edge would be drawn inside it.
+    // x = 21 puts it just past the body, keeping the pair centred as a whole.
+    ui_LowBatteryTip = lv_obj_create(ui_Screen1);
+    lv_obj_set_width(ui_LowBatteryTip, 4);
+    lv_obj_set_height(ui_LowBatteryTip, 7);
+    lv_obj_set_align(ui_LowBatteryTip, LV_ALIGN_CENTER);
+    lv_obj_set_x(ui_LowBatteryTip, 21);
+    lv_obj_set_y(ui_LowBatteryTip, 78);
+    lv_obj_add_flag(ui_LowBatteryTip, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_LowBatteryTip, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(ui_LowBatteryTip, lv_color_hex(LOW_BATTERY_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_LowBatteryTip, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_LowBatteryTip, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui_LowBatteryTip, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_BatteryLabel = lv_label_create(ui_Screen1);
-    lv_obj_set_width(ui_BatteryLabel, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_BatteryLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_BatteryLabel, 0);
-    lv_obj_set_y(ui_BatteryLabel, 95);
-    lv_obj_set_align(ui_BatteryLabel, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_BatteryLabel, "100%");
-    lv_obj_set_style_text_color(ui_BatteryLabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui_BatteryLabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_BatteryLabel, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // The measured pack voltage, printed inside the outline. It is there to be
+    // read against a multimeter when calibrating the divider and ADC, so it
+    // shows what the firmware actually measured rather than a derived figure.
+    // A child of the body, so hiding the body hides this too.
+    ui_LowBatteryVoltage = lv_label_create(ui_LowBattery);
+    lv_obj_set_width(ui_LowBatteryVoltage, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_LowBatteryVoltage, LV_SIZE_CONTENT);
+    lv_obj_set_align(ui_LowBatteryVoltage, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LowBatteryVoltage, "0.00");
+    lv_obj_set_style_text_color(ui_LowBatteryVoltage, lv_color_hex(LOW_BATTERY_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_LowBatteryVoltage, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_LowBatteryVoltage, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Countdown = lv_label_create(ui_Screen1);
     lv_obj_set_width(ui_Countdown, LV_SIZE_CONTENT);   /// 1
@@ -78,8 +104,9 @@ void ui_Screen1_screen_destroy(void)
     // NULL screen variables
     ui_Screen1 = NULL;
     ui_Arc1 = NULL;
-    ui_Battery = NULL;
-    ui_BatteryLabel = NULL;
+    ui_LowBattery = NULL;
+    ui_LowBatteryTip = NULL;
+    ui_LowBatteryVoltage = NULL;
     ui_Countdown = NULL;
 
 }
