@@ -67,7 +67,7 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_height(ui_Countdown, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_Countdown, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Countdown, "00:00");
-    lv_obj_set_style_text_font(ui_Countdown, &ui_font_DynaPuff_54, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_Countdown, &ui_font_Countdown_54, LV_PART_MAIN | LV_STATE_DEFAULT);
 
 }
 
