@@ -19,6 +19,7 @@ divider. Pin assignments are in `ArduinoIDE_V2/main/consts.h`.
 ArduinoIDE_V2/main/       the firmware, built with the Arduino IDE
 ArduinoIDE_V2/main/src/   the LVGL UI (originally SquareLine Studio output)
 SquareLine/               the SquareLine Studio project the UI came from
+fonts/                    source faces for the countdown label
 sim/                      desktop simulator and host tests -- see sim/README.md
 tools/                    font conversion
 ```
@@ -50,7 +51,7 @@ SDL window. See [sim/README.md](sim/README.md) for controls, tests and limits.
 ## Changing the countdown font
 
 ```bash
-tools/convert-font.sh path/to/Font.ttf [size]
+tools/convert-font.sh fonts/Oswald-SemiBold.ttf 62
 ```
 
 Rewrites `ArduinoIDE_V2/main/src/ui_font_Countdown_54.c` in place. The font slot
@@ -60,5 +61,8 @@ antialiasing, and equalises the digit widths so the countdown doesn't shift
 sideways as it ticks (`TABULAR=0` to skip that, `RANGE` and `BPP` to override
 the rest).
 
-The current font is [Open Gorton](https://github.com/dakotafelder/open-gorton)
-Bold, an open revival of the engraving face used on old machine panels.
+The current font is [Oswald](https://github.com/google/fonts/tree/main/ofl/oswald)
+SemiBold at 62px. It is condensed, so the digits run taller than a normal-width
+face can before reaching the arc. Source faces live in `fonts/` — see
+[fonts/README.md](fonts/README.md) for why the weight is pinned to a static
+instance.
