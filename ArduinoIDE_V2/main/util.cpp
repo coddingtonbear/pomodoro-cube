@@ -72,11 +72,13 @@ void Util::deepSleep(bool playSound) {
 }
 
 int Util::getTimerByOrientation(Orientation ori) {
-  if (ori == Orientation::DEG_0) return timers[3];
-  if (ori == Orientation::DEG_90) return timers[0];
-  if (ori == Orientation::DEG_180) return timers[1];
-  if (ori == Orientation::DEG_270) return timers[2];
-  return timers[0];
+  switch (ori) {
+    case Orientation::DEG_0: return TIMER_WORK_SECONDS;
+    case Orientation::DEG_90: return TIMER_SHORT_BREAK_SECONDS;
+    case Orientation::DEG_180: return TIMER_LONG_WORK_SECONDS;
+    case Orientation::DEG_270: return TIMER_LONG_BREAK_SECONDS;
+    default: return TIMER_WORK_SECONDS;
+  }
 }
 
 unsigned long lastOriChangeTime = 0;
