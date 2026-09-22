@@ -41,6 +41,7 @@ set(UI_SOURCES
 # exception: it needs the vendor QMI8658 driver, so src/sim_qmi.cpp stands in.
 set(FIRMWARE_SOURCES
   ${FIRMWARE_DIR}/main.ino
+  ${FIRMWARE_DIR}/bthome.cpp
   ${FIRMWARE_DIR}/display.cpp
   ${FIRMWARE_DIR}/indicators.cpp
   ${FIRMWARE_DIR}/rtc_state.cpp
@@ -101,6 +102,7 @@ set_source_files_properties(${LVGL_SOURCES} ${UI_SOURCES} PROPERTIES COMPILE_OPT
 enable_testing()
 
 add_executable(firmware_tests
+  ${FIRMWARE_DIR}/bthome.cpp
   ${FIRMWARE_DIR}/indicators.cpp
   ${FIRMWARE_DIR}/rtc_state.cpp
   ${FIRMWARE_DIR}/rtc_state.cpp
@@ -113,6 +115,7 @@ add_executable(firmware_tests
   tests/test_util.cpp
   tests/test_indicators.cpp
   tests/test_rtc_state.cpp
+  tests/test_bthome.cpp
   tests/main.cpp
 )
 

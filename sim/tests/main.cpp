@@ -16,6 +16,12 @@ void testPauseRoundTrip();
 void testPauseOnlyResumesOnItsOwnFace();
 void testNothingWorthResumingIsNotStored();
 void testClearPauseWipesTheFace();
+void testEncodesKnownStateExactly();
+void testFitsInALegacyAdvertisement();
+void testObjectIdsAscend();
+void testFarewellAdvert();
+void testOutOfRangeValuesClamp();
+void testRefusesABufferItCannotFill();
 
 int main() {
   testTimerSelection();
@@ -32,6 +38,12 @@ int main() {
   testPauseOnlyResumesOnItsOwnFace();
   testNothingWorthResumingIsNotStored();
   testClearPauseWipesTheFace();
+  testEncodesKnownStateExactly();
+  testFitsInALegacyAdvertisement();
+  testObjectIdsAscend();
+  testFarewellAdvert();
+  testOutOfRangeValuesClamp();
+  testRefusesABufferItCannotFill();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());

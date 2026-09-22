@@ -35,6 +35,7 @@ sudo apt install cmake build-essential libsdl2-dev
 | `[` `]` | Lower / raise the simulated pack voltage |
 | `v` | Toggle between the upright view and the raw panel |
 | `m` | Toggle the round-panel mask |
+| `a` | Print the BLE advertisement the cube would send |
 | `r` | Reboot, as a wake-from-deep-sleep would |
 | `q` or `Esc` | Quit |
 
@@ -110,6 +111,10 @@ One gap around pausing: the device holds `TFT_BL_PIN` through deep sleep, so the
 frame stays lit across the wake until `Display::setup()` releases the hold. The
 sim's wake is a fresh process, so its panel goes dark for the moment the boot
 takes. Nothing depends on it, but the real cube will look slightly smoother.
+
+There is no radio: `a` prints the BTHome payload `bthome.cpp` builds rather than
+transmitting it, which is enough to read a payload back against the spec or paste
+it into a decoder.
 
 Stubbed: the beeper is silent — `tone()` only sets a flag that shows up in the
 window title as `BEEP`, so the sequence timing is visible but not audible. I2C,

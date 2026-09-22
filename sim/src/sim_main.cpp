@@ -9,6 +9,7 @@
 #include <vector>
 #include <unistd.h>
 
+#include "bthome.h"
 #include "consts.h"
 #include "display.h"
 #include "util.h"
@@ -17,10 +18,13 @@
 #include "sim_input.h"
 #include "sim_panel.h"
 #include "sim_rtc.h"
+#include "rtc_state.h"
 
 // Defined by the firmware's main.ino.
 void setup();
 void loop();
+extern int remSeconds;
+extern int selSeconds;
 
 namespace {
 
@@ -72,6 +76,32 @@ void applyBatteryOverride() {
     case SimInput::BatteryOverride::None:
       break;
   }
+}
+
+// There is no radio here, so `a` prints what would go out instead. Handy for
+// reading a payload back against the BTHome spec, or pasting into a decoder.
+void dumpAdvertisement() {
+  static uint8_t packetId = 0;
+
+  BTHome::State state;
+  state.packetId = packetId++;
+  state.batteryVolts = SimInput::batteryVoltage;
+  state.awake = true;
+  state.running = remSeconds > 0;
+  state.pomodoroCount = RtcState::data().pomodoroCount;
+  state.remainingSeconds = remSeconds;
+  state.selectedSeconds = selSeconds;
+
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+  const size_t length = BTHome::encode(state, advert, sizeof(advert));
+  if (length == 0) {
+    std::printf("[sim] advertisement would not fit\n");
+    return;
+  }
+
+  std::printf("[sim] advertisement (%zu bytes):", length);
+  for (size_t i = 0; i < length; i++) std::printf(" %02X", advert[i]);
+  std::printf("\n");
 }
 
 const char *orientationName(Orientation ori) {
@@ -249,6 +279,7 @@ void handleKey(SDL_Keycode key) {
       break;
     case SDLK_m: g_roundMask = !g_roundMask; SimPanel::dirty = true; break;
     case SDLK_v: g_userView = !g_userView; SimPanel::dirty = true; break;
+    case SDLK_a: dumpAdvertisement(); break;
     case SDLK_r: reboot();
     case SDLK_q:
     case SDLK_ESCAPE: quit();
@@ -399,7 +430,8 @@ int main(int argc, char **argv) {
   std::printf(
       "[sim] keys: 1/2/3/4 = cube faces, 0 or s = face down, u = face up,\n"
       "      b = force low battery warning on/off, [ / ] = battery voltage,\n"
-      "      v = user/panel view, m = round mask, r = reboot, q = quit\n");
+      "      v = user/panel view, m = round mask, a = print BLE advertisement,\n"
+      "      r = reboot, q = quit\n");
 
   try {
     setup();

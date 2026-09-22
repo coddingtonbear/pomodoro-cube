@@ -54,6 +54,23 @@ the raw smoothed reading, not a derived figure.
 Below `BAT_EMPTY_VOLTAGE` (3.5 V) the firmware deep-sleeps rather than running
 the pack flat.
 
+## Home Assistant
+
+The cube is meant to advertise its state as [BTHome v2](https://bthome.io/format/),
+which Home Assistant discovers natively — no custom component, no MQTT. The
+advertisement carries a packet id, the pack voltage, a connectivity flag, whether
+the timer is running, the completed-pomodoro count, and two durations (remaining,
+and what it started at): 28 of the 31 bytes a legacy advertisement allows.
+
+There are deliberately no event objects. Automations key off the `running` state
+changing rather than a "started" event, because an advertisement is an
+unacknowledged broadcast — a missed event is gone for good, while a missed state
+is re-advertised a second later.
+
+`bthome.cpp` builds the payload and is fully tested against exact bytes, but
+**nothing transmits it yet**: the NimBLE plumbing needs the board. The simulator
+prints what would go out when you press `a`.
+
 ## Developing without the hardware
 
 ```bash
