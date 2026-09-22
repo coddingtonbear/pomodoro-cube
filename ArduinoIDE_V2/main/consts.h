@@ -40,7 +40,11 @@ constexpr int beepFrequencies[3] = { 1500, 1000, 2000 };
 constexpr int beepDelays[3] = { 800, 20, 20 };
 
 enum class Orientation {
-  SLEEP,
+  // Both resting faces put the cube to sleep today. They are separate states so
+  // that face-up can become "paused" and face-down "off" without another change
+  // to orientation sensing.
+  FACE_DOWN,
+  FACE_UP,
   DEG_0,
   DEG_90,
   DEG_180,

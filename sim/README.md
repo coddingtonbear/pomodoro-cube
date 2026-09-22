@@ -29,7 +29,8 @@ sudo apt install cmake build-essential libsdl2-dev
 | Key | Effect |
 | --- | --- |
 | `1` `2` `3` `4` | Rest the cube on a face — 0°, 90°, 180°, 270° |
-| `0` or `s` | Lay it face down, which puts the firmware into deep sleep |
+| `0` or `s` | Lay it face down |
+| `u` | Lay it face up |
 | `b` | Cycle the low-battery warning: forced on, forced off, voltage-driven |
 | `[` `]` | Lower / raise the simulated pack voltage |
 | `v` | Toggle between the upright view and the raw panel |
@@ -49,8 +50,10 @@ cube on the current face sees it. `v` switches to the physical panel, where the
 content appears rotated — useful when checking what `tft.setRotation()` is
 actually doing.
 
-Deep sleep parks the sim on a dark panel; any key re-executes the process,
-which reproduces the cold boot the IMU interrupt causes on hardware.
+Both resting faces deep-sleep today; they are separate states so that face-up
+can later mean "paused" and face-down "off". Deep sleep parks the sim on a dark
+panel, and any key re-executes the process, reproducing the cold boot the IMU
+interrupt causes on hardware.
 
 ## Scripted screenshots
 
@@ -63,7 +66,7 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=180 \
 
 | Variable | Effect |
 | --- | --- |
-| `SIM_ORIENTATION` | Boot on a face: `0`, `90`, `180`, `270` or `sleep` |
+| `SIM_ORIENTATION` | Boot on a face: `0`, `90`, `180`, `270`, `up` or `down` |
 | `SIM_BATTERY` | Starting pack voltage in volts, e.g. `3.65` |
 | `SIM_SCREENSHOT` | Where to write the frame |
 | `SIM_SCREENSHOT_MS` | When to grab it, in ms since boot |

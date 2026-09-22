@@ -11,6 +11,7 @@
 
 #include "consts.h"
 #include "display.h"
+#include "util.h"
 #include "sim_deep_sleep.h"
 #include "sim_host.h"
 #include "sim_input.h"
@@ -74,7 +75,8 @@ void applyBatteryOverride() {
 
 const char *orientationName(Orientation ori) {
   switch (ori) {
-    case Orientation::SLEEP:   return "SLEEP";
+    case Orientation::FACE_DOWN: return "face down";
+    case Orientation::FACE_UP:   return "face up";
     case Orientation::DEG_0:   return "0deg";
     case Orientation::DEG_90:  return "90deg";
     case Orientation::DEG_180: return "180deg";
@@ -137,7 +139,8 @@ void applyOrientationFromEnv() {
   else if (name == "90") SimInput::orientation = Orientation::DEG_90;
   else if (name == "180") SimInput::orientation = Orientation::DEG_180;
   else if (name == "270") SimInput::orientation = Orientation::DEG_270;
-  else if (name == "sleep") SimInput::orientation = Orientation::SLEEP;
+  else if (name == "down" || name == "sleep") SimInput::orientation = Orientation::FACE_DOWN;
+  else if (name == "up") SimInput::orientation = Orientation::FACE_UP;
   else std::fprintf(stderr, "[sim] unknown SIM_ORIENTATION '%s'\n", value);
 }
 
@@ -216,7 +219,8 @@ void handleKey(SDL_Keycode key) {
     case SDLK_3: SimInput::orientation = Orientation::DEG_180; break;
     case SDLK_4: SimInput::orientation = Orientation::DEG_270; break;
     case SDLK_0:
-    case SDLK_s: SimInput::orientation = Orientation::SLEEP;   break;
+    case SDLK_s: SimInput::orientation = Orientation::FACE_DOWN; break;
+    case SDLK_u: SimInput::orientation = Orientation::FACE_UP;   break;
     case SDLK_LEFTBRACKET:
       SimInput::batteryOverride = SimInput::BatteryOverride::None;
       SimInput::batteryVoltage -= 0.05f;
@@ -290,7 +294,7 @@ void onDelay(unsigned long ms) {
       if (event.type == SDL_KEYDOWN) {
         if (event.key.keysym.sym == SDLK_q || event.key.keysym.sym == SDLK_ESCAPE) quit();
         // Wake on a face that runs a timer, the way picking the cube up would.
-        if (SimInput::orientation == Orientation::SLEEP) {
+        if (Util::isRestingFace(SimInput::orientation)) {
           SimInput::orientation = Orientation::DEG_90;
         }
         reboot();
@@ -355,7 +359,7 @@ int main(int argc, char **argv) {
   SimHost::delayHook = onDelay;
 
   std::printf(
-      "[sim] keys: 1/2/3/4 = cube faces, 0 or s = face down (sleep),\n"
+      "[sim] keys: 1/2/3/4 = cube faces, 0 or s = face down, u = face up,\n"
       "      b = force low battery warning on/off, [ / ] = battery voltage,\n"
       "      v = user/panel view, m = round mask, r = reboot, q = quit\n");
 

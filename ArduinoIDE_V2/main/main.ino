@@ -26,7 +26,7 @@ void setup() {
   float ax, ay, az;
   if (QMI::getAccelerometer(ax, ay, az)) {
     Orientation currentOri = Util::calcOrientation(ax, ay, az);
-    if (currentOri == Orientation::SLEEP) Util::deepSleep(false);
+    if (Util::isRestingFace(currentOri)) Util::deepSleep(false);
   }
   // -----------------------------------------
 
@@ -45,7 +45,7 @@ void loop() {
     Orientation currentOri = Util::calcOrientation(ax, ay, az);
     if (Util::updateOriDebounce(currentOri)) {
       Orientation ori = Util::getDebouncedOriState();
-      if (ori == Orientation::SLEEP) Util::deepSleep(true);
+      if (Util::isRestingFace(ori)) Util::deepSleep(true);
       remSeconds = Util::getTimerByOrientation(ori);
       selSeconds = remSeconds;
       Display::rotateScreen(ori);

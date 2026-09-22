@@ -32,15 +32,24 @@ void testFacesMapToTimers() {
   }
 }
 
-void testFaceDownSleeps() {
-  CHECK(Util::calcOrientation(0.0f, 0.0f, 1.0f) == Orientation::SLEEP);
-  CHECK(Util::calcOrientation(0.0f, 0.0f, -1.0f) == Orientation::SLEEP);
+void testRestingFaces() {
+  // Which sign is which is an unverified guess; that the two are distinguished
+  // at all, and that both rest rather than run a timer, is the contract.
+  CHECK(Util::calcOrientation(0.0f, 0.0f, 1.0f) == Orientation::FACE_UP);
+  CHECK(Util::calcOrientation(0.0f, 0.0f, -1.0f) == Orientation::FACE_DOWN);
+
+  CHECK(Util::isRestingFace(Orientation::FACE_UP));
+  CHECK(Util::isRestingFace(Orientation::FACE_DOWN));
+  for (const Face &face : kFaces) {
+    CHECK_MSG(!Util::isRestingFace(face.expected), face.name);
+  }
 }
 
 void testUnknownOrientationsFallBackToWork() {
-  // Neither face is SLEEP, so the cube should still be usable rather than
-  // showing a zero-length timer that would divide by zero in updateTimer().
-  CHECK(Util::getTimerByOrientation(Orientation::SLEEP) == TIMER_WORK_SECONDS);
+  // A resting face runs no timer, but must still not report zero: a zero-length
+  // timer would divide by zero in updateTimer().
+  CHECK(Util::getTimerByOrientation(Orientation::FACE_UP) == TIMER_WORK_SECONDS);
+  CHECK(Util::getTimerByOrientation(Orientation::FACE_DOWN) == TIMER_WORK_SECONDS);
   CHECK(Util::getTimerByOrientation(Orientation::UNDEFINED) == TIMER_WORK_SECONDS);
 }
 
@@ -48,6 +57,6 @@ void testUnknownOrientationsFallBackToWork() {
 
 void testTimerSelection() {
   testFacesMapToTimers();
-  testFaceDownSleeps();
+  testRestingFaces();
   testUnknownOrientationsFallBackToWork();
 }

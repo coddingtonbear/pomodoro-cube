@@ -18,7 +18,12 @@ void Util::updateBattery() {
 }
 
 Orientation Util::calcOrientation(float ax, float ay, float az) {
-  if (az < -0.8 || az > 0.8) return Orientation::SLEEP;
+  // GUESS, unverified: an accelerometer at rest reads +1g along whichever axis
+  // points up, so this assumes the QMI8658's +Z leaves the front of the cube.
+  // If face-up and face-down turn out to be swapped on real hardware, exchange
+  // these two lines -- nothing else depends on the polarity.
+  if (az > 0.8) return Orientation::FACE_UP;
+  if (az < -0.8) return Orientation::FACE_DOWN;
   if (ay > 0.8) return Orientation::DEG_270;
   if (ax > 0.8) return Orientation::DEG_180;
   if (ay < -0.8) return Orientation::DEG_90;
@@ -55,6 +60,10 @@ void Util::deepSleep(bool playSound) {
   // -------------------------
 
   esp_deep_sleep_start();
+}
+
+bool Util::isRestingFace(Orientation ori) {
+  return ori == Orientation::FACE_UP || ori == Orientation::FACE_DOWN;
 }
 
 int Util::getTimerByOrientation(Orientation ori) {
