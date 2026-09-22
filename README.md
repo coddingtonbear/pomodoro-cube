@@ -28,6 +28,21 @@ tools/                    font conversion
 now maintained by hand. **Re-exporting from `SquareLine/coffee_timer.spj` would
 overwrite it**, including the countdown font.
 
+## Resting faces
+
+Laying the cube **face down** switches it off: the timer is discarded and the
+panel blanks.
+
+Laying it **face up** pauses instead. The remaining time is kept in RTC memory,
+which survives deep sleep but not a flat battery, and the panel is left showing
+the frozen countdown in muted colours — the GC9A01 refreshes itself from its own
+memory, so the frame stays lit with the CPU asleep and only the backlight drawing
+current.
+
+A paused timer resumes only on the face it was paused from. Setting the cube down
+on a different face is taken as choosing a different interval, and the pause is
+abandoned.
+
 ## Battery
 
 There is no charge gauge. Below `LOW_BATTERY_VOLTAGE` (3.6 V) an empty battery

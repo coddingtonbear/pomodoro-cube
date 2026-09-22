@@ -50,10 +50,9 @@ cube on the current face sees it. `v` switches to the physical panel, where the
 content appears rotated — useful when checking what `tft.setRotation()` is
 actually doing.
 
-Both resting faces deep-sleep today; they are separate states so that face-up
-can later mean "paused" and face-down "off". Deep sleep parks the sim on a dark
-panel, and any key re-executes the process, reproducing the cold boot the IMU
-interrupt causes on hardware.
+Face down switches off and blanks the panel; face up pauses, leaving the frozen
+countdown lit. Either way any key re-executes the process, reproducing the cold
+boot the IMU interrupt causes on hardware.
 
 ## Scripted screenshots
 
@@ -70,7 +69,11 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=180 \
 | `SIM_BATTERY` | Starting pack voltage in volts, e.g. `3.65` |
 | `SIM_SCREENSHOT` | Where to write the frame |
 | `SIM_SCREENSHOT_MS` | When to grab it, in ms since boot |
-| `SIM_KEYS` | Keys to press at startup, e.g. `b` or `mv` |
+| `SIM_KEYS` | Keys to press, e.g. `b`, `mv`, or `u@12000` for 12s in |
+
+`SIM_KEYS` entries are comma-separated, and `key@ms` presses one part-way
+through a run — which is how pausing gets exercised, since it needs a face
+change while a countdown is already going.
 
 `SIM_SCREENSHOT_MS` also takes a comma-separated list, which captures a
 countdown at several points in one run; each file then gets its elapsed time
@@ -99,7 +102,14 @@ countdown and its debounce, the arc and battery indicator, the deep-sleep
 transitions, and RTC memory — the block survives a simulated deep sleep and is
 filled with junk on a cold boot, exactly as the real thing would be, so the
 magic-word guard is genuinely exercised rather than getting away with a benign
-block of zeroes.
+block of zeroes. A paused panel stays lit because the sim decides from the
+panel's own state (backlight on, no Sleep In command) rather than from knowing
+the firmware is asleep.
+
+One gap around pausing: the device holds `TFT_BL_PIN` through deep sleep, so the
+frame stays lit across the wake until `Display::setup()` releases the hold. The
+sim's wake is a fresh process, so its panel goes dark for the moment the boot
+takes. Nothing depends on it, but the real cube will look slightly smoother.
 
 Stubbed: the beeper is silent — `tone()` only sets a flag that shows up in the
 window title as `BEEP`, so the sequence timing is visible but not audible. I2C,

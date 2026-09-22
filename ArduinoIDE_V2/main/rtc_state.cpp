@@ -34,3 +34,36 @@ RtcState::Data &RtcState::data() {
 void RtcState::begin() {
   if (!isInitialised(g_rtcData)) initialise(g_rtcData);
 }
+
+void RtcState::storePause(Data &data, Orientation face, int remaining, int selected) {
+  // A timer at zero has finished rather than paused, and one that never started
+  // has nothing to hold.
+  if (remaining <= 0 || selected <= 0) return;
+
+  data.pauseValid = true;
+  data.pausedFace = face;
+  data.pausedRemaining = remaining;
+  data.pausedSelected = selected;
+}
+
+void RtcState::clearPause(Data &data) {
+  data.pauseValid = false;
+  data.pausedFace = Orientation::UNDEFINED;
+  data.pausedRemaining = 0;
+  data.pausedSelected = 0;
+}
+
+bool RtcState::hasPause(const Data &data) {
+  return data.pauseValid;
+}
+
+bool RtcState::takePause(Data &data, Orientation face, int &remaining, int &selected) {
+  const bool resumable = data.pauseValid && data.pausedFace == face;
+  if (resumable) {
+    remaining = (int)data.pausedRemaining;
+    selected = (int)data.pausedSelected;
+  }
+
+  clearPause(data);
+  return resumable;
+}

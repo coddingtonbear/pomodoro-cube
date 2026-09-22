@@ -177,7 +177,7 @@ void saveScreenshot(const uint16_t *pixels, const std::string &path) {
 void render() {
   static uint16_t scratch[SimPanel::WIDTH * SimPanel::HEIGHT];
 
-  const bool lit = SimPanel::backlightOn && !SimPanel::asleep && !g_sleeping;
+  const bool lit = SimPanel::backlightOn && !SimPanel::asleep;
   // Squared radius of the round panel's visible aperture.
   constexpr int r = SimPanel::WIDTH / 2;
   constexpr int rSquared = r * r;
@@ -256,14 +256,47 @@ void handleKey(SDL_Keycode key) {
   }
 }
 
-// SIM_KEYS replays a sequence of the keys above at startup, so a scripted
-// screenshot can reach states that otherwise need a keyboard -- the forced
-// battery warning, the panel view, the mask off. Keycodes for the keys this
-// sim uses are their ASCII values, so the string is taken literally.
+// SIM_KEYS replays keys so a scripted run can reach states that otherwise need
+// a keyboard. Entries are comma-separated; a bare key is pressed at startup and
+// `u@12000` presses it 12s in, which is how a face change part-way through a
+// countdown gets tested. Keycodes for the keys this sim uses are their ASCII
+// values, so a key is taken literally.
+struct ScheduledKey {
+  Uint32 atMs;
+  SDL_Keycode key;
+};
+std::vector<ScheduledKey> g_scheduledKeys;
+size_t g_scheduledIndex = 0;
+
 void applyKeysFromEnv() {
   const char *keys = std::getenv("SIM_KEYS");
   if (!keys) return;
-  for (const char *key = keys; *key != '\0'; key++) handleKey((SDL_Keycode)*key);
+
+  std::string spec(keys);
+  size_t start = 0;
+  while (start <= spec.size()) {
+    const size_t comma = spec.find(',', start);
+    const std::string piece = spec.substr(start, comma - start);
+    if (!piece.empty()) {
+      const size_t at = piece.find('@');
+      const SDL_Keycode key = (SDL_Keycode)piece[0];
+      if (at == std::string::npos) handleKey(key);
+      else g_scheduledKeys.push_back({(Uint32)std::atoi(piece.c_str() + at + 1), key});
+    }
+    if (comma == std::string::npos) break;
+    start = comma + 1;
+  }
+
+  std::sort(g_scheduledKeys.begin(), g_scheduledKeys.end(),
+            [](const ScheduledKey &a, const ScheduledKey &b) { return a.atMs < b.atMs; });
+}
+
+void fireScheduledKeys() {
+  while (g_scheduledIndex < g_scheduledKeys.size() &&
+         SDL_GetTicks() >= g_scheduledKeys[g_scheduledIndex].atMs) {
+    handleKey(g_scheduledKeys[g_scheduledIndex].key);
+    g_scheduledIndex++;
+  }
 }
 
 void pumpEvents() {
@@ -276,6 +309,7 @@ void pumpEvents() {
 
 void onDelay(unsigned long ms) {
   pumpEvents();
+  fireScheduledKeys();
   render();
   updateTitle();
   SDL_Delay((Uint32)ms);
@@ -371,6 +405,7 @@ int main(int argc, char **argv) {
     setup();
     for (;;) {
       pumpEvents();
+      fireScheduledKeys();
       loop();
       applyBatteryOverride();
       if (SimPanel::dirty) render();

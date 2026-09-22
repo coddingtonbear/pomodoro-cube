@@ -25,6 +25,9 @@ void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 
 
 void Display::setup() {
+  // A paused sleep locks the backlight on through deep sleep; release it before
+  // driving the pin again.
+  gpio_hold_dis((gpio_num_t)TFT_BL_PIN);
   pinMode(TFT_BL_PIN, OUTPUT);
   digitalWrite(TFT_BL_PIN, HIGH);
   // Initialize TFT
@@ -78,6 +81,25 @@ void Display::deepSleep() {
   delay(120); // Required transition delay for the controller to power down
 }
 
+void Display::holdPausedFrame() {
+  // No Sleep In command and no backlight change: the panel keeps refreshing the
+  // frame from its own memory. Holding the pin keeps it lit once the CPU stops.
+  gpio_hold_en((gpio_num_t)TFT_BL_PIN);
+}
+
+void Display::showPaused() {
+  setArcAppearance(ARC_COLOR_PAUSED, LV_OPA_COVER);
+  lv_obj_set_style_text_color(ui_Countdown, lv_color_hex(COUNTDOWN_COLOR_PAUSED), LV_PART_MAIN);
+
+  // The frame has to reach the panel before the CPU stops, so pump LVGL rather
+  // than waiting for the next loop() that will never come.
+  for (int i = 0; i < 4; i++) {
+    lv_timer_handler();
+    lv_tick_inc(20);
+    delay(20);
+  }
+}
+
 void Display::rotateScreen(Orientation ori) {
   switch (ori) {
     case Orientation::DEG_0: tft.setRotation(0); break;
@@ -100,6 +122,8 @@ void Display::updateTimer(int remSeconds, int selSeconds) {
   const int remaining = Indicators::remainingPercent(remSeconds, selSeconds);
   lv_arc_set_value(ui_Arc1, remaining);
   setArcAppearance(Indicators::arcColor(remaining), LV_OPA_COVER);
+  // Undoes showPaused() without needing to know whether it ran.
+  lv_obj_set_style_text_color(ui_Countdown, lv_color_hex(COUNTDOWN_COLOR), LV_PART_MAIN);
 }
 
 unsigned long lastFinishChange = 0;

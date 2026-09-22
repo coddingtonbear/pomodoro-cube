@@ -43,4 +43,16 @@ Data &data();
 // Call once at startup: keeps the block if it survived, resets it if not.
 void begin();
 
+// Remember a timer to pick up again later. Does nothing when there is nothing
+// worth resuming -- a finished or never-started timer is not a pause.
+void storePause(Data &data, Orientation face, int remaining, int selected);
+
+void clearPause(Data &data);
+bool hasPause(const Data &data);
+
+// Hands back a stored pause, but only to the face it was paused from: setting
+// the cube down on a different face is choosing a different interval, so the
+// pause is abandoned. Either way the stored pause is consumed.
+bool takePause(Data &data, Orientation face, int &remaining, int &selected);
+
 }  // namespace RtcState

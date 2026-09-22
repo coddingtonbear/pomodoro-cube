@@ -12,6 +12,10 @@ void testInitialiseStampsAndClears();
 void testInitialiseIsDeterministic();
 void testSurvivingBlockIsKept();
 void testLayoutChangeInvalidates();
+void testPauseRoundTrip();
+void testPauseOnlyResumesOnItsOwnFace();
+void testNothingWorthResumingIsNotStored();
+void testClearPauseWipesTheFace();
 
 int main() {
   testTimerSelection();
@@ -24,6 +28,10 @@ int main() {
   testInitialiseIsDeterministic();
   testSurvivingBlockIsKept();
   testLayoutChangeInvalidates();
+  testPauseRoundTrip();
+  testPauseOnlyResumesOnItsOwnFace();
+  testNothingWorthResumingIsNotStored();
+  testClearPauseWipesTheFace();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());

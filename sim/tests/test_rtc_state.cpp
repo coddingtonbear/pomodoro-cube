@@ -85,3 +85,64 @@ void testLayoutChangeInvalidates() {
 
   CHECK(!RtcState::isInitialised(data));
 }
+
+void testPauseRoundTrip() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+  CHECK(!RtcState::hasPause(data));
+
+  RtcState::storePause(data, Orientation::DEG_90, 143, 300);
+  CHECK(RtcState::hasPause(data));
+
+  int remaining = 0;
+  int selected = 0;
+  CHECK(RtcState::takePause(data, Orientation::DEG_90, remaining, selected));
+  CHECK(remaining == 143);
+  CHECK(selected == 300);
+
+  // Taking it consumes it, so setting the cube down twice does not resume twice.
+  CHECK(!RtcState::hasPause(data));
+  CHECK(!RtcState::takePause(data, Orientation::DEG_90, remaining, selected));
+}
+
+void testPauseOnlyResumesOnItsOwnFace() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+  RtcState::storePause(data, Orientation::DEG_90, 143, 300);
+
+  int remaining = 99;
+  int selected = 99;
+  CHECK(!RtcState::takePause(data, Orientation::DEG_180, remaining, selected));
+
+  // Untouched: the caller falls back to that face's own timer length.
+  CHECK(remaining == 99);
+  CHECK(selected == 99);
+
+  // And the pause is gone -- picking a different face abandons it rather than
+  // leaving it to resurface later.
+  CHECK(!RtcState::hasPause(data));
+}
+
+void testNothingWorthResumingIsNotStored() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+
+  // A finished timer has nothing left to resume.
+  RtcState::storePause(data, Orientation::DEG_90, 0, 300);
+  CHECK(!RtcState::hasPause(data));
+
+  // Nor does one that never started.
+  RtcState::storePause(data, Orientation::DEG_90, 0, 0);
+  CHECK(!RtcState::hasPause(data));
+}
+
+void testClearPauseWipesTheFace() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+  RtcState::storePause(data, Orientation::DEG_270, 50, 600);
+  RtcState::clearPause(data);
+
+  CHECK(!RtcState::hasPause(data));
+  CHECK(data.pausedFace == Orientation::UNDEFINED);
+  CHECK(data.pausedRemaining == 0);
+}

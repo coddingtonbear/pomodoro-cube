@@ -32,8 +32,9 @@ Orientation Util::calcOrientation(float ax, float ay, float az) {
 }
 
 
-void Util::deepSleep(bool playSound) {
-  Display::deepSleep();
+void Util::deepSleep(SleepMode mode, bool playSound) {
+  if (mode == SleepMode::Off) Display::deepSleep();
+  else Display::holdPausedFrame();
 
   delay(1000);
 
