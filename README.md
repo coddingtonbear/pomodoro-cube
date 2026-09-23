@@ -123,11 +123,21 @@ would go out when you press `a`:
 
 ## Hardware
 
-An ESP32 driving a 240×240 round GC9A01 over SPI, a QMI8658 accelerometer over
-I²C, a piezo beeper, and a LiPo read through a 200k/100k divider. The pin map
-in `ArduinoIDE_V2/main/consts.h` and the use of `ext0` deep-sleep wake point at
-a Waveshare 1.28" round-display board — an S3 rather than a C3, since the C3
-has neither `ext0` nor the RTC GPIO functions the firmware calls.
+A [Waveshare ESP32-S3-Touch-LCD-1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28),
+which carries everything except the beeper: the 240×240 round GC9A01 over SPI,
+a QMI8658 accelerometer over I²C, a LiPo connector with an ETA6096 charger and
+the 200k/100k sense divider, and USB-C for flashing. Every pin in
+`ArduinoIDE_V2/main/consts.h` matches that board — including the three that
+distinguish it from the otherwise similar non-touch `ESP32-S3-LCD-1.28`
+(backlight on GPIO2, LCD reset on GPIO14, IMU INT1 on GPIO4).
+
+The one added component is a **piezo beeper on GPIO15**. The board has no
+sounder of its own.
+
+The board also has a **CST816S capacitive touch controller**, on the same I²C
+bus as the accelerometer, which this firmware does not use at all. It's the
+obvious place to start if the cube ever needs configuring on-device rather than
+by reflashing.
 
 ## Building
 
