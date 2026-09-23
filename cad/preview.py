@@ -45,7 +45,7 @@ def draw(ax, meshes, colours, title):
     ax.set_ylim(-32, 32)
     ax.set_zlim(-4, 62)
     ax.set_box_aspect((1, 1, 1))
-    ax.view_init(elev=20, azim=-54)
+    ax.view_init(elev=18, azim=-38)
     ax.set_title(title, fontsize=10)
     ax.set_axis_off()
 
@@ -74,21 +74,66 @@ def retention_view(ax):
     ax.set_axis_off()
 
 
+def usb_view(ax):
+    """An elevation of the wall the USB-C socket leaves through.
+
+    Drawn by probing the mesh rather than by redrawing the parameters: a ray
+    fired at each point of a grid either meets the near wall or passes into the
+    cavity, and the ones that pass through are the opening. A 3D view will not
+    do here, since the renderer cannot occlude the far wall.
+    """
+    import numpy as np
+
+    band = trimesh.load("build/band.stl")
+    half = SIZE / 2
+    ys = np.arange(-half, half, 0.25)
+    zs = np.arange(0, 49.0, 0.25)
+    grid_y, grid_z = np.meshgrid(ys, zs)
+    origins = np.column_stack(
+        [np.full(grid_y.size, half + 5.0), grid_y.ravel(), grid_z.ravel()]
+    )
+    directions = np.tile([-1.0, 0.0, 0.0], (len(origins), 1))
+    locations, ray_index, _ = band.ray.intersects_location(
+        ray_origins=origins, ray_directions=directions
+    )
+    nearest = np.full(len(origins), np.inf)
+    for location, index in zip(locations, ray_index):
+        nearest[index] = min(nearest[index], abs(location[0] - origins[index][0]))
+    # A ray meeting solid wall stops within a few mm; one through the opening
+    # carries on to the far side.
+    material = (nearest < 8.0).reshape(grid_y.shape)
+
+    ax.imshow(
+        material,
+        origin="lower",
+        extent=(-half, half, 0, 49.0),
+        cmap="Blues",
+        vmin=-0.4,
+        vmax=1.4,
+    )
+    ax.set_aspect("equal")
+    ax.set_xlabel("y (mm)", fontsize=8)
+    ax.set_ylabel("z above the band's base (mm)", fontsize=8)
+    ax.tick_params(labelsize=7)
+    ax.set_title("USB-C opening, +X wall", fontsize=10)
+
+
 def main():
-    fig = plt.figure(figsize=(16, 6))
+    fig = plt.figure(figsize=(21, 6))
 
     meshes = [load(n, t, f) for n, t, f in PLACEMENT]
     colours = [COLOURS[n] for n, _, _ in PLACEMENT]
-    draw(fig.add_subplot(1, 3, 1, projection="3d"), meshes, colours, "assembled")
+    draw(fig.add_subplot(1, 4, 1, projection="3d"), meshes, colours, "assembled")
 
     # Pulled apart along z so the bosses and clamp bars are visible.
     gaps = {"back-plate": -16.0, "band": 0.0, "top-plate": 18.0, "clamp-bar": 9.0}
     exploded = [
         load(n, (t[0], t[1], t[2] + gaps[n]), f) for n, t, f in PLACEMENT
     ]
-    draw(fig.add_subplot(1, 3, 2, projection="3d"), exploded, colours, "exploded")
+    draw(fig.add_subplot(1, 4, 2, projection="3d"), exploded, colours, "exploded")
 
-    retention_view(fig.add_subplot(1, 3, 3, projection="3d"))
+    retention_view(fig.add_subplot(1, 4, 3, projection="3d"))
+    usb_view(fig.add_subplot(1, 4, 4))
 
     plt.subplots_adjust(left=0.01, right=0.99, top=0.94, bottom=0.01, wspace=0.02)
     plt.savefig("preview.png", dpi=115)

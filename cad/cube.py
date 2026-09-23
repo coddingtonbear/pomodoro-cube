@@ -67,6 +67,13 @@ the only way to hold it. This is why the original uses bars and bosses rather
 than screwing through the board, and why this model does the same.
 """
 
+USB_C_CONNECTOR_WIDTH = 9.92
+"""Width of the board's USB-C socket, from Waveshare's dimension drawing.
+
+It sits on a 25.28 mm flat at the bottom of the otherwise round PCB and points
+radially outward, so it has to leave through a side face rather than the back.
+"""
+
 BOARD_STACK_DEPTH = 8.40
 """Front of the glass to the back of the rearmost component.
 
@@ -127,6 +134,24 @@ class CubeSpec:
     #: make the ends semicircular and leave no straight flank.
     clamp_bar_corner_radius: float = 3.0
 
+    #: Opening in the side wall for the board's USB-C socket, which points
+    #: radially out of the board's edge and so has to leave through a side
+    #: face rather than the back. Sized from the original's 12.00 x 6.25 mm
+    #: cutout, which clears the 9.92 mm connector generously enough for a
+    #: cable's overmoulding.
+    usb_cutout_width: float = 12.00
+    usb_cutout_height: float = 6.25
+    #: How far in from the display's outer face the opening starts. The board
+    #: hangs off that face, so this is what keeps the cutout lined up with the
+    #: socket when other dimensions move.
+    usb_cutout_depth: float = 6.00
+    #: Eases the opening's corners. The original leaves them square; a radius
+    #: prints better and takes the stress riser out of the wall.
+    usb_cutout_corner_radius: float = 1.0
+    #: Which way the socket faces, in degrees about the cube's axis. Zero puts
+    #: it in the +X wall; the board turns with it.
+    usb_cutout_bearing: float = 0.0
+
     def __post_init__(self) -> None:
         if self.wall * 2 >= self.size:
             raise ValueError(f"wall {self.wall} too thick for a {self.size} mm cube")
@@ -159,6 +184,21 @@ class CubeSpec:
                 f"clamp bar corner radius {self.clamp_bar_corner_radius} "
                 f"leaves no flank on a {self.clamp_bar_width} mm bar"
             )
+        if self.usb_cutout_corner_radius * 2 >= min(
+            self.usb_cutout_width, self.usb_cutout_height
+        ):
+            raise ValueError(
+                f"USB cutout corner radius {self.usb_cutout_corner_radius} "
+                f"is too large for a {self.usb_cutout_width} x "
+                f"{self.usb_cutout_height} mm opening"
+            )
+        if self.usb_cutout_depth < self.wall:
+            raise ValueError(
+                f"USB cutout starts {self.usb_cutout_depth} mm in, inside the "
+                f"{self.wall} mm top plate rather than the band"
+            )
+        if self.usb_cutout_top_in_band + self.usb_cutout_height > self.band_height:
+            raise ValueError("USB cutout runs off the bottom of the band")
         if self.boss_clearance_to_board < 0:
             raise ValueError(
                 f"bosses at {self.boss_offset} mm foul the "
@@ -208,6 +248,24 @@ class CubeSpec:
         return radial - self.boss_diameter / 2 - PCB_DIAMETER / 2
 
     @property
+    def usb_cutout_top_in_band(self) -> float:
+        """Distance from the band's top edge down to the opening's top.
+
+        The band's top edge is the top plate's inner face, so this is the
+        cutout's depth less the plate it sits behind.
+        """
+        return self.usb_cutout_depth - self.wall
+
+    @property
+    def usb_cutout_centre_height(self) -> float:
+        """Height of the opening's middle above the band's own base."""
+        return (
+            self.band_height
+            - self.usb_cutout_top_in_band
+            - self.usb_cutout_height / 2
+        )
+
+    @property
     def clamp_bar_length(self) -> float:
         """End to end, with a half-width of material beyond each hole."""
         return 2 * self.boss_offset + self.clamp_bar_width
@@ -240,6 +298,22 @@ def build_band(spec: CubeSpec) -> Part:
                 mode=Mode.SUBTRACT,
             )
         extrude(amount=spec.band_height)
+
+        # The USB-C opening, cut clean through one wall. Sketched on the
+        # cutting plane and extruded both ways so the wall's thickness and
+        # corner rounding never have to be reasoned about.
+        plane = Plane.YZ.rotated((0, 0, spec.usb_cutout_bearing))
+        # On Plane.YZ the sketch's own x runs along global Y and its y along
+        # global Z, so the opening's width comes first and its height second.
+        with BuildSketch(plane.offset(spec.size / 2)) as opening:
+            with Locations((0, spec.usb_cutout_centre_height)):
+                RectangleRounded(
+                    spec.usb_cutout_width,
+                    spec.usb_cutout_height,
+                    spec.usb_cutout_corner_radius,
+                )
+        extrude(to_extrude=opening.sketch, amount=spec.wall * 2,
+                both=True, mode=Mode.SUBTRACT)
     return band.part
 
 

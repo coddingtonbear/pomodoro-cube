@@ -9,7 +9,7 @@ part into `build/`; the STEP files are committed, the STLs are not.
 ```sh
 .venv/bin/python cube.py      # regenerate build/
 .venv/bin/python preview.py   # regenerate preview.png
-.venv/bin/python -m pytest    # 43 tests
+.venv/bin/python -m pytest    # 51 tests
 ```
 
 First time:
@@ -20,11 +20,11 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 ## The parts
 
-![Assembled, exploded, and the board retention](preview.png)
+![Assembled, exploded, the board retention, and the USB-C opening](preview.png)
 
 | part | qty | what it is |
 |---|---|---|
-| band | 1 | the four side faces as one square tube, 55 × 55 × 49 |
+| band | 1 | the four side faces as one square tube, 55 × 55 × 49, with the USB-C opening |
 | top-plate | 1 | the display's face: conical seat, plus the four bosses that hold the board |
 | back-plate | 1 | a plain plate with nothing in it |
 | clamp-bar | 2 | screws down over two bosses and traps the board's rim |
@@ -35,6 +35,23 @@ visible faces get the smooth side.
 
 There is still no battery bay, no beeper hole, no face numerals and no joinery
 between the band and the plates. Those are for Fusion.
+
+## The USB-C opening
+
+The socket points radially out of the board's edge rather than backwards, so it
+has to leave through a side wall — there is no arrangement that brings it out of
+the back plate. The opening is **12.00 × 6.25 mm**, centred on the +X wall and
+running 6.00 to 12.25 mm in from the display's outer face, which is the
+original's cutout measured off its mesh. That clears the 9.92 mm connector with
+room for a cable's overmoulding.
+
+`usb_cutout_bearing` turns it to another wall if the board is to sit the other
+way round. Unlike the original's square corners, this one has a 1.0 mm radius,
+which prints better and takes the stress riser out of the wall.
+
+The last panel of the image above is an elevation of that wall, drawn by firing
+a ray at every point of a grid and marking the ones that pass through — so it
+shows the opening the mesh actually has, not the one the parameters ask for.
 
 ## How the board is held
 
@@ -79,6 +96,7 @@ Its STLs were measured directly rather than eyeballed, and these carried over:
 | Bottom edge chamfer | 0.50 mm |
 | Display seat | 38.94 → 35.70 mm, a 28.4° cone |
 | Clamp height | 7.00 mm, on four M2 bosses |
+| USB-C opening | 12.00 × 6.25 mm, 6.00 mm in from the display face |
 
 These did not, being for internals this model leaves alone: a 38.5 × 10.4 × 28
 battery bay, a Ø12.70 beeper hole, four more M2 inserts on a 47.24 mm square for

@@ -16,6 +16,7 @@ from build123d import Axis, GeomType, Part
 
 from cube import (
     BOARD_STACK_DEPTH,
+    USB_C_CONNECTOR_WIDTH,
     DISPLAY_ACTIVE_DIAMETER,
     DISPLAY_BEZEL_DIAMETER,
     DISPLAY_MODULE_DIAMETER,
@@ -212,6 +213,56 @@ class TestBoardRetention:
         assert spec.board_clamp_height < BOARD_STACK_DEPTH
 
 
+class TestUsbCutout:
+    """The socket points out of the board's edge, so it leaves through a wall."""
+
+    def test_the_band_actually_has_an_opening(self, enclosure: Enclosure) -> None:
+        """Measured as material removed, which a misplaced cutter would not do:
+        the first attempt sketched the opening on swapped axes and cut nothing."""
+        spec = enclosure.spec
+        outer = spec.size**2 - (4 - math.pi) * spec.corner_radius**2
+        inner = spec.cavity_size**2 - (4 - math.pi) * spec.cavity_radius**2
+        unbroken = (outer - inner) * spec.band_height
+        opening = (
+            spec.usb_cutout_width * spec.usb_cutout_height
+            - (4 - math.pi) * spec.usb_cutout_corner_radius**2
+        )
+        assert unbroken - enclosure.band.volume == pytest.approx(
+            opening * spec.wall, rel=1e-3
+        )
+
+    def test_the_opening_clears_the_connector(self, spec: CubeSpec) -> None:
+        clearance = spec.usb_cutout_width - USB_C_CONNECTOR_WIDTH
+        assert clearance > 1.5, f"only {clearance:.2f} mm around the socket"
+
+    def test_the_opening_sits_where_the_socket_does(self, spec: CubeSpec) -> None:
+        """Depth below the display's outer face, which is what the board hangs
+        off. The original's socket opening runs 6.00 to 12.25 mm in."""
+        near = spec.usb_cutout_depth
+        far = spec.usb_cutout_depth + spec.usb_cutout_height
+        assert near == pytest.approx(6.00, abs=0.01)
+        assert far == pytest.approx(12.25, abs=0.01)
+
+    def test_the_opening_falls_wholly_within_the_band(self, spec: CubeSpec) -> None:
+        top = spec.usb_cutout_top_in_band
+        assert top > 0, "opening would break into the top plate"
+        assert top + spec.usb_cutout_height < spec.band_height
+
+    def test_the_opening_is_centred_on_its_wall(self, enclosure: Enclosure) -> None:
+        spec = enclosure.spec
+        wall = spec.size / 2
+        cut_faces = [
+            f
+            for f in enclosure.band.faces()
+            if f.center().X > wall - spec.wall - TOLERANCE
+            and abs(f.center().Y) < spec.usb_cutout_width
+            and f.center().Z > spec.band_height / 2
+        ]
+        assert cut_faces, "found no faces belonging to the opening"
+        assert min(f.center().Y for f in cut_faces) < 0
+        assert max(f.center().Y for f in cut_faces) > 0
+
+
 class TestSpecValidation:
     def test_rejects_walls_that_meet_in_the_middle(self) -> None:
         with pytest.raises(ValueError, match="too thick"):
@@ -240,6 +291,18 @@ class TestSpecValidation:
     def test_rejects_bosses_that_foul_the_board(self) -> None:
         with pytest.raises(ValueError, match="foul"):
             CubeSpec(boss_offset=14.0)
+
+    def test_rejects_a_usb_cutout_inside_the_top_plate(self) -> None:
+        with pytest.raises(ValueError, match="top plate"):
+            CubeSpec(usb_cutout_depth=2.0)
+
+    def test_rejects_a_usb_cutout_that_runs_off_the_band(self) -> None:
+        with pytest.raises(ValueError, match="runs off"):
+            CubeSpec(usb_cutout_height=50.0)
+
+    def test_rejects_a_usb_corner_radius_that_swallows_the_opening(self) -> None:
+        with pytest.raises(ValueError, match="too large"):
+            CubeSpec(usb_cutout_corner_radius=4.0)
 
     def test_rejects_a_clamp_bar_with_no_flank(self) -> None:
         with pytest.raises(ValueError, match="no flank"):
