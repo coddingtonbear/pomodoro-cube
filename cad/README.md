@@ -40,6 +40,10 @@ from somewhere. Both readings are built, and they look different in the hand:
 | `PLATES_AS_FACES` (default) | 55 × 55 × 49 | full 55 × 55 | a line around all four sides |
 | `PLATES_INSET` | full 55 × 55 × 55 | 48.8 × 48.8, dropped in | an inset square on top and back |
 
+![Both split styles, assembled and exploded](preview.png)
+
+Regenerate that with `.venv/bin/python preview.py`.
+
 `PLATES_AS_FACES` keeps the top face unbroken, which suits the display;
 `PLATES_INSET` keeps the four side faces unbroken, which suits a cube you pick
 up and turn over.
