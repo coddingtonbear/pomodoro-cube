@@ -1,41 +1,44 @@
-"""A 55 mm timer cube enclosure, as three printable parts.
+"""A 55 mm timer cube enclosure, as printable parts.
 
 A parametric riff on the original "Timer cube" by Robin
 (https://www.printables.com/model/1774785-timer-cube), which is 55 x 55 x 62 mm
-and carries its numerals, battery bay, beeper hole and M2 fixings in the model.
+and carries its numerals, battery bay, beeper hole and lid fixings in the model.
 This one is a true cube and deliberately carries none of those: it is the shell
-only, meant to be opened in Fusion 360 and have the internals added there.
+plus board retention, meant to be opened in Fusion 360 and fitted out there.
 
 Dimensions inherited from the original, measured off its meshes:
 
     outer size          55.00 mm        wall             3.00 mm
     corner radius        6.00 mm        inner radius     3.00 mm
-    LCD aperture        37.81 mm        bottom chamfer   0.50 mm
+    bottom chamfer       0.50 mm        clamp height     7.00 mm
 
-The three parts are the four side faces as one tube, a top plate carrying the
-LCD aperture, and a plain back plate. How the top plate meets the band is the
-one thing the original does not settle for us, so it is a parameter: see
-`SplitStyle`.
+The display seat is a cone, not a bore: it narrows from 38.97 mm at the outer
+face to 35.70 mm at the inner one, so the module drops in from behind and wedges
+rather than passing through. See :class:`CubeSpec` for why that matters.
 
 Run this module to write STEP and STL for every part into `build/`.
 """
 
 from __future__ import annotations
 
-import enum
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from build123d import (
+    Align,
     Axis,
     BuildPart,
     BuildSketch,
     Circle,
     Compound,
+    Cone,
     Edge,
     Location,
+    Locations,
     Mode,
     Part,
+    Plane,
     RectangleRounded,
     ShapeList,
     chamfer,
@@ -44,24 +47,33 @@ from build123d import (
     extrude,
 )
 
+# The Waveshare ESP32-S3-Touch-LCD-1.28, measured off the STEP model Waveshare
+# publish under Resources at
+# https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28
+DISPLAY_MODULE_DIAMETER = 38.51
+"""Outside diameter of the round display module. It must not fall through."""
 
-class SplitStyle(enum.Enum):
-    """Where the seam between the band and the plates falls.
+DISPLAY_BEZEL_DIAMETER = 35.67
+"""The module's black border. The seat may cover this but no more."""
 
-    The cube has six faces and the parts number three, so two faces have to
-    come from somewhere. Either reading is defensible and they look different
-    in the hand, so both are built.
-    """
+DISPLAY_ACTIVE_DIAMETER = 33.40
+"""Visible picture. Nothing may mask any of it."""
 
-    #: The plates *are* the top and back faces, full 55 mm squares. The band is
-    #: shorter by two plate thicknesses, and each side face shows a 3 mm seam
-    #: at top and bottom.
-    PLATES_AS_FACES = "plates-as-faces"
+PCB_DIAMETER = 39.53
+"""Widest extent of the board itself, which the clamp bars bear on.
 
-    #: The band is the full height of the cube with uninterrupted side faces,
-    #: and the plates drop into its opening, flush with the top and back.
-    #: The seam reads as an inset square on those two faces instead.
-    PLATES_INSET = "plates-inset"
+The board has no mounting holes — only 0.50 and 0.76 mm vias — so clamping is
+the only way to hold it. This is why the original uses bars and bosses rather
+than screwing through the board, and why this model does the same.
+"""
+
+BOARD_STACK_DEPTH = 8.40
+"""Front of the glass to the back of the rearmost component.
+
+Recorded for reference. The clamp bars bear on the board's bare rim, not on its
+rear components, so this is not the height they sit at — see
+:attr:`CubeSpec.board_clamp_height`.
+"""
 
 
 @dataclass(frozen=True)
@@ -74,18 +86,46 @@ class CubeSpec:
     wall: float = 3.0
     #: Radius of the four vertical corners, on the outer surface.
     corner_radius: float = 6.0
-    #: Aperture for the Waveshare ESP32-S3-Touch-LCD-1.28 display module.
-    #: The module itself is 38.51 mm across, so it sits behind a 0.35 mm lip,
-    #: exactly as the original does it.
-    lcd_aperture_diameter: float = 37.81
     #: Chamfer on the cube's outermost top and bottom edges. Keeps the first
     #: layer off a knife edge and takes the sharpness off the finished cube.
     edge_chamfer: float = 0.5
-    #: Total diametral slack where a plate sits inside the band. Only used by
-    #: :attr:`SplitStyle.PLATES_INSET`.
-    fit_clearance: float = 0.2
-    #: Which of the two seam arrangements to build.
-    split_style: SplitStyle = SplitStyle.PLATES_AS_FACES
+
+    #: Narrow end of the display seat, at the plate's inner face. Sized just
+    #: over the module's 35.67 mm bezel, so the opening shows the whole bezel
+    #: and none of the board behind it.
+    display_seat_diameter: float = 35.70
+    #: Half-angle of the conical seat, from the plate's axis. The original's
+    #: taper measures 28.4 degrees, which over a 3 mm wall opens the outer face
+    #: to 38.94 mm — wider than the module's 38.51 mm face, so the module
+    #: settles into the cone and comes to rest a little under the outer
+    #: surface rather than sitting proud or dropping through.
+    display_seat_angle: float = 28.4
+
+    #: Distance from the top plate's inner face to the face the clamp bars bear
+    #: on, which sets the boss height.
+    #:
+    #: 7.00 mm is the original's figure, and it is the one dimension here that
+    #: was verified against a physical build of this exact board rather than
+    #: derived. Check it with a board in hand before printing: the bars should
+    #: meet the board's rim, not stand off it or crush it.
+    board_clamp_height: float = 7.00
+    #: Distance from the cube's axis to each boss centre, along the diagonals.
+    #: Far enough out to clear the 39.53 mm board, near enough in to stay
+    #: inside the cavity.
+    boss_offset: float = 20.0
+    #: Outside diameter of the four bosses.
+    boss_diameter: float = 6.0
+    #: Bore for an M2 heat-set insert.
+    insert_bore_diameter: float = 3.20
+    #: Clearance hole for the M2 screw through a clamp bar.
+    screw_clearance_diameter: float = 2.40
+    #: Thickness of a clamp bar.
+    clamp_bar_thickness: float = 2.0
+    #: Width of a clamp bar, wide enough to seat an M2 screw head.
+    clamp_bar_width: float = 7.0
+    #: Corner radius of a clamp bar. Short of half its width, which would
+    #: make the ends semicircular and leave no straight flank.
+    clamp_bar_corner_radius: float = 3.0
 
     def __post_init__(self) -> None:
         if self.wall * 2 >= self.size:
@@ -99,10 +139,30 @@ class CubeSpec:
                 f"corner radius {self.corner_radius} is thinner than the "
                 f"{self.wall} mm wall, which would leave a knife edge inside"
             )
-        if self.lcd_aperture_diameter >= self.cavity_size:
+        if self.display_seat_diameter <= DISPLAY_ACTIVE_DIAMETER:
             raise ValueError(
-                f"LCD aperture {self.lcd_aperture_diameter} does not fit the "
+                f"seat {self.display_seat_diameter} would mask the "
+                f"{DISPLAY_ACTIVE_DIAMETER} mm active area"
+            )
+        if self.display_seat_diameter >= DISPLAY_MODULE_DIAMETER:
+            raise ValueError(
+                f"seat {self.display_seat_diameter} is wider than the "
+                f"{DISPLAY_MODULE_DIAMETER} mm module, which would fall through"
+            )
+        if self.seat_mouth_diameter >= self.cavity_size:
+            raise ValueError(
+                f"seat mouth {self.seat_mouth_diameter:.2f} does not fit the "
                 f"{self.cavity_size} mm cavity"
+            )
+        if self.clamp_bar_corner_radius * 2 >= self.clamp_bar_width:
+            raise ValueError(
+                f"clamp bar corner radius {self.clamp_bar_corner_radius} "
+                f"leaves no flank on a {self.clamp_bar_width} mm bar"
+            )
+        if self.boss_clearance_to_board < 0:
+            raise ValueError(
+                f"bosses at {self.boss_offset} mm foul the "
+                f"{PCB_DIAMETER} mm board"
             )
 
     @property
@@ -117,65 +177,107 @@ class CubeSpec:
 
     @property
     def band_height(self) -> float:
-        """Height of the four-sided band."""
-        if self.split_style is SplitStyle.PLATES_AS_FACES:
-            return self.size - 2 * self.wall
-        return self.size
+        """Height of the four-sided band, the cube less its two plates."""
+        return self.size - 2 * self.wall
 
     @property
-    def plate_size(self) -> float:
-        """Edge length of the top and back plates."""
-        if self.split_style is SplitStyle.PLATES_AS_FACES:
-            return self.size
-        return self.cavity_size - self.fit_clearance
+    def seat_mouth_diameter(self) -> float:
+        """Wide end of the display seat, at the plate's outer face."""
+        return self.display_seat_diameter + 2 * self.wall * math.tan(
+            math.radians(self.display_seat_angle)
+        )
 
     @property
-    def plate_radius(self) -> float:
-        """Corner radius of those plates."""
-        if self.split_style is SplitStyle.PLATES_AS_FACES:
-            return self.corner_radius
-        return self.cavity_radius - self.fit_clearance / 2
+    def module_seat_depth(self) -> float:
+        """How far below the outer surface the module's face comes to rest.
+
+        Where the cone has narrowed to the module's own diameter.
+        """
+        rise = (self.seat_mouth_diameter - DISPLAY_MODULE_DIAMETER) / 2
+        return rise / math.tan(math.radians(self.display_seat_angle))
+
+    @property
+    def boss_height(self) -> float:
+        """How far each boss stands proud of the plate's inner face."""
+        return self.board_clamp_height
+
+    @property
+    def boss_clearance_to_board(self) -> float:
+        """Gap between a boss's nearest edge and the board's rim."""
+        radial = self.boss_offset * math.sqrt(2)
+        return radial - self.boss_diameter / 2 - PCB_DIAMETER / 2
+
+    @property
+    def clamp_bar_length(self) -> float:
+        """End to end, with a half-width of material beyond each hole."""
+        return 2 * self.boss_offset + self.clamp_bar_width
 
 
 def _perimeter_edges(part: Part, axis_end: int) -> ShapeList[Edge]:
-    """The outer boundary edges of the part's top (1) or bottom (-1) face.
+    """The outer boundary edges of the part's top (-1) or bottom (0) face.
 
-    Picked out by distance from the vertical axis rather than by geometry type,
-    because the rounded corners are arcs and so is the LCD aperture; only their
-    distance from the middle tells them apart.
+    Taken from the face's outer wire, so holes in the face are left alone. A
+    distance test would not do: `center()` on a full circle returns a point on
+    the curve rather than the axis, which puts the display seat's mouth as far
+    from the middle as the perimeter is and gets it chamfered too.
     """
     face = part.faces().sort_by(Axis.Z)[axis_end]
-    threshold = max(e.center().length for e in face.edges()) * 0.5
-    return ShapeList(e for e in face.edges() if e.center().length > threshold)
+    return ShapeList(face.outer_wire().edges())
 
 
 def build_band(spec: CubeSpec) -> Part:
-    """The four side faces, as a single square tube open top and bottom."""
+    """The four side faces, as a single square tube open top and bottom.
+
+    Both of its ends are seams against a plate, so neither is chamfered.
+    """
     with BuildPart() as band:
         with BuildSketch():
             RectangleRounded(spec.size, spec.size, spec.corner_radius)
             RectangleRounded(
-                spec.cavity_size, spec.cavity_size, spec.cavity_radius,
+                spec.cavity_size,
+                spec.cavity_size,
+                spec.cavity_radius,
                 mode=Mode.SUBTRACT,
             )
         extrude(amount=spec.band_height)
-        if spec.split_style is SplitStyle.PLATES_INSET:
-            # Here the band owns the cube's top and bottom edges, so it is the
-            # part that gets chamfered.
-            chamfer(_perimeter_edges(band.part, -1), length=spec.edge_chamfer)
-            chamfer(_perimeter_edges(band.part, 0), length=spec.edge_chamfer)
     return band.part
 
 
 def build_top_plate(spec: CubeSpec) -> Part:
-    """The face the display looks out of."""
+    """The face the display looks out of, and what holds the board to it.
+
+    Modelled in its print orientation: outer face on the bed at z=0, bosses
+    rising from the inner face, so nothing needs support and the visible face
+    gets the smooth side.
+    """
     with BuildPart() as plate:
         with BuildSketch():
-            RectangleRounded(spec.plate_size, spec.plate_size, spec.plate_radius)
-            Circle(spec.lcd_aperture_diameter / 2, mode=Mode.SUBTRACT)
+            RectangleRounded(spec.size, spec.size, spec.corner_radius)
         extrude(amount=spec.wall)
-        if spec.split_style is SplitStyle.PLATES_AS_FACES:
-            chamfer(_perimeter_edges(plate.part, -1), length=spec.edge_chamfer)
+
+        # The seat is cut as a cone, widest at the outer face. Built upside
+        # down and flipped, because Cone's bottom radius is its larger one.
+        Cone(
+            bottom_radius=spec.seat_mouth_diameter / 2,
+            top_radius=spec.display_seat_diameter / 2,
+            height=spec.wall,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+            mode=Mode.SUBTRACT,
+        )
+
+        # Four bosses on the diagonals, clear of the board, each bored for an
+        # M2 heat-set insert. The bore stops at the inner face so it never
+        # breaks through to the outside.
+        with BuildSketch(Plane.XY.offset(spec.wall)):
+            with Locations(*_boss_positions(spec)):
+                Circle(spec.boss_diameter / 2)
+        extrude(amount=spec.boss_height)
+        with BuildSketch(Plane.XY.offset(spec.wall + spec.boss_height)):
+            with Locations(*_boss_positions(spec)):
+                Circle(spec.insert_bore_diameter / 2)
+        extrude(amount=-spec.boss_height, mode=Mode.SUBTRACT)
+
+        chamfer(_perimeter_edges(plate.part, 0), length=spec.edge_chamfer)
     return plate.part
 
 
@@ -183,26 +285,52 @@ def build_back_plate(spec: CubeSpec) -> Part:
     """The opposite face: a plain plate, with nothing in it yet."""
     with BuildPart() as plate:
         with BuildSketch():
-            RectangleRounded(spec.plate_size, spec.plate_size, spec.plate_radius)
+            RectangleRounded(spec.size, spec.size, spec.corner_radius)
         extrude(amount=spec.wall)
-        if spec.split_style is SplitStyle.PLATES_AS_FACES:
-            chamfer(_perimeter_edges(plate.part, 0), length=spec.edge_chamfer)
+        chamfer(_perimeter_edges(plate.part, 0), length=spec.edge_chamfer)
     return plate.part
+
+
+def build_clamp_bar(spec: CubeSpec) -> Part:
+    """A bar that screws down over two bosses and traps the board's rim.
+
+    Two of these are needed, and they are identical. The board has no mounting
+    holes, so this is what positively attaches it: the module wedges into the
+    conical seat from behind, and the bars stop it coming back out.
+    """
+    with BuildPart() as bar:
+        with BuildSketch():
+            RectangleRounded(
+                spec.clamp_bar_width,
+                spec.clamp_bar_length,
+                spec.clamp_bar_corner_radius,
+            )
+            with Locations((0, spec.boss_offset), (0, -spec.boss_offset)):
+                Circle(spec.screw_clearance_diameter / 2, mode=Mode.SUBTRACT)
+        extrude(amount=spec.clamp_bar_thickness)
+    return bar.part
+
+
+def _boss_positions(spec: CubeSpec) -> list[tuple[float, float]]:
+    d = spec.boss_offset
+    return [(d, d), (d, -d), (-d, d), (-d, -d)]
 
 
 @dataclass
 class Enclosure:
-    """The three parts, each at its own origin, plus the assembled cube."""
+    """The parts, each in its print orientation, plus the assembled cube."""
 
     spec: CubeSpec
     band: Part = field(init=False)
     top_plate: Part = field(init=False)
     back_plate: Part = field(init=False)
+    clamp_bar: Part = field(init=False)
 
     def __post_init__(self) -> None:
         self.band = build_band(self.spec)
         self.top_plate = build_top_plate(self.spec)
         self.back_plate = build_back_plate(self.spec)
+        self.clamp_bar = build_clamp_bar(self.spec)
 
     @property
     def parts(self) -> dict[str, Part]:
@@ -210,31 +338,37 @@ class Enclosure:
             "band": self.band,
             "top-plate": self.top_plate,
             "back-plate": self.back_plate,
+            "clamp-bar": self.clamp_bar,
         }
 
+    @property
+    def print_quantities(self) -> dict[str, int]:
+        return {"band": 1, "top-plate": 1, "back-plate": 1, "clamp-bar": 2}
+
     def assembled(self) -> Compound:
-        """The three parts moved into their places in the finished cube."""
+        """Every part moved into its place in the finished cube.
+
+        The back plate lies on the bed and the top plate is turned over, so the
+        display looks up out of the top of the assembly.
+        """
         spec = self.spec
-        if spec.split_style is SplitStyle.PLATES_AS_FACES:
-            back_z, band_z, top_z = 0.0, spec.wall, spec.size - spec.wall
-        else:
-            back_z, band_z, top_z = 0.0, 0.0, spec.size - spec.wall
-        return Compound(
-            children=[
-                self.back_plate.moved(Location((0, 0, back_z))),
-                self.band.moved(Location((0, 0, band_z))),
-                self.top_plate.moved(Location((0, 0, top_z))),
-            ]
-        )
+        clamp_z = spec.size - spec.wall - spec.boss_height - spec.clamp_bar_thickness
+        children = [
+            self.back_plate.moved(Location((0, 0, 0))),
+            self.band.moved(Location((0, 0, spec.wall))),
+            self.top_plate.rotate(Axis.X, 180).moved(Location((0, 0, spec.size))),
+        ]
+        for x in (spec.boss_offset, -spec.boss_offset):
+            children.append(self.clamp_bar.moved(Location((x, 0, clamp_z))))
+        return Compound(children=children)
 
     def export(self, directory: Path) -> list[Path]:
         """Write STEP and STL for each part; returns what was written."""
         directory.mkdir(parents=True, exist_ok=True)
         written: list[Path] = []
         for name, part in self.parts.items():
-            stem = f"{name}-{self.spec.split_style.value}"
-            step = directory / f"{stem}.step"
-            stl = directory / f"{stem}.stl"
+            step = directory / f"{name}.step"
+            stl = directory / f"{name}.stl"
             export_step(part, str(step))
             export_stl(part, str(stl))
             written += [step, stl]
@@ -242,15 +376,16 @@ class Enclosure:
 
 
 def main() -> None:
-    out = Path(__file__).parent / "build"
-    for style in SplitStyle:
-        spec = CubeSpec(split_style=style)
-        enclosure = Enclosure(spec)
-        written = enclosure.export(out)
-        box = enclosure.assembled().bounding_box()
-        print(f"{style.value}: assembled {box.size.X:.2f} x {box.size.Y:.2f} x {box.size.Z:.2f} mm")
-        for path in written:
-            print(f"  {path.relative_to(out.parent)}")
+    spec = CubeSpec()
+    enclosure = Enclosure(spec)
+    written = enclosure.export(Path(__file__).parent / "build")
+    box = enclosure.assembled().bounding_box().size
+    print(f"assembled {box.X:.2f} x {box.Y:.2f} x {box.Z:.2f} mm")
+    print(f"display seat {spec.seat_mouth_diameter:.2f} -> {spec.display_seat_diameter:.2f} mm")
+    print(f"module rests {spec.module_seat_depth:.2f} mm below the outer face")
+    print(f"boss clearance to board {spec.boss_clearance_to_board:.2f} mm")
+    for name, count in enclosure.print_quantities.items():
+        print(f"  print {count} x {name}")
 
 
 if __name__ == "__main__":

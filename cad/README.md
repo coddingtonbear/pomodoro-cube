@@ -1,14 +1,15 @@
 # Enclosure
 
-A parametric 55 mm cube for the pomodoro cube, as three printable parts, meant
-to be taken into Fusion 360 and fitted out there.
+A parametric 55 mm cube for the pomodoro cube, meant to be taken into Fusion 360
+and fitted out there.
 
 The model is [`cube.py`](cube.py). Running it writes STEP and STL for every
 part into `build/`; the STEP files are committed, the STLs are not.
 
 ```sh
 .venv/bin/python cube.py      # regenerate build/
-.venv/bin/python -m pytest    # 34 tests
+.venv/bin/python preview.py   # regenerate preview.png
+.venv/bin/python -m pytest    # 43 tests
 ```
 
 First time:
@@ -17,36 +18,52 @@ First time:
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
-## What it is, and what it deliberately is not
+## The parts
 
-Three parts, together making an exact 55 × 55 × 55 mm cube:
+![Assembled, exploded, and the board retention](preview.png)
 
-- **band** — the four side faces as one square tube
-- **top-plate** — the face the display looks out of, carrying its aperture
-- **back-plate** — a plain plate with nothing in it
+| part | qty | what it is |
+|---|---|---|
+| band | 1 | the four side faces as one square tube, 55 × 55 × 49 |
+| top-plate | 1 | the display's face: conical seat, plus the four bosses that hold the board |
+| back-plate | 1 | a plain plate with nothing in it |
+| clamp-bar | 2 | screws down over two bosses and traps the board's rim |
 
-There is no battery bay, no beeper hole, no face numerals and no joinery. Those
-are for Fusion, which is why the parts are separate solids that merely stack:
-adding a lip, screw bosses or magnets is easier on a clean plate than on
-something already committed to a fixing scheme.
+Together they make an exact 55 × 55 × 55 mm cube. Each part is modelled in its
+print orientation, lying on the bed at z=0, so nothing needs support and the
+visible faces get the smooth side.
 
-## The two split styles
+There is still no battery bay, no beeper hole, no face numerals and no joinery
+between the band and the plates. Those are for Fusion.
 
-The cube has six faces and there are three parts, so two faces have to come
-from somewhere. Both readings are built, and they look different in the hand:
+## How the board is held
 
-| | band | plates | seam reads as |
-|---|---|---|---|
-| `PLATES_AS_FACES` (default) | 55 × 55 × 49 | full 55 × 55 | a line around all four sides |
-| `PLATES_INSET` | full 55 × 55 × 55 | 48.8 × 48.8, dropped in | an inset square on top and back |
+The Waveshare board **has no mounting holes** — its only through-holes are
+0.50 and 0.76 mm vias. So it cannot be screwed down, and both the original and
+this model clamp it instead. Two things do the work:
 
-![Both split styles, assembled and exploded](preview.png)
+**The conical seat.** The display opening is not a bore. It narrows from
+38.94 mm at the outer face to 35.70 mm at the inner one, a 28.4° taper measured
+off the original. The module is 38.51 mm across, so it cannot pass through, and
+it cannot sit proud either: it settles into the cone until the walls close to
+its own diameter, which is 0.40 mm below the outer surface. That is what makes
+the glass sit very slightly recessed in the finished face. The 35.70 mm throat
+is sized just over the module's 35.67 mm bezel, so the opening shows the whole
+bezel and none of the board behind it, while masking none of the 33.40 mm
+picture.
 
-Regenerate that with `.venv/bin/python preview.py`.
+**Four bosses and two bars.** The bosses stand 7.00 mm off the plate's inner
+face on the diagonals, 20 mm out from the axis, each bored 3.20 mm for an M2
+heat-set insert. They clear the 39.53 mm board by 5.52 mm. The two bars screw
+down onto them with M2 screws and reach 3.27 mm over the board's rim on each
+side, so the board is trapped between the bars and the seat.
 
-`PLATES_AS_FACES` keeps the top face unbroken, which suits the display;
-`PLATES_INSET` keeps the four side faces unbroken, which suits a cube you pick
-up and turn over.
+One number here deserves a second look before you print: **`board_clamp_height`,
+7.00 mm**, taken from the original because it is the only dimension verified
+against a physical build of this exact board. The whole board stack is 8.40 mm
+deep to the back of its rearmost components, but the bars bear on the bare rim,
+not on those, so the two figures are not the same measurement and 7.00 mm cannot
+be derived from 8.40 mm. Check it with a board in hand.
 
 ## Where the numbers came from
 
@@ -60,15 +77,15 @@ Its STLs were measured directly rather than eyeballed, and these carried over:
 | Wall | 3.00 mm |
 | Vertical corner radius | 6.00 mm outer, 3.00 mm inner |
 | Bottom edge chamfer | 0.50 mm |
-| LCD aperture | 37.81 mm |
+| Display seat | 38.94 → 35.70 mm, a 28.4° cone |
+| Clamp height | 7.00 mm, on four M2 bosses |
 
 These did not, being for internals this model leaves alone: a 38.5 × 10.4 × 28
-battery bay, a Ø12.70 beeper hole, four M2 heat-set inserts on a 47.24 mm
-square, and numerals standing 0.30 mm proud for a single-layer colour change.
+battery bay, a Ø12.70 beeper hole, four more M2 inserts on a 47.24 mm square for
+the lid, and numerals standing 0.30 mm proud for a single-layer colour change.
 
-The aperture figure is worth keeping: the
-[Waveshare ESP32-S3-Touch-LCD-1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28)
-display module is Ø38.51 mm with a Ø33.40 mm active area, so 37.81 mm leaves a
-0.35 mm lip to sit behind while masking none of the picture. Waveshare publish
-a STEP of the whole board under Resources on that page, which is the thing to
-measure against when the internals get designed.
+Board figures come from the STEP model Waveshare publish under Resources on the
+[ESP32-S3-Touch-LCD-1.28 wiki page](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28),
+which is the thing to measure against when the rest of the internals get
+designed: PCB 39.53 mm across with a flat at the bottom for the USB-C, module
+38.51 mm, bezel 35.67 mm, active area 33.40 mm, whole stack 8.40 mm deep.
