@@ -22,14 +22,16 @@ unsigned long startedBeeping = 0;
 Orientation lastTimerFace = Orientation::UNDEFINED;
 
 
-// A flow stint has ended. Its time is banked for the break face to spend, and it
-// counts towards the pomodoro total exactly as a completed 25-minute timer does.
-// A stint too short to be worth either banks nothing, so the break face falls
-// back to its fixed length.
-void endFlowStint(int elapsed) {
+// A flow stint has ended: its time is banked for the break face to spend. A
+// stint too short to earn a worthwhile break banks nothing, so the break face
+// falls back to its fixed length.
+//
+// Nothing is counted here. A stint scores by the lap while it runs, not by the
+// stint when it stops, so its last partial lap is worth no more than abandoning
+// a 25-minute timer at 24:00 is.
+void bankFlowStint(int elapsed) {
   if (elapsed < FLOW_MIN_STINT_SECONDS) return;
   RtcState::storeFlowEarned(RtcState::data(), elapsed);
-  RtcState::data().pomodoroCount++;
 }
 
 bool countingUp() {
@@ -97,7 +99,7 @@ void loop() {
       }
 
       // Turning off the flow face ends the stint it was counting.
-      if (countingUp() && ori != lastTimerFace) endFlowStint(remSeconds);
+      if (countingUp() && ori != lastTimerFace) bankFlowStint(remSeconds);
 
       // So does standing the cube on a face that abandons a parked one. The
       // pause itself is consumed by takePause() below either way; this is only
@@ -106,7 +108,7 @@ void loop() {
         const RtcState::Data &stored = RtcState::data();
         if (RtcState::hasPause(stored) && stored.pausedCountingUp &&
             stored.pausedFace != ori) {
-          endFlowStint((int)stored.pausedRemaining);
+          bankFlowStint((int)stored.pausedRemaining);
         }
       }
 
@@ -138,11 +140,15 @@ void loop() {
   if (countingUp() && millis() - lastTick >= 1000) {
     remSeconds++;
     lastTick = millis();
+    // Every lap of the arc is a pomodoro, scored as the lap closes rather than
+    // when the stint ends: two hours of flow is four pomodoros, and the count
+    // reaches Home Assistant while the stint is still running.
+    if (Util::completesFlowLap(remSeconds)) RtcState::data().pomodoroCount++;
     if (remSeconds >= FLOW_MAX_SECONDS) {
       // A stint has to end somewhere: left standing on the flow face the cube
       // would hold the backlight on until the pack went flat. Ending it here
-      // rather than at the face change means endFlowStint() still runs once.
-      endFlowStint(remSeconds);
+      // rather than at the face change means bankFlowStint() still runs once.
+      bankFlowStint(remSeconds);
       timerMode = TimerMode::Countdown;
       selSeconds = FLOW_MAX_SECONDS;
       remSeconds = 0;
@@ -158,7 +164,7 @@ void loop() {
     if (remSeconds == 0) {
       startedBeeping = millis();
       // Only work timers count as pomodoros; breaks do not. Flow stints are
-      // counted where they end, in endFlowStint().
+      // counted a lap at a time, as they run.
       if (timerKind == TimerKind::Work) RtcState::data().pomodoroCount++;
     }
   }

@@ -60,6 +60,25 @@ void testFlowBreakIsAFifthOfTheStint() {
   CHECK(Util::getTimerSpec(Orientation::DEG_270, 50 * 60).seconds == 10 * 60);
 }
 
+void testAStintScoresALapAtATime() {
+  // Nothing yet, and nothing for the seconds that are not a lap.
+  CHECK(!Util::completesFlowLap(0));
+  CHECK(!Util::completesFlowLap(-1));
+  CHECK(!Util::completesFlowLap(1));
+  CHECK(!Util::completesFlowLap(FLOW_LAP_SECONDS - 1));
+  CHECK(!Util::completesFlowLap(FLOW_LAP_SECONDS + 1));
+
+  // One on the second each lap closes, which is the second the arc comes back
+  // round -- so a two hour stint is worth four, not one.
+  CHECK(Util::completesFlowLap(FLOW_LAP_SECONDS));
+  CHECK(Util::completesFlowLap(2 * FLOW_LAP_SECONDS));
+  CHECK(Util::completesFlowLap(4 * FLOW_LAP_SECONDS));
+
+  // A lap is the fixed work face's length, so a pomodoro is the same amount of
+  // work whichever face counted it.
+  CHECK(FLOW_LAP_SECONDS == TIMER_WORK_SECONDS);
+}
+
 void testTooShortAStintEarnsTheFallbackBreak() {
   // Turning the cube through the flow face on the way somewhere else must not
   // leave a break of a few seconds, which would beep the moment it started.
@@ -104,6 +123,7 @@ void testTimerSelection() {
   testFixedFaceLengths();
   testFlowWorkHasNoLength();
   testFlowBreakIsAFifthOfTheStint();
+  testAStintScoresALapAtATime();
   testTooShortAStintEarnsTheFallbackBreak();
   testRestingFaces();
   testUnknownOrientationsFallBackToWork();

@@ -23,8 +23,9 @@ which does the same trick for coffee brew times.
 - **Flow mode, on the third and fourth faces** — the work face counts *up* for
   as long as the cube stands on it, and the break face then counts down a fifth
   of what it counted. Fifty minutes of work buys ten of break, which is the
-  fixed pair flow mode replaced; an hour and a half buys eighteen. See
-  [Flow mode](#flow-mode).
+  fixed pair flow mode replaced; an hour and a half buys eighteen. Every 25
+  minutes it counts scores a pomodoro, which is what the arc's lap is showing.
+  See [Flow mode](#flow-mode).
 - **An arc that drains rather than fills** — it starts full and empties as the
   time goes, shading green through amber to red so you can read roughly how
   long is left from across the room without reading the digits.
@@ -60,8 +61,8 @@ Three of the faces count down and the arc drains as they run; the fourth is
 
 When the timer reaches zero the beeper plays a repeating pattern, the arc
 refills and pulses red, and after thirty seconds the cube puts itself to sleep.
-Work counts towards a pomodoro total — both work faces, the fixed one when it
-reaches zero and flow's when the stint ends — and breaks do not.
+Work counts towards a pomodoro total and breaks do not — the fixed work face
+when it reaches zero, and flow's a lap at a time as it runs.
 
 ![Paused, and the low battery warning](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/states.png)
 
@@ -83,21 +84,32 @@ is going up looks exactly like one going down:
 
 Counting up has no total for the arc to drain against, so the arc becomes a lap
 indicator instead: it fills over 25 minutes, shading green to red as the lap
-ages, then starts again. Past an hour the label runs out of digits for MM:SS and
-switches to HH:MM, with a small `h:m` marker underneath saying so — the two are
-otherwise indistinguishable.
+ages, then starts again. **Each lap that closes scores a pomodoro** — the arc
+coming back round is the cube saying so — which is why the lap is 25 minutes and
+not some other number. Two hours of flow is four pomodoros, counted as they
+happen rather than totted up when the stint ends, so the count reaches Home
+Assistant while you are still working.
+
+A stint's last partial lap scores nothing, the same way abandoning a 25-minute
+timer at 24:00 scores nothing. It still earns its share of the break, though:
+the break is a fifth of the whole stint, partial lap included. How long a break
+you earned and how many pomodoros you did are different questions.
+
+Past an hour the label runs out of digits for MM:SS and switches to HH:MM, with
+a small `h:m` marker underneath saying so — the two are otherwise
+indistinguishable.
 
 A stint's time is banked when it ends, and only the break face spends it. The
 rules that fall out of that:
 
 | Situation | What happens |
 | --- | --- |
-| Flow work → flow break | The break is a fifth of the stint, and the stint counts as a pomodoro |
+| Flow work → flow break | The break is a fifth of the stint |
 | Flow work → face up | Parked, not ended: standing the cube back on that face carries on counting up |
-| Flow work → any other timer face | The stint ends and counts, but the break is forfeited — choosing a face is choosing an interval |
+| Flow work → any other timer face | The stint ends and the break is forfeited — choosing a face is choosing an interval. Laps already scored are kept |
 | Flow break with nothing banked | Falls back to ten minutes, rather than a zero-second break that would beep the moment it started |
-| A stint under 90 seconds | Earns nothing and counts nothing: turning the cube through the face on the way somewhere else shouldn't score |
-| A stint reaching four hours | Ends itself and beeps. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
+| A stint under 90 seconds | Earns no break at all, rather than one of a few seconds that would beep the moment it started |
+| A stint reaching four hours | Ends itself and beeps, nine laps scored. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
 
 ## Bluetooth
 
@@ -116,7 +128,7 @@ a legacy advertisement allows:
 | Work | `0x0F` | binary | 1 for a work interval, 0 for a break |
 | Connectivity | `0x19` | binary | 1 while awake, 0 in the advert sent before sleeping |
 | Running | `0x27` | binary | Is the countdown advancing |
-| Count | `0x3D` | uint16 | Completed work intervals since the last power cycle |
+| Count | `0x3D` | uint16 | Pomodoros since the last power cycle: completed work timers, plus a flow lap each 25 minutes |
 | Duration | `0x42` | uint24, ×0.001 s | Remaining, or elapsed while counting up |
 | Duration 2 | `0x42` | uint24, ×0.001 s | What the timer started at, or 0 while counting up |
 
@@ -222,9 +234,9 @@ See [sim/README.md](sim/README.md) for the controls, the scripted-screenshot
 environment variables, and what the simulator can't tell you.
 
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
-fifth a flow stint earns, the arc's fill and colour ramp, the lap indicator, the
-MM:SS to HH:MM switch, the low-battery threshold, the RTC guard, and the BTHome
-encoder's exact output bytes:
+fifth a flow stint earns, the arc's fill and colour ramp, the lap indicator
+and what scores off it, the MM:SS to HH:MM switch, the low-battery threshold,
+the RTC guard, and the BTHome encoder's exact output bytes:
 
 ```bash
 cmake --build sim/build && ctest --test-dir sim/build --output-on-failure

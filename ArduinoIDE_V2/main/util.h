@@ -31,6 +31,12 @@ TimerSpec getTimerSpec(Orientation ori, int earnedFlowSeconds);
 // the fallback break when the stint was too short to earn anything.
 int flowBreakSeconds(int earnedSeconds);
 
+// True on the second a flow lap completes -- the moment the arc comes back
+// round -- which is when a stint scores a pomodoro. Counting by the lap rather
+// than by the stint is what makes a long stint worth what it actually was: two
+// hours of flow is four pomodoros, not one.
+bool completesFlowLap(int elapsedSeconds);
+
 bool updateOriDebounce(Orientation rawState);
 Orientation getDebouncedOriState();
 }

@@ -31,13 +31,15 @@ constexpr int FLOW_BREAK_DIVISOR = 5;
 // moment it started.
 constexpr int TIMER_LONG_BREAK_SECONDS = 10 * 60;
 
-// A stint shorter than this earns no break and counts no pomodoro. Turning the
-// cube through the flow face on the way somewhere else shouldn't score.
+// A stint shorter than this earns no break at all, rather than one of a few
+// seconds: turning the cube through the flow face on the way somewhere else
+// shouldn't leave a break that beeps the moment it starts.
 constexpr int FLOW_MIN_STINT_SECONDS = 90;
 
-// Counting up has no total to fill the arc against, so the arc becomes a lap
-// indicator: it fills over this long, then starts again.
-constexpr int FLOW_LAP_SECONDS = 25 * 60;
+// A lap of the flow arc, which is also what a stint scores a pomodoro for: the
+// arc fills over this long, scores, and starts again. Equal to the fixed work
+// face by design -- a pomodoro is a pomodoro however it was counted.
+constexpr int FLOW_LAP_SECONDS = TIMER_WORK_SECONDS;
 
 // Where a stint gives up and finishes on its own. A cube left standing on the
 // flow face would otherwise hold the backlight on until the pack went flat, and

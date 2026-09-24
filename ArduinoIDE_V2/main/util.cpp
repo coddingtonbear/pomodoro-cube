@@ -91,6 +91,10 @@ int Util::flowBreakSeconds(int earnedSeconds) {
   return earnedSeconds / FLOW_BREAK_DIVISOR;
 }
 
+bool Util::completesFlowLap(int elapsedSeconds) {
+  return elapsedSeconds > 0 && elapsedSeconds % FLOW_LAP_SECONDS == 0;
+}
+
 unsigned long lastOriChangeTime = 0;
 Orientation debouncedState = Orientation::UNDEFINED;
 
