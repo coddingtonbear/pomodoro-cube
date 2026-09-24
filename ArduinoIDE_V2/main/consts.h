@@ -15,6 +15,23 @@
 
 #define ORI_DEBOUNCE_DELAY 300
 
+// A reading only says which way is down when it is gravity and very little
+// else. Outside this band the cube is being accelerated -- carried, tapped, set
+// down hard -- or the QMI8658 is still coming up after being configured, which
+// it does by emitting a few samples of nonsense. Measured on the board: at rest
+// the magnitude sits at 1.01 g and barely moves; the rejected samples in a
+// fifteen-minute trace ran from 0.00 to 2.64 g, so nothing near the edges of
+// this band is a real attitude.
+constexpr float ORI_GRAVITY_MIN_G = 0.85f;
+constexpr float ORI_GRAVITY_MAX_G = 1.15f;
+
+// How far the dominant axis has to lead the runner-up before a reading is
+// allowed to move the cube onto a *new* face. An attitude poised between two
+// faces goes on confirming the face the cube is already believed to be on, and
+// is never enough to move it, so a cube resting near the halfway point does not
+// alternate between the two.
+constexpr float ORI_DOMINANCE_MARGIN_G = 0.10f;
+
 // How long a wake will wait for the cube to stop moving before deciding what it
 // is resting on. The interrupt that wakes the cube fires *because* it moved, so
 // the first readings after one are taken in mid-air as often as not. Past this

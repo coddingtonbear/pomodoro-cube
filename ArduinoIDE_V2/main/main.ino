@@ -146,7 +146,7 @@ Orientation settleOrientation() {
   while (millis() < deadline) {
     float ax, ay, az;
     if (QMI::getAccelerometer(ax, ay, az) &&
-        Util::updateOriDebounce(Util::calcOrientation(ax, ay, az), millis())) {
+        Util::updateOriDebounce(ax, ay, az, millis())) {
       return Util::getDebouncedOriState();
     }
     delay(20);
@@ -244,8 +244,7 @@ void loop() {
 
   float ax, ay, az;
   if (QMI::getAccelerometer(ax, ay, az)) {
-    Orientation currentOri = Util::calcOrientation(ax, ay, az);
-    if (Util::updateOriDebounce(currentOri, millis())) {
+    if (Util::updateOriDebounce(ax, ay, az, millis())) {
       Orientation ori = Util::getDebouncedOriState();
       lastFaceChange = millis();
 

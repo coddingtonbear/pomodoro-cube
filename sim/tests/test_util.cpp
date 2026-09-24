@@ -337,19 +337,32 @@ void testATapLightsARunningFlowStint() {
 // The debouncer decides which face the cube is on, and a cube in a hand passes
 // through faces it is not being put down on. Timestamps are supplied rather than
 // read from millis(), so the whole of ORI_DEBOUNCE_DELAY can pass in no time.
+// The unit vector for a cube sitting square on each face, as sim_qmi.cpp
+// synthesises it and the board reads it.
+struct Vector { float x, y, z; };
+constexpr Vector kUp = {0.0f, 0.0f, -1.0f};
+constexpr Vector kDown = {0.0f, 0.0f, 1.0f};
+constexpr Vector kDeg0 = {-1.0f, 0.0f, 0.0f};
+constexpr Vector kDeg90 = {0.0f, -1.0f, 0.0f};
+constexpr Vector kDeg180 = {1.0f, 0.0f, 0.0f};
+
+bool feed(const Vector &v, unsigned long nowMs) {
+  return Util::updateOriDebounce(v.x, v.y, v.z, nowMs);
+}
+
 void testAReadingMustHoldStillToBeAccepted() {
   Util::resetOriDebounce();
 
   // Not on the first sighting, however long the clock has been running.
-  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 10000));
-  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 10000 + ORI_DEBOUNCE_DELAY - 1));
+  CHECK(!feed(kDeg0, 10000));
+  CHECK(!feed(kDeg0, 10000 + ORI_DEBOUNCE_DELAY - 1));
   CHECK(Util::getDebouncedOriState() == Orientation::UNDEFINED);
 
-  CHECK(Util::updateOriDebounce(Orientation::DEG_0, 10000 + ORI_DEBOUNCE_DELAY));
+  CHECK(feed(kDeg0, 10000 + ORI_DEBOUNCE_DELAY));
   CHECK(Util::getDebouncedOriState() == Orientation::DEG_0);
 
   // And only once: the same face held longer is not a second change.
-  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 20000));
+  CHECK(!feed(kDeg0, 20000));
 }
 
 // The bug this was written for. A cube picked up off its face-up rest and stood
@@ -360,24 +373,79 @@ void testAReadingMustHoldStillToBeAccepted() {
 // frame on a panel that should have gone back to work.
 void testAFaceInPassingIsNotAcceptedAsAFaceChange() {
   Util::resetOriDebounce();
-  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 0));
-  CHECK(Util::updateOriDebounce(Orientation::DEG_0, ORI_DEBOUNCE_DELAY));
+  CHECK(!feed(kDeg0, 0));
+  CHECK(feed(kDeg0, ORI_DEBOUNCE_DELAY));
 
   // Lifted: a tumble through several faces, none held for long.
   unsigned long now = 1000;
-  const Orientation tumble[] = {Orientation::FACE_UP, Orientation::DEG_270,
-                                Orientation::FACE_UP, Orientation::DEG_90,
-                                Orientation::FACE_UP};
-  for (const Orientation ori : tumble) {
+  const Vector tumble[] = {kUp, {0.0f, 1.0f, 0.0f}, kUp, kDeg90, kUp};
+  for (const Vector &v : tumble) {
     now += ORI_DEBOUNCE_DELAY - 1;
-    CHECK_MSG(!Util::updateOriDebounce(ori, now), "a face in passing was accepted");
+    CHECK_MSG(!feed(v, now), "a face in passing was accepted");
   }
   CHECK(Util::getDebouncedOriState() == Orientation::DEG_0);
 
   // Set down at last, and held.
-  CHECK(!Util::updateOriDebounce(Orientation::DEG_180, now + 1));
-  CHECK(Util::updateOriDebounce(Orientation::DEG_180, now + 1 + ORI_DEBOUNCE_DELAY));
+  CHECK(!feed(kDeg180, now + 1));
+  CHECK(feed(kDeg180, now + 1 + ORI_DEBOUNCE_DELAY));
   CHECK(Util::getDebouncedOriState() == Orientation::DEG_180);
+}
+
+// Every reading names a face. The old classifier tested each axis against a
+// fixed +-0.8 and fell through to DEG_0 when nothing matched, which reported a
+// timer face for any attitude more than about 37 degrees off an axis.
+void testEveryAttitudeNamesAFace() {
+  // Straight off the board: resting, |a| = 1.01, and 37 degrees off the Y axis.
+  // Nothing here reaches 0.8, so the old code called this DEG_0 by fall-through
+  // -- and the pause the cube was carrying had been stored against DEG_90, so
+  // standing the cube back up threw it away and started a fresh 25 minutes.
+  CHECK(Util::calcOrientation(-0.138f, -0.796f, -0.610f) == Orientation::DEG_90);
+
+  // The halfway point between two faces still names one rather than falling
+  // through, and isDecisive() is what stops it moving the cube there.
+  CHECK(Util::calcOrientation(0.0f, -0.707f, -0.707f) == Orientation::FACE_UP);
+  CHECK(!Util::isDecisive(0.0f, -0.707f, -0.707f));
+  CHECK(Util::isDecisive(-0.138f, -0.796f, -0.610f));
+}
+
+// A reading has to be gravity and little else before it says anything at all.
+void testOnlyGravityNamesAFace() {
+  // The first samples after QMI::setup(), captured from the board.
+  CHECK(!Util::isGravityOnly(0.0f, 0.0f, 0.0f));
+  CHECK(!Util::isGravityOnly(-1.291f, -1.774f, -1.460f));
+  // Mid-tumble, also from the board.
+  CHECK(!Util::isGravityOnly(0.094f, 0.405f, 1.677f));
+  // At rest.
+  CHECK(Util::isGravityOnly(-0.138f, -0.796f, -0.610f));
+  CHECK(Util::isGravityOnly(0.0f, 0.0f, -1.0f));
+}
+
+// The bug the board actually showed: sitting perfectly still at an attitude
+// that straddles a threshold, it alternated between two faces, restarting a
+// timer each time. Replayed from real samples, whose Y component crosses -0.8
+// in both directions while the cube has not moved at all.
+void testAMotionlessCubeDoesNotChangeFace() {
+  Util::resetOriDebounce();
+
+  const Vector resting[] = {
+      {-0.139f, -0.795f, -0.610f}, {-0.137f, -0.796f, -0.609f},
+      {-0.138f, -0.858f, -0.612f}, {-0.136f, -0.780f, -0.604f},
+      {-0.142f, -0.798f, -0.612f}, {-0.138f, -0.792f, -0.604f},
+      {-0.137f, -0.858f, -0.611f}, {-0.140f, -0.794f, -0.611f},
+  };
+
+  unsigned long now = 0;
+  int changes = 0;
+  for (int pass = 0; pass < 40; pass++) {
+    for (const Vector &v : resting) {
+      now += 20;
+      if (feed(v, now)) changes++;
+    }
+  }
+
+  // One: the cube arriving on the face it has been on all along.
+  CHECK(changes == 1);
+  CHECK(Util::getDebouncedOriState() == Orientation::DEG_90);
 }
 
 }  // namespace
@@ -394,6 +462,9 @@ void testBacklightPolicy() {
 void testOrientationDebounce() {
   testAReadingMustHoldStillToBeAccepted();
   testAFaceInPassingIsNotAcceptedAsAFaceChange();
+  testEveryAttitudeNamesAFace();
+  testOnlyGravityNamesAFace();
+  testAMotionlessCubeDoesNotChangeFace();
 }
 
 void testRestingFaceParking() {

@@ -12,7 +12,20 @@ void updateBattery();
 // the battery is doing. Zero until updateBattery() has run at least once.
 float batteryVolts();
 
+// Which way is down, by whichever axis carries the most of gravity. Every
+// reading names a face: there is no threshold to fall short of and no
+// fall-through to a face the cube is not on.
 Orientation calcOrientation(float ax, float ay, float az);
+
+// True when a reading is gravity and very little else, which is the only kind
+// that says anything about which way up the cube is. Screens out the cube being
+// carried or knocked, and the handful of nonsense samples the QMI8658 emits
+// while it comes up after being configured.
+bool isGravityOnly(float ax, float ay, float az);
+
+// True when the dominant axis leads the runner-up by enough to name a face
+// outright, rather than the cube sitting between two of them.
+bool isDecisive(float ax, float ay, float az);
 
 // True for the two faces the cube rests flat on, neither of which runs a timer.
 bool isRestingFace(Orientation ori);
@@ -94,13 +107,18 @@ int flowBankPreview(int bankedSeconds, int elapsedSeconds);
 // hours of flow is four pomodoros, not one.
 bool completesFlowLap(int elapsedSeconds);
 
-// Feed a raw orientation reading in and get back whether the debounced state
-// just changed. A reading has to hold still for ORI_DEBOUNCE_DELAY before it is
-// accepted: anything that flickers restarts the clock, so a cube in mid-air
-// settles on the face it is finally put down on rather than on whichever sample
-// happened to land at the end of the window. `nowMs` is millis() on the device
-// and a supplied clock in the tests.
-bool updateOriDebounce(Orientation rawState, unsigned long nowMs);
+// Feed a raw accelerometer reading in and get back whether the debounced face
+// just changed. Takes the vector rather than an orientation because the two
+// reasons to distrust a reading -- it is not gravity, or it does not clearly
+// name a face -- are both properties of the vector, and both have to restart
+// the clock rather than be classified.
+//
+// A reading has to hold still for ORI_DEBOUNCE_DELAY before it is accepted:
+// anything that flickers restarts the clock, so a cube in mid-air settles on
+// the face it is finally put down on rather than on whichever sample happened
+// to land at the end of the window. `nowMs` is millis() on the device and a
+// supplied clock in the tests.
+bool updateOriDebounce(float ax, float ay, float az, unsigned long nowMs);
 Orientation getDebouncedOriState();
 
 // Forget everything the debouncer has seen. For the tests; the firmware gets a

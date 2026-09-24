@@ -1,5 +1,6 @@
 #include "util.h"
 #include <Arduino.h>
+#include <math.h>
 #include "consts.h"
 #include "battery.h"
 #include "util.h"
@@ -23,17 +24,45 @@ float Util::batteryVolts() {
 }
 
 Orientation Util::calcOrientation(float ax, float ay, float az) {
-  // Verified on hardware: the QMI8658's +Z points into the back of the cube, not
-  // out of the front, so a cube resting screen-up reads -1g on Z. The first
-  // guess had these the other way round and put the cube to sleep when it was
-  // set down to be read. Nothing else depends on the polarity.
-  if (az < -0.8) return Orientation::FACE_UP;
-  if (az > 0.8) return Orientation::FACE_DOWN;
-  if (ay > 0.8) return Orientation::DEG_270;
-  if (ax > 0.8) return Orientation::DEG_180;
-  if (ay < -0.8) return Orientation::DEG_90;
-  if (ax < -0.8) return Orientation::DEG_0;
-  return Orientation::DEG_0;
+  // Whichever axis carries the most of gravity names the face. The signs are
+  // verified on hardware: the QMI8658's +Z points into the back of the cube,
+  // not out of the front, so a cube resting screen-up reads -1g on Z.
+  //
+  // This used to test each axis against a fixed +-0.8, and fall through to
+  // DEG_0 when nothing matched. That left a dead zone covering every attitude
+  // more than about 37 degrees off an axis, and the fall-through reported a
+  // timer face rather than admitting it did not know -- so a board resting at
+  // an angle ran a 25-minute timer it had never been put on. In a
+  // fifteen-minute trace from the board, 38.8% of all samples landed in that
+  // dead zone. A dominant axis has no dead zone: every reading names a face,
+  // and readings too close to call are screened out by isDecisive() instead of
+  // being quietly answered wrong.
+  const float mx = fabsf(ax);
+  const float my = fabsf(ay);
+  const float mz = fabsf(az);
+
+  if (mz >= mx && mz >= my) return az > 0 ? Orientation::FACE_DOWN : Orientation::FACE_UP;
+  if (mx >= my) return ax > 0 ? Orientation::DEG_180 : Orientation::DEG_0;
+  return ay > 0 ? Orientation::DEG_270 : Orientation::DEG_90;
+}
+
+bool Util::isGravityOnly(float ax, float ay, float az) {
+  const float magnitude = sqrtf(ax * ax + ay * ay + az * az);
+  return magnitude >= ORI_GRAVITY_MIN_G && magnitude <= ORI_GRAVITY_MAX_G;
+}
+
+bool Util::isDecisive(float ax, float ay, float az) {
+  float mx = fabsf(ax);
+  float my = fabsf(ay);
+  float mz = fabsf(az);
+
+  // The top two, without sorting all three.
+  float first = mx, second = my;
+  if (second > first) { const float swap = first; first = second; second = swap; }
+  if (mz > first) { second = first; first = mz; }
+  else if (mz > second) { second = mz; }
+
+  return first - second >= ORI_DOMINANCE_MARGIN_G;
 }
 
 
@@ -168,7 +197,17 @@ Orientation candidateState = Orientation::UNDEFINED;
 unsigned long candidateSince = 0;
 Orientation debouncedState = Orientation::UNDEFINED;
 
-bool Util::updateOriDebounce(Orientation rawState, unsigned long nowMs) {
+bool Util::updateOriDebounce(float ax, float ay, float az, unsigned long nowMs) {
+  Orientation rawState = Orientation::UNDEFINED;
+  if (isGravityOnly(ax, ay, az)) {
+    const Orientation face = calcOrientation(ax, ay, az);
+    // An attitude poised between two faces may go on confirming the face the
+    // cube is already believed to be on, but is never enough to move it onto a
+    // new one. UNDEFINED here means "no opinion", which restarts the clock
+    // below rather than being accepted as a face of its own.
+    if (face == debouncedState || isDecisive(ax, ay, az)) rawState = face;
+  }
+
   // Any change of reading restarts the clock. The earlier version timed from
   // the last sample that agreed with the *accepted* face instead, which means a
   // cube tumbling through three faces on its way to a fourth never reset it:
@@ -183,6 +222,7 @@ bool Util::updateOriDebounce(Orientation rawState, unsigned long nowMs) {
     return false;
   }
 
+  if (rawState == Orientation::UNDEFINED) return false;
   if (rawState == debouncedState) return false;
   if (nowMs - candidateSince < (unsigned long)ORI_DEBOUNCE_DELAY) return false;
 
