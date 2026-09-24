@@ -56,14 +56,16 @@ void QMI::setupWakeup() {
   // Before the wake-on-motion configuration, so the tap engine cannot leave
   // INT1 asserting for something that is not motion. A tap is for brightening a
   // panel that is being looked at; there is nothing for it to do once the cube
-  // has been put away.
+  // has been put away. configWakeOnMotion() opens with a full sensor reset that
+  // would clear this anyway; it is here so the intent survives a library
+  // version that stops doing that.
   qmi.disableTap();
 
   qmi.configWakeOnMotion(
-    200,                                    // WoMThreshold
+    WAKE_ON_MOTION_THRESHOLD_MG,            // WoMThreshold, in milli-g
     SensorQMI8658::ACC_ODR_LOWPOWER_128Hz,  // Energy efficient frequency
     SensorQMI8658::INTERRUPT_PIN_1,         // Interrupt pin 1
-    0                                       // Normally 0
+    0                                       // INT1 idles low and rises on motion
   );
   float dummyX, dummyY, dummyZ;
   qmi.getAccelerometer(dummyX, dummyY, dummyZ);

@@ -32,6 +32,20 @@ constexpr float ORI_GRAVITY_MAX_G = 1.15f;
 // alternate between the two.
 constexpr float ORI_DOMINANCE_MARGIN_G = 0.10f;
 
+// How much movement wakes a sleeping cube, in milli-g, as the QMI8658's
+// wake-on-motion detector counts it. The vendor default of 200 mg wanted a
+// deliberate knock: picking the cube up and standing it on a face often failed
+// to reach it, so the cube sat there still showing what it was showing when it
+// was put down, and had to be tapped awake.
+//
+// Set from the noise floor measured on the board rather than picked: at rest
+// the sample-to-sample movement averages 5 mg and its 99th percentile is 24 mg,
+// so this is comfortably clear of a cube sitting still on a desk while being
+// three times more sensitive than the default. A spurious wake is cheap now in
+// a way it was not before -- the settling below sends a cube that has not
+// actually moved back to sleep in about a third of a second.
+constexpr uint8_t WAKE_ON_MOTION_THRESHOLD_MG = 64;
+
 // How long a wake will wait for the cube to stop moving before deciding what it
 // is resting on. The interrupt that wakes the cube fires *because* it moved, so
 // the first readings after one are taken in mid-air as often as not. Past this

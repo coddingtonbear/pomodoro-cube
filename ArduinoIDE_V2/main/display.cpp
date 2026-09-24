@@ -257,13 +257,24 @@ void Display::holdPausedFrame() {
   // running to generate PWM once the CPU stops, and gpio_hold_en() freezes the
   // instantaneous level rather than the duty cycle. A parked cube is therefore
   // lit at full or not at all -- turning it face down is how you turn it off.
-  releaseHeldPins();
+  // Deliberately does *not* release the holds first. When they are already on,
+  // they are already holding exactly the levels this function is about to ask
+  // for, so releasing them buys nothing -- and it hands the reset line back to
+  // an output register that waking from deep sleep has cleared to zero. The pad
+  // then presents a LOW for as long as it takes to get round to writing it
+  // again, which is a reset pulse: the GC9A01 clears its frame memory and drops
+  // into sleep-in, and the backlight goes on being held up over a blank panel.
+  // That is the same symptom the held reset line was introduced to fix, put
+  // back by the release that was supposed to make this path safe.
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, HIGH);
   gpio_hold_en((gpio_num_t)TFT_BL_PIN);
 
-  pinMode(TFT_RST, OUTPUT);
+  // Level before direction, for the same reason: this writes the output
+  // register while the pad is still an input, so changing the direction takes
+  // it straight to HIGH rather than through whatever the register held.
   digitalWrite(TFT_RST, HIGH);
+  pinMode(TFT_RST, OUTPUT);
   gpio_hold_en((gpio_num_t)TFT_RST);
 }
 
