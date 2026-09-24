@@ -67,28 +67,38 @@ bool Util::isRestingFace(Orientation ori) {
   return ori == Orientation::FACE_UP || ori == Orientation::FACE_DOWN;
 }
 
-Util::TimerSpec Util::getTimerSpec(Orientation ori, int earnedFlowSeconds) {
+Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
   switch (ori) {
     case Orientation::DEG_0:
-      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS};
+      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS, false};
     case Orientation::DEG_90:
-      return {TimerKind::Break, TimerMode::Countdown, TIMER_SHORT_BREAK_SECONDS};
+      return {TimerKind::Break, TimerMode::Countdown, TIMER_SHORT_BREAK_SECONDS, false};
     case Orientation::DEG_180:
       // Flow's work face: no length, because it counts up until the cube is
       // turned off it.
-      return {TimerKind::Work, TimerMode::CountUp, 0};
+      return {TimerKind::Work, TimerMode::CountUp, 0, false};
     case Orientation::DEG_270:
-      return {TimerKind::Break, TimerMode::Countdown, flowBreakSeconds(earnedFlowSeconds)};
+      // Only a break that came out of the bank spends it. The fallback was
+      // conjured from nothing, so draining it must not credit anything back --
+      // otherwise standing the cube here and picking it up again would mint
+      // break time nobody worked for.
+      return {TimerKind::Break, TimerMode::Countdown, flowBreakSeconds(bankedBreakSeconds),
+              bankedBreakSeconds > 0};
     default:
       // A resting face runs no timer, but must still not report zero: a
       // zero-length timer would divide by zero in the arc.
-      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS};
+      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS, false};
   }
 }
 
-int Util::flowBreakSeconds(int earnedSeconds) {
-  if (earnedSeconds < FLOW_MIN_STINT_SECONDS) return TIMER_LONG_BREAK_SECONDS;
-  return earnedSeconds / FLOW_BREAK_DIVISOR;
+int Util::flowBreakCredit(int workedSeconds) {
+  if (workedSeconds <= 0) return 0;
+  return workedSeconds / FLOW_BREAK_DIVISOR;
+}
+
+int Util::flowBreakSeconds(int bankedSeconds) {
+  if (bankedSeconds <= 0) return TIMER_LONG_BREAK_SECONDS;
+  return bankedSeconds;
 }
 
 bool Util::completesFlowLap(int elapsedSeconds) {

@@ -50,14 +50,42 @@ void testFlowWorkHasNoLength() {
   CHECK(Util::getTimerSpec(Orientation::DEG_180, 3000).seconds == 0);
 }
 
-void testFlowBreakIsAFifthOfTheStint() {
+void testAStintCreditsAFifthToTheBank() {
   // The pair flow mode replaced: fifty minutes of work bought ten of break.
-  CHECK(Util::flowBreakSeconds(50 * 60) == 10 * 60);
-  CHECK(Util::flowBreakSeconds(25 * 60) == 5 * 60);
-  CHECK(Util::flowBreakSeconds(2 * 60 * 60) == 24 * 60);
+  CHECK(Util::flowBreakCredit(50 * 60) == 10 * 60);
+  CHECK(Util::flowBreakCredit(25 * 60) == 5 * 60);
+  CHECK(Util::flowBreakCredit(2 * 60 * 60) == 24 * 60);
+  CHECK(Util::flowBreakCredit(0) == 0);
+  CHECK(Util::flowBreakCredit(-1) == 0);
+}
 
-  // And the break face is where that shows up.
-  CHECK(Util::getTimerSpec(Orientation::DEG_270, 50 * 60).seconds == 10 * 60);
+void testTheBreakFaceCountsTheBankDown() {
+  // Whatever is banked is what the break runs for, with no conversion left to
+  // do: the fifth was taken on the way in.
+  CHECK(Util::flowBreakSeconds(9 * 60) == 9 * 60);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 9 * 60).seconds == 9 * 60);
+
+  // Down to the smallest balance. A floor would have to be conjured from
+  // nowhere and then written back, leaving the bank saying something untrue.
+  CHECK(Util::flowBreakSeconds(12) == 12);
+
+  // Only a break that came out of the bank writes back to it.
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 9 * 60).spendsBank);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_270, 0).spendsBank);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_0, 9 * 60).spendsBank);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_180, 9 * 60).spendsBank);
+}
+
+void testWorkedThenBankedMatchesTheWholeJourney() {
+  // The worked example: 25 minutes of flow, a 5 minute break, a minute of it
+  // taken, another 25 minutes of flow -- and the break that follows is 9.
+  int bank = 0;
+  bank += Util::flowBreakCredit(25 * 60);
+  CHECK(Util::flowBreakSeconds(bank) == 5 * 60);
+
+  bank = 4 * 60;  // a minute of it spent, written back by the running break
+  bank += Util::flowBreakCredit(25 * 60);
+  CHECK(Util::flowBreakSeconds(bank) == 9 * 60);
 }
 
 void testAStintScoresALapAtATime() {
@@ -79,16 +107,17 @@ void testAStintScoresALapAtATime() {
   CHECK(FLOW_LAP_SECONDS == TIMER_WORK_SECONDS);
 }
 
-void testTooShortAStintEarnsTheFallbackBreak() {
-  // Turning the cube through the flow face on the way somewhere else must not
-  // leave a break of a few seconds, which would beep the moment it started.
+void testAnEmptyBankFallsBackToTheFixedBreak() {
+  // Nothing banked is a different situation from a small balance: the break
+  // face was chosen without flow work before it, so it is the fixed length it
+  // was before flow mode.
   CHECK(Util::flowBreakSeconds(0) == TIMER_LONG_BREAK_SECONDS);
-  CHECK(Util::flowBreakSeconds(FLOW_MIN_STINT_SECONDS - 1) == TIMER_LONG_BREAK_SECONDS);
   CHECK(Util::flowBreakSeconds(-1) == TIMER_LONG_BREAK_SECONDS);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).seconds == TIMER_LONG_BREAK_SECONDS);
 
-  // At the threshold it earns its fifth, however little that is.
-  CHECK(Util::flowBreakSeconds(FLOW_MIN_STINT_SECONDS) ==
-        FLOW_MIN_STINT_SECONDS / FLOW_BREAK_DIVISOR);
+  // And it must not write back, or standing the cube here and picking it up
+  // again would mint break time nobody worked for.
+  CHECK(!Util::getTimerSpec(Orientation::DEG_270, 0).spendsBank);
 }
 
 void testRestingFaces() {
@@ -122,9 +151,11 @@ void testTimerSelection() {
   testFacesMapToTimers();
   testFixedFaceLengths();
   testFlowWorkHasNoLength();
-  testFlowBreakIsAFifthOfTheStint();
+  testAStintCreditsAFifthToTheBank();
+  testTheBreakFaceCountsTheBankDown();
+  testWorkedThenBankedMatchesTheWholeJourney();
   testAStintScoresALapAtATime();
-  testTooShortAStintEarnsTheFallbackBreak();
+  testAnEmptyBankFallsBackToTheFixedBreak();
   testRestingFaces();
   testUnknownOrientationsFallBackToWork();
 }

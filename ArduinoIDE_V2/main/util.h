@@ -14,22 +14,28 @@ enum class SleepMode { Off, Paused };
 void deepSleep(SleepMode mode, bool playSound);
 
 // What standing the cube on a face asks for. `seconds` is the length to count
-// down; it is 0 in CountUp, where there is no length to count.
+// down; it is 0 in CountUp, where there is no length to count. `spendsBank` is
+// true when that countdown *is* the flow bank draining, so the caller knows to
+// keep the bank in step as it goes.
 struct TimerSpec {
   TimerKind kind;
   TimerMode mode;
   int seconds;
+  bool spendsBank;
 };
 
-// The whole face table in one place. `earnedFlowSeconds` is the flow stint
-// waiting to be spent, which only the flow break face reads -- every other face
-// ignores it, so turning to one of them forfeits the break, the same way it
-// abandons a pause.
-TimerSpec getTimerSpec(Orientation ori, int earnedFlowSeconds);
+// The whole face table in one place. `bankedBreakSeconds` is the flow bank,
+// which only the flow break face reads. Every other face ignores it -- and
+// leaves it alone: a bank is not forfeited by working somewhere else.
+TimerSpec getTimerSpec(Orientation ori, int bankedBreakSeconds);
 
-// How long a break a flow stint of this length has earned: a fifth of it, or
-// the fallback break when the stint was too short to earn anything.
-int flowBreakSeconds(int earnedSeconds);
+// What a flow stint of this length adds to the bank: a fifth of it.
+int flowBreakCredit(int workedSeconds);
+
+// How long the flow break face counts down for, given the bank. The bank if
+// there is one, however small -- an account pays out what it holds -- and the
+// fixed fallback only when the face was chosen with nothing banked at all.
+int flowBreakSeconds(int bankedSeconds);
 
 // True on the second a flow lap completes -- the moment the arc comes back
 // round -- which is when a stint scores a pomodoro. Counting by the lap rather

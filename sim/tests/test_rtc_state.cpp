@@ -7,6 +7,7 @@
 #include <random>
 
 #include "check.h"
+#include "consts.h"
 
 namespace {
 
@@ -49,7 +50,7 @@ void testInitialiseStampsAndClears() {
   CHECK(data.pausedSelected == 0);
   CHECK(!data.pausedCountingUp);
   CHECK(data.pausedFace == Orientation::UNDEFINED);
-  CHECK(data.flowEarnedSeconds == 0);
+  CHECK(data.flowBankSeconds == 0);
 }
 
 void testInitialiseIsDeterministic() {
@@ -72,10 +73,10 @@ void testSurvivingBlockIsKept() {
   data.pausedFace = Orientation::DEG_90;
   data.pausedRemaining = 143;
   data.pausedSelected = 300;
-  data.flowEarnedSeconds = 742;
+  data.flowBankSeconds = 742;
 
   CHECK(RtcState::isInitialised(data));
-  CHECK(data.flowEarnedSeconds == 742);
+  CHECK(data.flowBankSeconds == 742);
   CHECK(data.pomodoroCount == 7);
   CHECK(data.pausedRemaining == 143);
 }
@@ -129,32 +130,76 @@ void testAPausedFlowStintResumesCountingUp() {
   CHECK(countingUp);
 }
 
-void testFlowEarnedRoundTrip() {
+void testFlowBankAccumulates() {
   RtcState::Data data;
   RtcState::initialise(data);
-  CHECK(RtcState::takeFlowEarned(data) == 0);
+  CHECK(RtcState::flowBank(data) == 0);
 
-  RtcState::storeFlowEarned(data, 3000);
-  CHECK(RtcState::takeFlowEarned(data) == 3000);
+  // Several spells of work add up rather than replacing each other -- this is
+  // the whole point of a bank over a handoff.
+  RtcState::addFlowBank(data, 300);
+  CHECK(RtcState::flowBank(data) == 300);
+  RtcState::addFlowBank(data, 300);
+  CHECK(RtcState::flowBank(data) == 600);
 
-  // Spent once: a second break is not earned by standing the cube down twice.
-  CHECK(RtcState::takeFlowEarned(data) == 0);
+  // Reading does not spend: the break face counts it down and writes back.
+  CHECK(RtcState::flowBank(data) == 600);
+
+  // Nothing worth crediting changes nothing.
+  RtcState::addFlowBank(data, 0);
+  RtcState::addFlowBank(data, -5);
+  CHECK(RtcState::flowBank(data) == 600);
 }
 
-void testFlowEarnedIsSeparateFromThePause() {
-  // The two are consumed by different faces, so clearing one must leave the
-  // other: a flow stint parked face-up is both a pause and a banked stint.
+void testFlowBankIsWrittenBackAsABreakIsSpent() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+  RtcState::addFlowBank(data, 540);
+
+  // What a running break does each second.
+  RtcState::setFlowBank(data, 539);
+  CHECK(RtcState::flowBank(data) == 539);
+
+  // An unspent break stays banked, so leaving the face early keeps the rest.
+  RtcState::setFlowBank(data, 240);
+  RtcState::addFlowBank(data, 300);
+  CHECK(RtcState::flowBank(data) == 540);
+
+  // A break run to the end leaves nothing.
+  RtcState::setFlowBank(data, 0);
+  CHECK(RtcState::flowBank(data) == 0);
+}
+
+void testFlowBankIsClamped() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+
+  // Never negative, however the write-back is called.
+  RtcState::setFlowBank(data, -1);
+  CHECK(RtcState::flowBank(data) == 0);
+
+  // And capped, so a day of stints can't bank a break longer than the
+  // advertisement's duration can carry.
+  RtcState::addFlowBank(data, FLOW_MAX_SECONDS);
+  RtcState::addFlowBank(data, FLOW_MAX_SECONDS);
+  CHECK(RtcState::flowBank(data) == FLOW_MAX_SECONDS);
+}
+
+void testFlowBankIsSeparateFromThePause() {
+  // The two are read by different faces, so clearing one must leave the other:
+  // a flow stint parked face-up is a pause, and the bank is what earlier stints
+  // already earned.
   RtcState::Data data;
   RtcState::initialise(data);
   RtcState::storePause(data, Orientation::DEG_180, 742, 0, true);
-  RtcState::storeFlowEarned(data, 742);
+  RtcState::addFlowBank(data, 300);
 
   RtcState::clearPause(data);
   CHECK(!RtcState::hasPause(data));
-  CHECK(data.flowEarnedSeconds == 742);
+  CHECK(RtcState::flowBank(data) == 300);
 
-  RtcState::clearFlowEarned(data);
-  CHECK(data.flowEarnedSeconds == 0);
+  RtcState::clearFlowBank(data);
+  CHECK(RtcState::flowBank(data) == 0);
 }
 
 void testPauseOnlyResumesOnItsOwnFace() {

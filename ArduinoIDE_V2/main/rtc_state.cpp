@@ -26,7 +26,7 @@ void RtcState::initialise(Data &data) {
   data.pausedRemaining = 0;
   data.pausedSelected = 0;
   data.pausedCountingUp = false;
-  data.flowEarnedSeconds = 0;
+  data.flowBankSeconds = 0;
 }
 
 RtcState::Data &RtcState::data() {
@@ -77,16 +77,21 @@ bool RtcState::takePause(Data &data, Orientation face, int &remaining, int &sele
   return resumable;
 }
 
-void RtcState::storeFlowEarned(Data &data, int seconds) {
-  data.flowEarnedSeconds = seconds > 0 ? seconds : 0;
+void RtcState::addFlowBank(Data &data, int seconds) {
+  if (seconds <= 0) return;
+  setFlowBank(data, (int)data.flowBankSeconds + seconds);
 }
 
-int RtcState::takeFlowEarned(Data &data) {
-  const int earned = (int)data.flowEarnedSeconds;
-  clearFlowEarned(data);
-  return earned;
+int RtcState::flowBank(const Data &data) {
+  return (int)data.flowBankSeconds;
 }
 
-void RtcState::clearFlowEarned(Data &data) {
-  data.flowEarnedSeconds = 0;
+void RtcState::setFlowBank(Data &data, int seconds) {
+  if (seconds < 0) seconds = 0;
+  if (seconds > FLOW_MAX_SECONDS) seconds = FLOW_MAX_SECONDS;
+  data.flowBankSeconds = seconds;
+}
+
+void RtcState::clearFlowBank(Data &data) {
+  data.flowBankSeconds = 0;
 }

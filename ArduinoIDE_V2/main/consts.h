@@ -21,9 +21,10 @@
 constexpr int TIMER_WORK_SECONDS = 25 * 60;
 constexpr int TIMER_SHORT_BREAK_SECONDS = 5 * 60;
 
-// DEG_180 and DEG_270 are flow mode's pair, and carry no fixed length: the work
-// face counts up for as long as the cube stands on it, and the break face then
-// counts down a fifth of what it counted.
+// DEG_180 and DEG_270 are flow mode's pair, and carry no fixed length. Flow work
+// counts up and credits a fifth of what it counted to a bank of break time; the
+// break face counts that bank down. The bank persists across stints, so several
+// spells of work accumulate, and an unspent break goes back in.
 constexpr int FLOW_BREAK_DIVISOR = 5;
 
 // The break face fell back on when nothing has been earned -- the ten minutes it
@@ -31,10 +32,9 @@ constexpr int FLOW_BREAK_DIVISOR = 5;
 // moment it started.
 constexpr int TIMER_LONG_BREAK_SECONDS = 10 * 60;
 
-// A stint shorter than this earns no break at all, rather than one of a few
-// seconds: turning the cube through the flow face on the way somewhere else
-// shouldn't leave a break that beeps the moment it starts.
-constexpr int FLOW_MIN_STINT_SECONDS = 90;
+// There is no floor on a break. The bank is an account -- what it says you have
+// is what you get -- and a minimum would have to be conjured from nowhere and
+// then written back, leaving the account saying something untrue.
 
 // A lap of the flow arc, which is also what a stint scores a pomodoro for: the
 // arc fills over this long, scores, and starts again. Equal to the fixed work

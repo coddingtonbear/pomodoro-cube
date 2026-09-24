@@ -16,22 +16,26 @@ int remSeconds = 0;
 int selSeconds = 0;
 TimerKind timerKind = TimerKind::Work;
 TimerMode timerMode = TimerMode::Countdown;
+// True when the countdown on screen is the flow bank draining, so each tick has
+// to write the new balance back. A fallback break does not set it: that time was
+// conjured rather than earned, and crediting it back would mint break time.
+bool spendingFlowBank = false;
 unsigned long lastTick = 0;  // last count tick timestamp
 unsigned long startedBeeping = 0;
 // The timer face the cube was last stood on, so a pause knows what it paused.
 Orientation lastTimerFace = Orientation::UNDEFINED;
 
 
-// A flow stint has ended: its time is banked for the break face to spend. A
-// stint too short to earn a worthwhile break banks nothing, so the break face
-// falls back to its fixed length.
+// A flow stint has ended: a fifth of it is credited to the break bank, on top of
+// whatever was already there. Any stint that counted a second at all credits
+// something -- a cube turned through the flow face on its way elsewhere never
+// reaches a second, so there is nothing to screen out.
 //
 // Nothing is counted here. A stint scores by the lap while it runs, not by the
 // stint when it stops, so its last partial lap is worth no more than abandoning
 // a 25-minute timer at 24:00 is.
 void bankFlowStint(int elapsed) {
-  if (elapsed < FLOW_MIN_STINT_SECONDS) return;
-  RtcState::storeFlowEarned(RtcState::data(), elapsed);
+  RtcState::addFlowBank(RtcState::data(), Util::flowBreakCredit(elapsed));
 }
 
 bool countingUp() {
@@ -91,10 +95,9 @@ void loop() {
         Util::deepSleep(Util::SleepMode::Paused, true);
       }
       if (ori == Orientation::FACE_DOWN) {
-        // Face down means off, so nothing is kept -- an unspent flow break
-        // included.
+        // Face down means off, so nothing is kept -- the break bank included.
         RtcState::clearPause(RtcState::data());
-        RtcState::clearFlowEarned(RtcState::data());
+        RtcState::clearFlowBank(RtcState::data());
         Util::deepSleep(Util::SleepMode::Off, true);
       }
 
@@ -114,18 +117,18 @@ void loop() {
 
       lastTimerFace = ori;
 
+      // Read rather than spend: the bank is a balance, and only the break face
+      // draining it writes it down. Every other face leaves it where it is, so
+      // a spell on the 25-minute face doesn't cost you the break you earned.
+      const Util::TimerSpec spec = Util::getTimerSpec(ori, RtcState::flowBank(RtcState::data()));
+      spendingFlowBank = spec.spendsBank;
+
       bool resumesCountingUp = false;
       if (RtcState::takePause(RtcState::data(), ori, remSeconds, selSeconds,
                               resumesCountingUp)) {
         timerMode = resumesCountingUp ? TimerMode::CountUp : TimerMode::Countdown;
-        timerKind = Util::getTimerSpec(ori, 0).kind;
-        // The stint is back in remSeconds, so the bank must not pay it out again.
-        if (resumesCountingUp) RtcState::clearFlowEarned(RtcState::data());
+        timerKind = spec.kind;
       } else {
-        // Only the flow break face spends the bank; every other face forfeits
-        // it, the same way it abandons a pause.
-        const int earned = RtcState::takeFlowEarned(RtcState::data());
-        const Util::TimerSpec spec = Util::getTimerSpec(ori, earned);
         timerKind = spec.kind;
         timerMode = spec.mode;
         remSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
@@ -159,6 +162,9 @@ void loop() {
 
   if (!countingUp() && remSeconds > 0 && millis() - lastTick >= 1000) {
     remSeconds--;
+    // Keep the balance in step as the break is spent, so whatever interrupts it
+    // -- another face, a pause, a flat battery -- leaves the rest still banked.
+    if (spendingFlowBank) RtcState::setFlowBank(RtcState::data(), remSeconds);
     Display::updateTimer(remSeconds, selSeconds, false);
     lastTick = millis();
     if (remSeconds == 0) {

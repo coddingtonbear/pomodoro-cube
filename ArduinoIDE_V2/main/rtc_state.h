@@ -14,7 +14,7 @@ namespace RtcState {
 
 // Bump the trailing digit whenever Data's layout changes, so a firmware update
 // discards the old layout instead of misreading it.
-constexpr uint32_t MAGIC = 0x504F4D32;  // "POM2"
+constexpr uint32_t MAGIC = 0x504F4D33;  // "POM3"
 
 struct Data {
   uint32_t magic;
@@ -33,10 +33,12 @@ struct Data {
   // no selected length to tell the two apart by.
   bool pausedCountingUp;
 
-  // A finished flow stint waiting for the break face to claim it. Separate from
-  // the pause because the two are consumed by different faces: a pause belongs
-  // to the face it was paused from, and this belongs to the break face.
-  int32_t flowEarnedSeconds;
+  // Break time flow work has earned and the break face has not yet spent, in
+  // break seconds rather than worked ones -- the fifth is taken on the way in.
+  // It survives working on other faces, because it is a balance rather than a
+  // handoff, and the break face keeps it in step as it counts down, so an
+  // unspent break is still in here whatever interrupts it.
+  int32_t flowBankSeconds;
 };
 
 // True when the block was written by this firmware and survived intact.
@@ -63,12 +65,18 @@ bool hasPause(const Data &data);
 // pause is abandoned. Either way the stored pause is consumed.
 bool takePause(Data &data, Orientation face, int &remaining, int &selected, bool &countingUp);
 
-// Bank a finished flow stint for the break face to spend.
-void storeFlowEarned(Data &data, int seconds);
+// Credit break seconds a flow stint earned. Clamped at FLOW_MAX_SECONDS, for
+// the same reason a stint is.
+void addFlowBank(Data &data, int seconds);
 
-// Hand back the banked stint and clear it, so a break is only earned once.
-int takeFlowEarned(Data &data);
+// The balance. Reading it does not spend it: the break face counts it down and
+// writes back what is left, so several spells of work accumulate and an
+// abandoned break is not lost.
+int flowBank(const Data &data);
 
-void clearFlowEarned(Data &data);
+// Set the balance outright, which is how a running break keeps it in step.
+void setFlowBank(Data &data, int seconds);
+
+void clearFlowBank(Data &data);
 
 }  // namespace RtcState
