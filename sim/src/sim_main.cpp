@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -211,24 +212,32 @@ void saveScreenshot(const uint16_t *pixels, const std::string &path) {
   SDL_FreeSurface(surface);
 }
 
-// Scale an RGB565 pixel by the backlight percentage, per channel at that
-// channel's own width. A crude stand-in for a real backlight -- the panel's
-// response is nothing like linear -- but enough to tell a dimmed face from a
-// bright one at a glance, which is what the policy needs eyeballing for.
-uint16_t dimmed(uint16_t pixel, int percent) {
-  if (percent >= 100) return pixel;
-  if (percent <= 0) return kOffPixel;
+// A backlight at N% duty emits N% of the light, but these are sRGB code values,
+// not light: scaling them by N directly renders far darker than the panel
+// actually looks. Scale the *luminance* instead, which in code values is
+// N^(1/2.2) -- 20% duty comes out around 48%, which is roughly what the eye
+// reports. Still only an approximation of one panel's gamma, but close enough
+// that a dim face on the desktop can be judged rather than merely spotted.
+double backlightScale(int percent) {
+  if (percent >= 100) return 1.0;
+  if (percent <= 0) return 0.0;
+  return std::pow(percent / 100.0, 1.0 / 2.2);
+}
 
-  const int red = ((pixel >> 11) & 0x1F) * percent / 100;
-  const int green = ((pixel >> 5) & 0x3F) * percent / 100;
-  const int blue = (pixel & 0x1F) * percent / 100;
+uint16_t dimmed(uint16_t pixel, double scale) {
+  if (scale >= 1.0) return pixel;
+  if (scale <= 0.0) return kOffPixel;
+
+  const int red = (int)(((pixel >> 11) & 0x1F) * scale + 0.5);
+  const int green = (int)(((pixel >> 5) & 0x3F) * scale + 0.5);
+  const int blue = (int)((pixel & 0x1F) * scale + 0.5);
   return (uint16_t)((red << 11) | (green << 5) | blue);
 }
 
 void render() {
   static uint16_t scratch[SimPanel::WIDTH * SimPanel::HEIGHT];
 
-  const int brightness = SimPanel::asleep ? 0 : SimPanel::backlightPercent;
+  const double brightness = backlightScale(SimPanel::asleep ? 0 : SimPanel::backlightPercent);
   // Squared radius of the round panel's visible aperture.
   constexpr int r = SimPanel::WIDTH / 2;
   constexpr int rSquared = r * r;
