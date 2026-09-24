@@ -23,6 +23,32 @@ int lapPercent(int elapsedSeconds);
 // `100 - lapPercent`, since a fresh lap has all of itself still to run.
 uint32_t flowArcColor(int remainingPercent);
 
+// Every colour on the panel for one moment. Gathered rather than set from
+// scattered branches, so the bright and dim schemes can be read side by side --
+// and so the dim one can be tested without LVGL.
+struct Palette {
+  uint32_t background;
+  uint32_t text;
+  // The filled part of the ring, and the groove it runs in.
+  uint32_t arc;
+  uint32_t track;
+  // The low-battery outline. Its own field because bright mode wants it red and
+  // shouting, while on a dim red field red is invisible.
+  uint32_t battery;
+};
+
+// The panel's colours for one moment. `rampAt` is how much is left, as
+// arcColor() takes it.
+//
+// Bright is the arrangement the cube has always had: a black or white field
+// with the ramp drawn on it as a thin arc. Dim swaps the two -- the ramp
+// becomes the whole field, and everything drawn over it takes what used to be
+// the background. A field of colour is readable across a desk at a fifth of the
+// backlight, where a thin arc is not, and since the background no longer tells
+// the modes apart, the arc does: black over the countdown's brighter ramp,
+// white over flow's darker one.
+Palette palette(int rampAt, bool flow, bool dim);
+
 // How the countdown label should be split. Past an hour there are not enough
 // digits for MM:SS at the size the panel needs, so it becomes HH:MM -- and the
 // two are indistinguishable on screen, which is what `hours` is for.

@@ -63,6 +63,15 @@ void releaseBacklightPwm() {
   backlightLevel = -1;
 }
 
+// The face last drawn, kept so a change of brightness can repaint it in the
+// other scheme without the caller having to hand the timer over again.
+int lastRampAt = 100;
+bool lastFlow = false;
+bool dimScheme = false;
+
+// Defined below, once there is an applyPalette() for it to call.
+void repaintPalette();
+
 }  // namespace
 
 void Display::setBacklight(int percent) {
@@ -78,6 +87,15 @@ void Display::setBacklight(int percent) {
   ledcWrite(kBacklightChannel, duty);
 #endif
   backlightLevel = percent;
+
+  // Dropping the backlight also swaps the scheme: at this brightness a field of
+  // colour reads where a thin arc does not. Repaint only on the crossing, so
+  // the every-20ms call in loop() stays free.
+  const bool dim = percent < BACKLIGHT_FULL_PERCENT;
+  if (dim != dimScheme) {
+    dimScheme = dim;
+    repaintPalette();
+  }
 }
 
 void Display::setup() {
@@ -136,22 +154,40 @@ static void setArcAppearance(uint32_t color, lv_opa_t opa) {
   lv_obj_set_style_bg_opa(ui_Arc1, opa, LV_PART_KNOB);
 }
 
-// Paint the panel's background, the digits and the unit marker as one palette,
-// so the inversion can't half-apply.
-static void setPalette(uint32_t background, uint32_t text, uint32_t track) {
-  lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(background), LV_PART_MAIN);
-  lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(track), LV_PART_MAIN);
+// The low-battery outline is three objects with three different style
+// properties, which is why it needs its own pass rather than joining the labels.
+static void setBatteryColor(uint32_t color) {
+  const lv_color_t c = lv_color_hex(color);
+  lv_obj_set_style_border_color(ui_LowBattery, c, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(ui_LowBatteryTip, c, LV_PART_MAIN);
+  lv_obj_set_style_text_color(ui_LowBatteryVoltage, c, LV_PART_MAIN);
+}
+
+// Paint every colour on the panel at once, so a swap can't half-apply.
+static void applyPalette(const Indicators::Palette &p) {
+  lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(p.background), LV_PART_MAIN);
+  lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(p.track), LV_PART_MAIN);
   lv_obj_t *const labels[] = {ui_Countdown, ui_UnitMarker, ui_BankLabel};
   for (lv_obj_t *label : labels) {
-    lv_obj_set_style_text_color(label, lv_color_hex(text), LV_PART_MAIN);
+    lv_obj_set_style_text_color(label, lv_color_hex(p.text), LV_PART_MAIN);
   }
+  setArcAppearance(p.arc, LV_OPA_COVER);
+  setBatteryColor(p.battery);
 }
+
+namespace {
+
+void repaintPalette() {
+  applyPalette(Indicators::palette(lastRampAt, lastFlow, dimScheme));
+}
+
+}  // namespace
 
 void Display::deepSleep() {
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, LOW);
   // Send GC9A01 Sleep In command
-  tft.writecommand(0x10); 
+  tft.writecommand(0x10);
   delay(120); // Required transition delay for the controller to power down
 }
 
@@ -170,9 +206,11 @@ void Display::holdPausedFrame() {
 
 void Display::showPaused() {
   // Back to the dark palette whether the pause caught a countdown or a flow
-  // stint: paused has to look like one thing.
-  setArcAppearance(ARC_COLOR_PAUSED, LV_OPA_COVER);
-  setPalette(SCREEN_BG_COLOR, COUNTDOWN_COLOR_PAUSED, ARC_TRACK_COLOR);
+  // stint, and whether the panel was dim or bright: paused has to look like one
+  // thing. A parked frame is always held at full brightness, so the dim scheme
+  // has no business here.
+  applyPalette({SCREEN_BG_COLOR, COUNTDOWN_COLOR_PAUSED, ARC_COLOR_PAUSED, ARC_TRACK_COLOR,
+                LOW_BATTERY_COLOR});
 
   // The frame has to reach the panel before the CPU stops, so pump LVGL rather
   // than waiting for the next loop() that will never come.
@@ -233,19 +271,13 @@ void Display::updateTimer(const TimerView &view) {
   // indicator, its colour running the ramp over what is left of the lap.
   const int remaining = view.countingUp ? Indicators::lapPercent(view.seconds)
                                         : Indicators::remainingPercent(view.seconds, view.selSeconds);
-  const int rampAt = view.countingUp ? 100 - remaining : remaining;
+  lastRampAt = view.countingUp ? 100 - remaining : remaining;
+  lastFlow = view.flow;
   lv_arc_set_value(ui_Arc1, remaining);
 
-  // Both flow faces invert, and both take the darker ramp that goes with white.
-  // Also undoes showPaused() without needing to know whether it ran.
-  if (view.flow) {
-    setArcAppearance(Indicators::flowArcColor(rampAt), LV_OPA_COVER);
-    setPalette(FLOW_BG_COLOR, COUNTDOWN_COLOR_FLOW, FLOW_ARC_TRACK_COLOR);
-    return;
-  }
-
-  setArcAppearance(Indicators::arcColor(rampAt), LV_OPA_COVER);
-  setPalette(SCREEN_BG_COLOR, COUNTDOWN_COLOR, ARC_TRACK_COLOR);
+  // Repaints every colour from scratch, which also undoes showPaused() without
+  // needing to know whether it ran.
+  repaintPalette();
 }
 
 unsigned long lastFinishChange = 0;

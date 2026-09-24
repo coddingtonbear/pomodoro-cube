@@ -55,6 +55,30 @@ uint32_t Indicators::flowArcColor(int remainingPercent) {
   return ramp(remainingPercent, FLOW_ARC_COLOR_FULL, FLOW_ARC_COLOR_MID, FLOW_ARC_COLOR_LOW);
 }
 
+Indicators::Palette Indicators::palette(int rampAt, bool flow, bool dim) {
+  const uint32_t ramped = flow ? flowArcColor(rampAt) : arcColor(rampAt);
+
+  if (!dim) {
+    if (flow) {
+      return {FLOW_BG_COLOR, COUNTDOWN_COLOR_FLOW, ramped, FLOW_ARC_TRACK_COLOR,
+              LOW_BATTERY_COLOR};
+    }
+    return {SCREEN_BG_COLOR, COUNTDOWN_COLOR, ramped, ARC_TRACK_COLOR, LOW_BATTERY_COLOR};
+  }
+
+  // The swap is literal: whatever the background was becomes what is drawn on
+  // it. No new colours are needed, and the pairing stays contrasty by
+  // construction -- flow's ramp is the darker one and was already the mode
+  // drawn on white, so it gets white.
+  const uint32_t foreground = flow ? FLOW_BG_COLOR : SCREEN_BG_COLOR;
+
+  // Track hidden. It would be a second tone on a field that is already carrying
+  // the reading, and what is left -- the arc alone -- is the part worth seeing
+  // at a glance. The full ring is one glance away in bright mode when the exact
+  // fraction matters.
+  return {ramped, foreground, foreground, ramped, foreground};
+}
+
 Indicators::ClockFields Indicators::clockFields(int seconds) {
   if (seconds < 0) seconds = 0;
   if (seconds >= 3600) return {seconds / 3600, (seconds % 3600) / 60, true};

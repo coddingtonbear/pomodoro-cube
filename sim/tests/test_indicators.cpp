@@ -126,3 +126,74 @@ void testClockFieldsSwitchToHoursPastAnHour() {
   const Indicators::ClockFields cap = Indicators::clockFields(FLOW_MAX_SECONDS);
   CHECK(cap.left == 4 && cap.right == 0 && cap.hours);
 }
+
+// Bright keeps the arrangement the cube has always had. Dim swaps the ramp onto
+// the background and draws everything over it in what used to be the
+// background, which is also what tells the two modes apart once the field no
+// longer does.
+void testBrightPaletteIsUnchanged() {
+  const Indicators::Palette normal = Indicators::palette(100, false, false);
+  CHECK(normal.background == SCREEN_BG_COLOR);
+  CHECK(normal.text == COUNTDOWN_COLOR);
+  CHECK(normal.arc == Indicators::arcColor(100));
+  CHECK(normal.track == ARC_TRACK_COLOR);
+  CHECK(normal.battery == LOW_BATTERY_COLOR);
+
+  const Indicators::Palette flow = Indicators::palette(100, true, false);
+  CHECK(flow.background == FLOW_BG_COLOR);
+  CHECK(flow.text == COUNTDOWN_COLOR_FLOW);
+  CHECK(flow.arc == Indicators::flowArcColor(100));
+  CHECK(flow.track == FLOW_ARC_TRACK_COLOR);
+}
+
+void testDimSwapsTheRampOntoTheBackground() {
+  const Indicators::Palette p = Indicators::palette(100, false, true);
+  CHECK(p.background == Indicators::arcColor(100));
+  // Black, which is what the background was.
+  CHECK(p.arc == SCREEN_BG_COLOR);
+  CHECK(p.text == SCREEN_BG_COLOR);
+  // Hidden: the groove would be a second tone on a field already carrying the
+  // reading.
+  CHECK(p.track == p.background);
+}
+
+// Flow keeps its darker ramp, so the one colour drawn over it is white.
+void testDimFlowDrawsInWhite() {
+  const Indicators::Palette p = Indicators::palette(100, true, true);
+  CHECK(p.background == Indicators::flowArcColor(100));
+  CHECK(p.arc == FLOW_BG_COLOR);
+  CHECK(p.text == FLOW_BG_COLOR);
+  CHECK(p.track == p.background);
+
+  // The two dim schemes must never draw in the same colour, because that is the
+  // only thing left distinguishing them.
+  CHECK(Indicators::palette(100, false, true).arc != p.arc);
+}
+
+// Red on a red field is nothing at all, and the end of a countdown is exactly
+// when the warning matters.
+void testDimBatteryWarningLeavesTheRampColour() {
+  const Indicators::Palette low = Indicators::palette(0, false, true);
+  CHECK(low.background == ARC_COLOR_LOW);
+  CHECK(low.battery != ARC_COLOR_LOW);
+  CHECK(low.battery == SCREEN_BG_COLOR);
+
+  CHECK(Indicators::palette(0, true, true).battery == FLOW_BG_COLOR);
+}
+
+// The background follows the ramp the whole way down, so the field shifts green
+// to red as the timer runs out.
+void testDimBackgroundFollowsTheRamp() {
+  CHECK(Indicators::palette(100, false, true).background == ARC_COLOR_FULL);
+  CHECK(Indicators::palette(ARC_MID_PERCENT, false, true).background == ARC_COLOR_MID);
+  CHECK(Indicators::palette(ARC_LOW_PERCENT, false, true).background == ARC_COLOR_LOW);
+  CHECK(Indicators::palette(0, false, true).background == ARC_COLOR_LOW);
+}
+
+void testPalette() {
+  testBrightPaletteIsUnchanged();
+  testDimSwapsTheRampOntoTheBackground();
+  testDimFlowDrawsInWhite();
+  testDimBatteryWarningLeavesTheRampColour();
+  testDimBackgroundFollowsTheRamp();
+}
