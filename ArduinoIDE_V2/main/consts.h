@@ -24,7 +24,10 @@ constexpr int TIMER_SHORT_BREAK_SECONDS = 5 * 60;
 // DEG_180 and DEG_270 are flow mode's pair, and carry no fixed length. Flow work
 // counts up and credits a fifth of what it counted to a bank of break time; the
 // break face counts that bank down. The bank persists across stints, so several
-// spells of work accumulate, and an unspent break goes back in.
+// spells of work accumulate, and an unspent break goes back in. It also survives
+// the cube being set down on either resting face: a balance is not forfeited by
+// putting the thing away. Only a power cycle empties it, because RTC memory is
+// all that holds it.
 constexpr int FLOW_BREAK_DIVISOR = 5;
 
 // There is no floor on a break and nothing to fall back on when the bank is
@@ -58,9 +61,9 @@ constexpr int beepFrequencies[3] = { 1500, 1000, 2000 };
 constexpr int beepDelays[3] = { 800, 20, 20 };
 
 enum class Orientation {
-  // Both resting faces put the cube to sleep today. They are separate states so
-  // that face-up can become "paused" and face-down "off" without another change
-  // to orientation sensing.
+  // Both resting faces put the cube to sleep and park whatever was running. The
+  // only difference between them is the screen: face up holds the paused figures
+  // lit, face down goes dark.
   FACE_DOWN,
   FACE_UP,
   DEG_0,

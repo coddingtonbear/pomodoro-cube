@@ -69,12 +69,12 @@ void setup() {
   if (QMI::getAccelerometer(ax, ay, az)) {
     Orientation currentOri = Util::calcOrientation(ax, ay, az);
     if (Util::isRestingFace(currentOri)) {
-      // Woken but still resting: hold a pause rather than discarding it, and
-      // leave the panel alone -- it is still showing the paused frame.
-      const bool holdingPause =
+      // Woken but still resting: go straight back down without touching what is
+      // parked. Only face up keeps the panel lit, and only when there is a pause
+      // to show -- the frame it holds is the one still on the panel from before.
+      const bool lit =
           currentOri == Orientation::FACE_UP && RtcState::hasPause(RtcState::data());
-      if (!holdingPause) RtcState::clearPause(RtcState::data());
-      Util::deepSleep(holdingPause ? Util::SleepMode::Paused : Util::SleepMode::Off, false);
+      Util::deepSleep(lit ? Util::SleepMode::Paused : Util::SleepMode::Off, false);
     }
   }
   // -----------------------------------------
@@ -95,20 +95,16 @@ void loop() {
     if (Util::updateOriDebounce(currentOri)) {
       Orientation ori = Util::getDebouncedOriState();
 
-      if (ori == Orientation::FACE_UP) {
-        // Face up parks the timer: stored here, picked up again only by the
-        // face it was paused from. A flow stint is parked rather than ended --
-        // standing the cube back on its face carries on counting up.
-        RtcState::storePause(RtcState::data(), lastTimerFace, remSeconds, selSeconds,
+      if (Util::isRestingFace(ori)) {
+        // Both resting faces park the timer, stored against the face it was
+        // running on and picked up again only by that face. A flow stint is
+        // parked rather than ended -- standing the cube back on its face carries
+        // on counting up. The two faces differ only in the screen.
+        const Util::RestPlan plan =
+            Util::restOnFace(RtcState::data(), ori, lastTimerFace, remSeconds, selSeconds,
                              countingUp());
-        Display::showPaused();
-        Util::deepSleep(Util::SleepMode::Paused, true);
-      }
-      if (ori == Orientation::FACE_DOWN) {
-        // Face down means off, so nothing is kept -- the break bank included.
-        RtcState::clearPause(RtcState::data());
-        RtcState::clearFlowBank(RtcState::data());
-        Util::deepSleep(Util::SleepMode::Off, true);
+        if (plan.lit) Display::showPaused();
+        Util::deepSleep(plan.mode, true);
       }
 
       // Turning off the flow face ends the stint it was counting.

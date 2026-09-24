@@ -180,7 +180,100 @@ void testUnknownOrientationsFallBackToWork() {
   }
 }
 
+// Setting the cube down parks what was running. The two resting faces differ
+// only in the screen, so everything below is asserted for both of them.
+constexpr Orientation kRestingFaces[] = {Orientation::FACE_UP, Orientation::FACE_DOWN};
+
+void testOnlyFaceUpStaysLit() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+
+  const Util::RestPlan up =
+      Util::restOnFace(data, Orientation::FACE_UP, Orientation::DEG_0, 900, 1500, false);
+  CHECK(up.lit);
+  CHECK(up.mode == Util::SleepMode::Paused);
+
+  const Util::RestPlan down =
+      Util::restOnFace(data, Orientation::FACE_DOWN, Orientation::DEG_0, 900, 1500, false);
+  CHECK(!down.lit);
+  CHECK(down.mode == Util::SleepMode::Off);
+}
+
+// The regression this pair guards: face down used to empty the bank on its way
+// into sleep, so a break earned before putting the cube away was gone when it
+// came back.
+void testBothRestingFacesKeepTheBank() {
+  for (const Orientation ori : kRestingFaces) {
+    RtcState::Data data;
+    RtcState::initialise(data);
+    RtcState::addFlowBank(data, 600);
+
+    Util::restOnFace(data, ori, Orientation::DEG_180, 1800, 0, true);
+    CHECK(RtcState::flowBank(data) == 600);
+  }
+}
+
+void testBothRestingFacesParkTheTimer() {
+  for (const Orientation ori : kRestingFaces) {
+    RtcState::Data data;
+    RtcState::initialise(data);
+
+    Util::restOnFace(data, ori, Orientation::DEG_0, 900, 1500, false);
+    CHECK(RtcState::hasPause(data));
+
+    // Parked against the face it was running on, not the face it is resting on,
+    // so picking the cube up onto that face resumes where it left off.
+    int remaining = 0;
+    int selected = 0;
+    bool countingUp = true;
+    CHECK(RtcState::takePause(data, Orientation::DEG_0, remaining, selected, countingUp));
+    CHECK(remaining == 900);
+    CHECK(selected == 1500);
+    CHECK(!countingUp);
+  }
+}
+
+void testAParkedFlowStintIsStillCountingUp() {
+  for (const Orientation ori : kRestingFaces) {
+    RtcState::Data data;
+    RtcState::initialise(data);
+
+    // A flow stint carries no selected length; the elapsed time is the whole of
+    // it, and it has to come back counting up rather than down.
+    Util::restOnFace(data, ori, Orientation::DEG_180, 742, 0, true);
+
+    int remaining = 0;
+    int selected = 0;
+    bool countingUp = false;
+    CHECK(RtcState::takePause(data, Orientation::DEG_180, remaining, selected, countingUp));
+    CHECK(remaining == 742);
+    CHECK(countingUp);
+  }
+}
+
+void testRestingWithNothingRunningParksNothing() {
+  for (const Orientation ori : kRestingFaces) {
+    RtcState::Data data;
+    RtcState::initialise(data);
+    RtcState::addFlowBank(data, 300);
+
+    // A finished timer has nothing worth resuming, but the bank is a balance
+    // rather than a handoff and is not touched either way.
+    Util::restOnFace(data, ori, Orientation::DEG_0, 0, 1500, false);
+    CHECK(!RtcState::hasPause(data));
+    CHECK(RtcState::flowBank(data) == 300);
+  }
+}
+
 }  // namespace
+
+void testRestingFaceParking() {
+  testOnlyFaceUpStaysLit();
+  testBothRestingFacesKeepTheBank();
+  testBothRestingFacesParkTheTimer();
+  testAParkedFlowStintIsStillCountingUp();
+  testRestingWithNothingRunningParksNothing();
+}
 
 void testTimerSelection() {
   testFacesMapToTimers();

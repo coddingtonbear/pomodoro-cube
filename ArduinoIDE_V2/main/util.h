@@ -1,5 +1,6 @@
 #pragma once
 #include "consts.h"
+#include "rtc_state.h"
 
 
 namespace Util {
@@ -12,6 +13,21 @@ bool isRestingFace(Orientation ori);
 // Off blanks the panel; Paused leaves the frozen frame lit.
 enum class SleepMode { Off, Paused };
 void deepSleep(SleepMode mode, bool playSound);
+
+// What setting the cube down on a resting face asks for. `lit` is the whole
+// difference between the two faces: face up shows the paused figures, face down
+// goes dark. Both sleep the same way otherwise.
+struct RestPlan {
+  bool lit;
+  SleepMode mode;
+};
+
+// Park what was running because the cube was set down. Setting it down is not
+// abandoning the interval, so both faces keep the pause, and neither touches the
+// break bank: a balance outlives being put away. `timerFace` is the face the
+// timer was running on, which is the only face the pause will resume onto.
+RestPlan restOnFace(RtcState::Data &data, Orientation ori, Orientation timerFace,
+                    int remaining, int selected, bool countingUp);
 
 // What standing the cube on a face asks for. `seconds` is the length to count
 // down; it is 0 in CountUp, where there is no length to count, and on the flow

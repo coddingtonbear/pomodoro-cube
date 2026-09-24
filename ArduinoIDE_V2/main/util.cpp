@@ -67,6 +67,18 @@ bool Util::isRestingFace(Orientation ori) {
   return ori == Orientation::FACE_UP || ori == Orientation::FACE_DOWN;
 }
 
+Util::RestPlan Util::restOnFace(RtcState::Data &data, Orientation ori, Orientation timerFace,
+                                int remaining, int selected, bool countingUp) {
+  // Park rather than discard, on either face. Setting the cube down is not the
+  // same as choosing a different interval -- that is what standing it on another
+  // face means -- so the pause and the break bank both survive it. Face down is
+  // face up with the lights out.
+  RtcState::storePause(data, timerFace, remaining, selected, countingUp);
+
+  const bool lit = ori == Orientation::FACE_UP;
+  return {lit, lit ? SleepMode::Paused : SleepMode::Off};
+}
+
 Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
   switch (ori) {
     case Orientation::DEG_0:

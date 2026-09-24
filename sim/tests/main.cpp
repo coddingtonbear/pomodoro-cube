@@ -3,6 +3,7 @@
 #include "check.h"
 
 void testTimerSelection();
+void testRestingFaceParking();
 void testRemainingPercent();
 void testLapPercent();
 void testClockFieldsSwitchToHoursPastAnHour();
@@ -35,6 +36,7 @@ void testBreakAdvertisesNotWork();
 
 int main() {
   testTimerSelection();
+  testRestingFaceParking();
   testRemainingPercent();
   testLapPercent();
   testClockFieldsSwitchToHoursPastAnHour();
