@@ -241,9 +241,31 @@ by reflashing.
 Open `ArduinoIDE_V2/main` in the Arduino IDE. Dependencies, all from the
 Library Manager:
 
-- TFT_eSPI 2.5.43 (Bodmer) — configured by `tft_setup.h`
+- TFT_eSPI 2.5.43 (Bodmer) — configured by `tft_setup.h`, which TFT_eSPI picks
+  up from the sketch folder on its own
 - lvgl 8.3.11
-- SensorQMI8658 0.4.1 (Lewis He)
+- SensorLib 0.4.1 (Lewis He) — the library that provides `SensorQMI8658.hpp`.
+  Searching the Library Manager for the header's name finds other people's
+  QMI8658 libraries instead, none of which are this one
+
+LVGL is the one that needs a hand: it looks for its configuration one directory
+*above* itself, so `ArduinoIDE_V2/lv_conf.h` has to be linked into place.
+
+```bash
+ln -s "$PWD/ArduinoIDE_V2/lv_conf.h" ~/Arduino/libraries/lv_conf.h
+```
+
+That file sets only the three options that differ from LVGL's defaults, and
+`sim/CMakeLists.txt` sets the same three, so the simulator and the board render
+from identical settings.
+
+Board settings, matching the ESP32-S3-WROOM-1 the Waveshare board carries:
+**ESP32S3 Dev Module**, flash size **16MB**, PSRAM **disabled** (this module
+has none). USB CDC on boot stays **disabled** — the USB-C port is a CH343
+UART bridge rather than the S3's native USB, so `Serial` is UART0 either way
+and the port appears as `/dev/ttyACM0`. The default 4MB partition scheme is
+kept despite the 16MB flash: the sketch is 586 kB against that scheme's 1.3 MB
+app slot, and nothing here uses the filesystem.
 
 `ArduinoIDE_V2/main/src/` began life as SquareLine Studio output and is now
 maintained by hand. **Re-exporting from `SquareLine/coffee_timer.spj` would
@@ -318,6 +340,7 @@ Things that need a board, collected so they can be checked in one sitting:
 ## Layout
 
 ```
+ArduinoIDE_V2/lv_conf.h   LVGL settings, linked into ~/Arduino/libraries
 ArduinoIDE_V2/main/       the firmware, built with the Arduino IDE
 ArduinoIDE_V2/main/src/   the LVGL UI, originally SquareLine Studio output
 SquareLine/               the SquareLine Studio project the UI came from
