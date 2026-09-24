@@ -5,6 +5,10 @@ break silently: that the parts still add up to an exact cube, that each is a
 single solid a slicer will accept, that nothing inside collides with anything
 else, and that the display seat and board retention still suit the board they
 were measured from.
+
+Board figures are measured from Waveshare's STEP — see :mod:`board`. The tests
+in :class:`TestBoardProvenance` restate them so an accidental edit to a
+measurement shows up as a failure rather than as a quietly different cube.
 """
 
 from __future__ import annotations
@@ -14,16 +18,8 @@ import math
 import pytest
 from build123d import Axis, GeomType, Part
 
-from cube import (
-    BOARD_STACK_DEPTH,
-    USB_C_CONNECTOR_WIDTH,
-    DISPLAY_ACTIVE_DIAMETER,
-    DISPLAY_BEZEL_DIAMETER,
-    DISPLAY_MODULE_DIAMETER,
-    PCB_DIAMETER,
-    CubeSpec,
-    Enclosure,
-)
+from board import WAVESHARE_ESP32_S3_TOUCH_LCD_1_28, BoardSpec
+from cube import CubeSpec, Enclosure
 
 TOLERANCE = 1e-6
 
@@ -34,8 +30,57 @@ def spec() -> CubeSpec:
 
 
 @pytest.fixture
+def board() -> BoardSpec:
+    return WAVESHARE_ESP32_S3_TOUCH_LCD_1_28
+
+
+@pytest.fixture
 def enclosure(spec: CubeSpec) -> Enclosure:
     return Enclosure(spec)
+
+
+class TestBoardProvenance:
+    """Read off the STEP with build123d, not from the dimension drawing."""
+
+    def test_the_pcb_circle_is_smaller_than_the_quoted_span(
+        self, board: BoardSpec
+    ) -> None:
+        """39.53 mm is the board's extent including its USB-C tab. The circle
+        the clamp bars land on is a millimetre less."""
+        assert board.pcb_diameter == pytest.approx(37.537, abs=1e-3)
+        span = board.pcb_diameter / 2 + board.tab_reach
+        assert span == pytest.approx(39.53, abs=0.01)
+
+    def test_the_module_overhangs_the_pcb(self, board: BoardSpec) -> None:
+        overhang = (board.module_diameter - board.pcb_diameter) / 2
+        assert overhang == pytest.approx(0.487, abs=1e-3)
+
+    def test_the_bezel_stands_proud_of_the_seating_shoulder(
+        self, board: BoardSpec
+    ) -> None:
+        """The cone grips the Ø38.51 body, which is half a millimetre behind
+        the bezel face — so seating the shoulder flush leaves the bezel out."""
+        assert board.bezel_proud_of_shoulder == pytest.approx(0.500, abs=1e-3)
+
+    def test_the_stack_depth_matches_the_step(self, board: BoardSpec) -> None:
+        assert board.stack_depth == pytest.approx(8.400, abs=1e-3)
+
+    def test_the_socket_hangs_off_the_back_of_the_pcb(self, board: BoardSpec) -> None:
+        """Which is the face the clamp bears on, so anything crossing the tab
+        meets the socket instead of the board."""
+        assert board.usb_socket_behind_pcb == pytest.approx(3.250, abs=1e-3)
+
+    def test_the_socket_is_narrower_than_the_tab(self, board: BoardSpec) -> None:
+        assert board.usb_socket_width == pytest.approx(9.583, abs=1e-3)
+        assert board.tab_width == pytest.approx(9.916, abs=1e-3)
+
+    def test_rejects_a_board_whose_module_does_not_overhang(self) -> None:
+        with pytest.raises(ValueError, match="overhang"):
+            BoardSpec(pcb_diameter=40.0)
+
+    def test_rejects_a_socket_wider_than_its_tab(self) -> None:
+        with pytest.raises(ValueError, match="wider than"):
+            BoardSpec(usb_socket_width=12.0)
 
 
 class TestAssembly:
@@ -115,27 +160,36 @@ class TestDisplaySeat:
     """The seat is a cone, not a bore: the module wedges into it from behind."""
 
     def test_the_seat_narrows_towards_the_inside(self, spec: CubeSpec) -> None:
-        assert spec.seat_mouth_diameter > spec.display_seat_diameter
+        assert spec.seat_mouth_diameter > spec.seat_throat_diameter
 
     def test_the_mouth_is_wider_than_the_module(self, spec: CubeSpec) -> None:
         """Otherwise the module sits proud of the face instead of sinking in."""
-        assert spec.seat_mouth_diameter > DISPLAY_MODULE_DIAMETER
+        assert spec.seat_mouth_diameter > spec.board.module_diameter
 
     def test_the_throat_is_narrower_than_the_module(self, spec: CubeSpec) -> None:
         """Otherwise the module falls straight through."""
-        assert spec.display_seat_diameter < DISPLAY_MODULE_DIAMETER
+        assert spec.seat_throat_diameter < spec.board.module_diameter
 
     def test_the_module_ends_up_below_the_outer_face(self, spec: CubeSpec) -> None:
         assert 0 < spec.module_seat_depth < spec.wall
 
+    def test_the_bezel_ends_up_recessed_by_the_asked_amount(
+        self, spec: CubeSpec
+    ) -> None:
+        """The whole point of deriving the seat depth: the bezel, not the
+        shoulder, is what you see, and it stands 0.5 mm in front of it."""
+        bezel_below_face = spec.module_seat_depth - spec.board.bezel_proud_of_shoulder
+        assert bezel_below_face == pytest.approx(spec.display_recess, abs=1e-9)
+        assert bezel_below_face > 0, "the bezel would stand proud of the face"
+
     def test_nothing_masks_the_picture(self, spec: CubeSpec) -> None:
-        assert spec.display_seat_diameter > DISPLAY_ACTIVE_DIAMETER
+        assert spec.seat_throat_diameter > spec.board.active_diameter
 
     def test_the_seat_covers_no_more_than_the_bezel(self, spec: CubeSpec) -> None:
         """The opening should show the bezel and none of the board behind."""
-        assert spec.display_seat_diameter >= DISPLAY_BEZEL_DIAMETER
+        assert spec.seat_throat_diameter >= spec.board.bezel_diameter
 
-    def test_the_seat_opens_at_the_measured_diameters(
+    def test_the_seat_opens_at_the_derived_diameters(
         self, enclosure: Enclosure
     ) -> None:
         """Mouth at the outer face, throat at the inner one, and nothing in
@@ -144,11 +198,11 @@ class TestDisplaySeat:
         seat = {
             round(edge.center().Z, 3): round(2 * edge.radius, 3)
             for edge in enclosure.top_plate.edges().filter_by(GeomType.CIRCLE)
-            if edge.radius > spec.display_seat_diameter / 2 - TOLERANCE
+            if edge.radius > spec.seat_throat_diameter / 2 - TOLERANCE
         }
         assert seat == {
             0.0: pytest.approx(spec.seat_mouth_diameter, abs=1e-3),
-            round(spec.wall, 3): pytest.approx(spec.display_seat_diameter, abs=1e-3),
+            round(spec.wall, 3): pytest.approx(spec.seat_throat_diameter, abs=1e-3),
         }
 
     def test_the_display_opening_is_not_chamfered(self, enclosure: Enclosure) -> None:
@@ -191,8 +245,9 @@ class TestBoardRetention:
         assert len(outer.inner_wires()) == 1
 
     def test_clamp_bar_reaches_over_the_board_rim(self, spec: CubeSpec) -> None:
-        overlap = PCB_DIAMETER / 2 - (spec.boss_offset - spec.clamp_bar_width / 2)
-        assert overlap > 2.0, f"only {overlap:.2f} mm of bar lands on the board"
+        assert spec.clamp_bar_overlap > 2.0, (
+            f"only {spec.clamp_bar_overlap:.2f} mm of bar lands on the board"
+        )
 
     def test_clamp_bar_has_a_hole_over_each_boss(self, enclosure: Enclosure) -> None:
         spec = enclosure.spec
@@ -207,10 +262,28 @@ class TestBoardRetention:
         assert spec.screw_clearance_diameter > 2.0  # M2 shank
         assert spec.screw_clearance_diameter < spec.clamp_bar_width
 
-    def test_the_clamp_plane_is_inside_the_board_stack(self, spec: CubeSpec) -> None:
-        """The bars bear on the board's rim, which sits in front of its rearmost
-        components, so the clamp height must fall short of the whole stack."""
-        assert spec.board_clamp_height < BOARD_STACK_DEPTH
+    def test_the_clamp_bears_on_the_pcbs_back_face(self, spec: CubeSpec) -> None:
+        """Not on a number copied from the original: once the seat depth is
+        fixed, the board's own geometry says where its back face lands."""
+        below_outer_face = spec.wall + spec.board_clamp_height
+        assert below_outer_face == pytest.approx(
+            spec.module_seat_depth + spec.board.pcb_back_behind_shoulder, abs=1e-9
+        )
+
+    def test_the_clamp_plane_is_in_front_of_the_rearmost_component(
+        self, spec: CubeSpec
+    ) -> None:
+        assert (
+            spec.board.pcb_back_behind_shoulder < spec.board.rearmost_behind_shoulder
+        )
+
+    def test_the_bars_run_square_to_the_socket(self, spec: CubeSpec) -> None:
+        assert (spec.clamp_bar_bearing - spec.usb_cutout_bearing) % 180 == 90
+
+    def test_the_bars_clear_the_usb_socket(self, spec: CubeSpec) -> None:
+        """The socket hangs off the back of the PCB, in the plane the bars bear
+        on. A bar crossing the board's tab would land on it."""
+        assert spec.board.usb_socket_width / 2 < spec.clamp_bar_inner_edge
 
 
 class TestUsbCutout:
@@ -232,16 +305,16 @@ class TestUsbCutout:
         )
 
     def test_the_opening_clears_the_connector(self, spec: CubeSpec) -> None:
-        clearance = spec.usb_cutout_width - USB_C_CONNECTOR_WIDTH
+        clearance = spec.usb_cutout_width - spec.board.usb_socket_width
         assert clearance > 1.5, f"only {clearance:.2f} mm around the socket"
 
-    def test_the_opening_sits_where_the_socket_does(self, spec: CubeSpec) -> None:
-        """Depth below the display's outer face, which is what the board hangs
-        off. The original's socket opening runs 6.00 to 12.25 mm in."""
-        near = spec.usb_cutout_depth
-        far = spec.usb_cutout_depth + spec.usb_cutout_height
-        assert near == pytest.approx(6.00, abs=0.01)
-        assert far == pytest.approx(12.25, abs=0.01)
+    def test_the_opening_brackets_the_socket(self, spec: CubeSpec) -> None:
+        """Both measured down from the display's outer face, which is what the
+        board hangs off."""
+        socket_top = spec.module_seat_depth + spec.board.usb_socket_top_behind_shoulder
+        socket_bottom = socket_top + spec.board.usb_socket_height
+        assert spec.usb_cutout_depth <= socket_top
+        assert spec.usb_cutout_depth + spec.usb_cutout_height >= socket_bottom
 
     def test_the_opening_falls_wholly_within_the_band(self, spec: CubeSpec) -> None:
         top = spec.usb_cutout_top_in_band
@@ -262,6 +335,11 @@ class TestUsbCutout:
         assert min(f.center().Y for f in cut_faces) < 0
         assert max(f.center().Y for f in cut_faces) > 0
 
+    def test_a_cable_has_to_reach_past_the_wall(self, spec: CubeSpec) -> None:
+        """Recorded rather than enforced: the socket's face sits back from the
+        wall, so a plug has to cross the gap and the wall before it engages."""
+        assert spec.socket_to_wall_gap == pytest.approx(2.719, abs=1e-3)
+
 
 class TestSpecValidation:
     def test_rejects_walls_that_meet_in_the_middle(self) -> None:
@@ -276,13 +354,13 @@ class TestSpecValidation:
         with pytest.raises(ValueError, match="knife edge"):
             CubeSpec(wall=8.0, corner_radius=6.0)
 
+    def test_rejects_a_recess_deeper_than_the_plate(self) -> None:
+        with pytest.raises(ValueError, match="through a"):
+            CubeSpec(display_recess=3.0)
+
     def test_rejects_a_seat_that_masks_the_picture(self) -> None:
         with pytest.raises(ValueError, match="active area"):
-            CubeSpec(display_seat_diameter=32.0)
-
-    def test_rejects_a_seat_the_module_would_fall_through(self) -> None:
-        with pytest.raises(ValueError, match="fall through"):
-            CubeSpec(display_seat_diameter=39.0)
+            CubeSpec(display_seat_angle=52.0)
 
     def test_rejects_a_seat_mouth_wider_than_the_cavity(self) -> None:
         with pytest.raises(ValueError, match="does not fit"):
@@ -292,13 +370,21 @@ class TestSpecValidation:
         with pytest.raises(ValueError, match="foul"):
             CubeSpec(boss_offset=14.0)
 
+    def test_rejects_bars_that_never_reach_the_board(self) -> None:
+        with pytest.raises(ValueError, match="never reach"):
+            CubeSpec(boss_offset=25.0)
+
+    def test_rejects_bars_that_would_land_on_the_socket(self) -> None:
+        with pytest.raises(ValueError, match="USB-C socket"):
+            CubeSpec(clamp_bar_width=34.0)
+
     def test_rejects_a_usb_cutout_inside_the_top_plate(self) -> None:
         with pytest.raises(ValueError, match="top plate"):
-            CubeSpec(usb_cutout_depth=2.0)
+            CubeSpec(usb_cutout_top_clearance=2.0)
 
     def test_rejects_a_usb_cutout_that_runs_off_the_band(self) -> None:
         with pytest.raises(ValueError, match="runs off"):
-            CubeSpec(usb_cutout_height=50.0)
+            CubeSpec(usb_cutout_clearance=50.0)
 
     def test_rejects_a_usb_corner_radius_that_swallows_the_opening(self) -> None:
         with pytest.raises(ValueError, match="too large"):
@@ -311,7 +397,9 @@ class TestSpecValidation:
     def test_accepts_the_defaults(self, spec: CubeSpec) -> None:
         assert spec.cavity_size == pytest.approx(49.0)
         assert spec.cavity_radius == pytest.approx(3.0)
-        assert spec.seat_mouth_diameter == pytest.approx(38.94, abs=0.02)
+        assert spec.seat_mouth_diameter == pytest.approx(39.48, abs=0.02)
+        assert spec.board_clamp_height == pytest.approx(2.40, abs=0.01)
+        assert spec.usb_cutout_depth == pytest.approx(3.99, abs=0.01)
 
 
 class TestResizing:
@@ -323,13 +411,46 @@ class TestResizing:
         assert measured.X == pytest.approx(size, abs=1e-3)
         assert measured.Z == pytest.approx(size, abs=1e-3)
 
-    @pytest.mark.parametrize("wall", [2.0, 3.0, 4.0])
+    @pytest.mark.parametrize("wall", [2.0, 3.0, 3.5])
     def test_wall_thickness_drives_the_cavity(self, wall: float) -> None:
         spec = CubeSpec(wall=wall, corner_radius=max(6.0, wall))
         assert spec.cavity_size == pytest.approx(55.0 - 2 * wall)
 
-    def test_a_thicker_wall_opens_the_seat_mouth(self) -> None:
-        """The taper is an angle, so the mouth follows the wall."""
-        assert CubeSpec(wall=4.0).seat_mouth_diameter > CubeSpec(
-            wall=2.0
-        ).seat_mouth_diameter
+    def test_a_thicker_wall_narrows_the_throat(self) -> None:
+        """The taper is an angle, so the throat follows the wall. The mouth
+        does not: it is fixed by the module and how deep it has to sit."""
+        thick, thin = CubeSpec(wall=3.5), CubeSpec(wall=2.0)
+        assert thick.seat_throat_diameter < thin.seat_throat_diameter
+        assert thick.seat_mouth_diameter == pytest.approx(thin.seat_mouth_diameter)
+
+    def test_the_wall_cannot_outgrow_the_socket_depth(self) -> None:
+        """A real ceiling, not an arbitrary one: the socket sits so close to
+        the display that a thicker plate swallows the opening's top edge. At
+        the default clearances the plate can be just under 4 mm."""
+        CubeSpec(wall=3.9)
+        with pytest.raises(ValueError, match="top plate"):
+            CubeSpec(wall=4.0)
+
+    def test_a_deeper_recess_opens_the_seat_mouth(self) -> None:
+        assert (
+            CubeSpec(display_recess=1.0).seat_mouth_diameter
+            > CubeSpec(display_recess=0.2).seat_mouth_diameter
+        )
+
+    def test_a_different_board_moves_the_clamp_and_the_opening(self) -> None:
+        """What the board spec is for: when the real board measures otherwise,
+        every derived figure follows."""
+        default = CubeSpec()
+        deeper = CubeSpec(
+            board=BoardSpec(
+                pcb_back_behind_shoulder=6.0,
+                rearmost_behind_shoulder=9.0,
+                usb_socket_top_behind_shoulder=5.0,
+            )
+        )
+        assert deeper.board_clamp_height == pytest.approx(
+            default.board_clamp_height + 1.5
+        )
+        assert deeper.usb_cutout_depth == pytest.approx(
+            default.usb_cutout_depth + 1.41
+        )

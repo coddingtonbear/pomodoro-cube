@@ -10,11 +10,11 @@ Dimensions inherited from the original, measured off its meshes:
 
     outer size          55.00 mm        wall             3.00 mm
     corner radius        6.00 mm        inner radius     3.00 mm
-    bottom chamfer       0.50 mm        clamp height     7.00 mm
+    bottom chamfer       0.50 mm        seat taper      28.4 degrees
 
-The display seat is a cone, not a bore: it narrows from 38.97 mm at the outer
-face to 35.70 mm at the inner one, so the module drops in from behind and wedges
-rather than passing through. See :class:`CubeSpec` for why that matters.
+Everything about the board itself — and so the seat depth, the clamp height and
+the USB-C opening, which all derive from it — comes from :mod:`board`, measured
+from the STEP Waveshare publish. See :class:`CubeSpec` for how the chain runs.
 
 Run this module to write STEP and STL for every part into `build/`.
 """
@@ -47,45 +47,22 @@ from build123d import (
     extrude,
 )
 
-# The Waveshare ESP32-S3-Touch-LCD-1.28, measured off the STEP model Waveshare
-# publish under Resources at
-# https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28
-DISPLAY_MODULE_DIAMETER = 38.51
-"""Outside diameter of the round display module. It must not fall through."""
-
-DISPLAY_BEZEL_DIAMETER = 35.67
-"""The module's black border. The seat may cover this but no more."""
-
-DISPLAY_ACTIVE_DIAMETER = 33.40
-"""Visible picture. Nothing may mask any of it."""
-
-PCB_DIAMETER = 39.53
-"""Widest extent of the board itself, which the clamp bars bear on.
-
-The board has no mounting holes — only 0.50 and 0.76 mm vias — so clamping is
-the only way to hold it. This is why the original uses bars and bosses rather
-than screwing through the board, and why this model does the same.
-"""
-
-USB_C_CONNECTOR_WIDTH = 9.92
-"""Width of the board's USB-C socket, from Waveshare's dimension drawing.
-
-It sits on a 25.28 mm flat at the bottom of the otherwise round PCB and points
-radially outward, so it has to leave through a side face rather than the back.
-"""
-
-BOARD_STACK_DEPTH = 8.40
-"""Front of the glass to the back of the rearmost component.
-
-Recorded for reference. The clamp bars bear on the board's bare rim, not on its
-rear components, so this is not the height they sit at — see
-:attr:`CubeSpec.board_clamp_height`.
-"""
+from board import WAVESHARE_ESP32_S3_TOUCH_LCD_1_28, BoardSpec
 
 
 @dataclass(frozen=True)
 class CubeSpec:
-    """Every dimension the enclosure is built from."""
+    """Every dimension the enclosure is built from.
+
+    The chain runs from the board outwards. :attr:`display_recess` says how far
+    the bezel should sit below the finished face; that fixes how deep the
+    module's Ø38.51 shoulder has to seat, which fixes the seat's mouth and
+    throat, where the PCB's back face lands, and where the USB-C socket lands
+    in the side wall. Change the board and every one of those follows.
+    """
+
+    #: The board this is built around. Swap it for measurements off a real one.
+    board: BoardSpec = WAVESHARE_ESP32_S3_TOUCH_LCD_1_28
 
     #: Outer edge length of the finished cube.
     size: float = 55.0
@@ -97,28 +74,15 @@ class CubeSpec:
     #: layer off a knife edge and takes the sharpness off the finished cube.
     edge_chamfer: float = 0.5
 
-    #: Narrow end of the display seat, at the plate's inner face. Sized just
-    #: over the module's 35.67 mm bezel, so the opening shows the whole bezel
-    #: and none of the board behind it.
-    display_seat_diameter: float = 35.70
-    #: Half-angle of the conical seat, from the plate's axis. The original's
-    #: taper measures 28.4 degrees, which over a 3 mm wall opens the outer face
-    #: to 38.94 mm — wider than the module's 38.51 mm face, so the module
-    #: settles into the cone and comes to rest a little under the outer
-    #: surface rather than sitting proud or dropping through.
+    #: How far the display bezel's face should sit below the cube's outer
+    #: surface. This is the number that decides how the finished face reads,
+    #: and everything about the board's depth follows from it.
+    display_recess: float = 0.40
+    #: Half-angle of the conical seat, from the plate's axis. Taken from the
+    #: original, whose taper measures 28.4 degrees.
     display_seat_angle: float = 28.4
 
-    #: Distance from the top plate's inner face to the face the clamp bars bear
-    #: on, which sets the boss height.
-    #:
-    #: 7.00 mm is the original's figure, and it is the one dimension here that
-    #: was verified against a physical build of this exact board rather than
-    #: derived. Check it with a board in hand before printing: the bars should
-    #: meet the board's rim, not stand off it or crush it.
-    board_clamp_height: float = 7.00
     #: Distance from the cube's axis to each boss centre, along the diagonals.
-    #: Far enough out to clear the 39.53 mm board, near enough in to stay
-    #: inside the cavity.
     boss_offset: float = 20.0
     #: Outside diameter of the four bosses.
     boss_diameter: float = 6.0
@@ -134,17 +98,12 @@ class CubeSpec:
     #: make the ends semicircular and leave no straight flank.
     clamp_bar_corner_radius: float = 3.0
 
-    #: Opening in the side wall for the board's USB-C socket, which points
-    #: radially out of the board's edge and so has to leave through a side
-    #: face rather than the back. Sized from the original's 12.00 x 6.25 mm
-    #: cutout, which clears the 9.92 mm connector generously enough for a
-    #: cable's overmoulding.
-    usb_cutout_width: float = 12.00
-    usb_cutout_height: float = 6.25
-    #: How far in from the display's outer face the opening starts. The board
-    #: hangs off that face, so this is what keeps the cutout lined up with the
-    #: socket when other dimensions move.
-    usb_cutout_depth: float = 6.00
+    #: Gap left around the USB-C socket's sides and underside.
+    usb_cutout_clearance: float = 1.00
+    #: Gap left above the socket. Kept smaller than the others because the
+    #: socket sits close to the display and the opening's top edge runs out of
+    #: band to sit in — see :attr:`usb_cutout_top_in_band`.
+    usb_cutout_top_clearance: float = 0.50
     #: Eases the opening's corners. The original leaves them square; a radius
     #: prints better and takes the stress riser out of the wall.
     usb_cutout_corner_radius: float = 1.0
@@ -164,15 +123,21 @@ class CubeSpec:
                 f"corner radius {self.corner_radius} is thinner than the "
                 f"{self.wall} mm wall, which would leave a knife edge inside"
             )
-        if self.display_seat_diameter <= DISPLAY_ACTIVE_DIAMETER:
+        if self.module_seat_depth >= self.wall:
             raise ValueError(
-                f"seat {self.display_seat_diameter} would mask the "
-                f"{DISPLAY_ACTIVE_DIAMETER} mm active area"
+                f"a {self.display_recess} mm recess seats the module "
+                f"{self.module_seat_depth:.2f} mm down, through a "
+                f"{self.wall} mm plate"
             )
-        if self.display_seat_diameter >= DISPLAY_MODULE_DIAMETER:
+        if self.seat_throat_diameter <= self.board.active_diameter:
             raise ValueError(
-                f"seat {self.display_seat_diameter} is wider than the "
-                f"{DISPLAY_MODULE_DIAMETER} mm module, which would fall through"
+                f"throat {self.seat_throat_diameter:.2f} would mask the "
+                f"{self.board.active_diameter} mm active area"
+            )
+        if self.seat_throat_diameter >= self.board.module_diameter:
+            raise ValueError(
+                f"throat {self.seat_throat_diameter:.2f} is wider than the "
+                f"{self.board.module_diameter} mm module, which would fall through"
             )
         if self.seat_mouth_diameter >= self.cavity_size:
             raise ValueError(
@@ -189,21 +154,33 @@ class CubeSpec:
         ):
             raise ValueError(
                 f"USB cutout corner radius {self.usb_cutout_corner_radius} "
-                f"is too large for a {self.usb_cutout_width} x "
-                f"{self.usb_cutout_height} mm opening"
+                f"is too large for a {self.usb_cutout_width:.2f} x "
+                f"{self.usb_cutout_height:.2f} mm opening"
             )
         if self.usb_cutout_depth < self.wall:
             raise ValueError(
-                f"USB cutout starts {self.usb_cutout_depth} mm in, inside the "
-                f"{self.wall} mm top plate rather than the band"
+                f"USB cutout starts {self.usb_cutout_depth:.2f} mm in, inside "
+                f"the {self.wall} mm top plate rather than the band"
             )
         if self.usb_cutout_top_in_band + self.usb_cutout_height > self.band_height:
             raise ValueError("USB cutout runs off the bottom of the band")
         if self.boss_clearance_to_board < 0:
             raise ValueError(
                 f"bosses at {self.boss_offset} mm foul the "
-                f"{PCB_DIAMETER} mm board"
+                f"{self.board.pcb_diameter} mm board"
             )
+        if self.clamp_bar_overlap <= 0:
+            raise ValueError(
+                f"clamp bars start {self.boss_offset - self.clamp_bar_width / 2} mm "
+                f"out and never reach the {self.board.pcb_diameter} mm board"
+            )
+        if self.board.usb_socket_width / 2 >= self.clamp_bar_inner_edge:
+            raise ValueError(
+                f"clamp bars reach within {self.clamp_bar_inner_edge} mm of the "
+                f"axis and would land on the USB-C socket"
+            )
+
+    # -- the shell ---------------------------------------------------------
 
     @property
     def cavity_size(self) -> float:
@@ -220,21 +197,46 @@ class CubeSpec:
         """Height of the four-sided band, the cube less its two plates."""
         return self.size - 2 * self.wall
 
+    # -- the display seat --------------------------------------------------
+
+    @property
+    def module_seat_depth(self) -> float:
+        """Depth of the module's Ø38.51 shoulder below the outer face.
+
+        The bezel stands proud of that shoulder, so seating the shoulder flush
+        would leave the bezel sticking out. Burying it by the bezel's own
+        height plus the wanted recess is what puts the glass where it belongs.
+        """
+        return self.display_recess + self.board.bezel_proud_of_shoulder
+
     @property
     def seat_mouth_diameter(self) -> float:
-        """Wide end of the display seat, at the plate's outer face."""
-        return self.display_seat_diameter + 2 * self.wall * math.tan(
+        """Wide end of the display seat, at the plate's outer face.
+
+        Sized so the cone has narrowed to the module's own diameter exactly at
+        :attr:`module_seat_depth`, which is where the module comes to rest.
+        """
+        return self.board.module_diameter + 2 * self.module_seat_depth * math.tan(
             math.radians(self.display_seat_angle)
         )
 
     @property
-    def module_seat_depth(self) -> float:
-        """How far below the outer surface the module's face comes to rest.
+    def seat_throat_diameter(self) -> float:
+        """Narrow end of the display seat, at the plate's inner face."""
+        return self.seat_mouth_diameter - 2 * self.wall * math.tan(
+            math.radians(self.display_seat_angle)
+        )
 
-        Where the cone has narrowed to the module's own diameter.
+    # -- board retention ---------------------------------------------------
+
+    @property
+    def board_clamp_height(self) -> float:
+        """Plate's inner face to the PCB's back face, which the bars bear on.
+
+        Derived rather than given: once the seat depth is fixed, the board's
+        own geometry says where its back face lands.
         """
-        rise = (self.seat_mouth_diameter - DISPLAY_MODULE_DIAMETER) / 2
-        return rise / math.tan(math.radians(self.display_seat_angle))
+        return self.module_seat_depth + self.board.pcb_back_behind_shoulder - self.wall
 
     @property
     def boss_height(self) -> float:
@@ -245,14 +247,65 @@ class CubeSpec:
     def boss_clearance_to_board(self) -> float:
         """Gap between a boss's nearest edge and the board's rim."""
         radial = self.boss_offset * math.sqrt(2)
-        return radial - self.boss_diameter / 2 - PCB_DIAMETER / 2
+        return radial - self.boss_diameter / 2 - self.board.pcb_diameter / 2
+
+    @property
+    def clamp_bar_inner_edge(self) -> float:
+        """Axis to a clamp bar's nearest edge."""
+        return self.boss_offset - self.clamp_bar_width / 2
+
+    @property
+    def clamp_bar_overlap(self) -> float:
+        """How far a bar reaches over the PCB's rim."""
+        return self.board.pcb_diameter / 2 - self.clamp_bar_inner_edge
+
+    @property
+    def clamp_bar_bearing(self) -> float:
+        """Which way the bars run, in degrees about the cube's axis.
+
+        Always square to the socket. The USB-C socket hangs off the back of the
+        PCB — the same face the bars bear on — so a bar crossing the board's tab
+        would land on the socket rather than the board.
+        """
+        return self.usb_cutout_bearing + 90.0
+
+    @property
+    def clamp_bar_length(self) -> float:
+        """End to end, with a half-width of material beyond each hole."""
+        return 2 * self.boss_offset + self.clamp_bar_width
+
+    # -- the USB-C opening -------------------------------------------------
+
+    @property
+    def usb_cutout_width(self) -> float:
+        """Opening width, the socket plus clearance on both sides."""
+        return self.board.usb_socket_width + 2 * self.usb_cutout_clearance
+
+    @property
+    def usb_cutout_height(self) -> float:
+        """Opening height, the socket plus its two clearances."""
+        return (
+            self.board.usb_socket_height
+            + self.usb_cutout_top_clearance
+            + self.usb_cutout_clearance
+        )
+
+    @property
+    def usb_cutout_depth(self) -> float:
+        """How far in from the display's outer face the opening starts."""
+        return (
+            self.module_seat_depth
+            + self.board.usb_socket_top_behind_shoulder
+            - self.usb_cutout_top_clearance
+        )
 
     @property
     def usb_cutout_top_in_band(self) -> float:
         """Distance from the band's top edge down to the opening's top.
 
         The band's top edge is the top plate's inner face, so this is the
-        cutout's depth less the plate it sits behind.
+        cutout's depth less the plate it sits behind. It is also the ligament
+        of band left above the opening, which this board makes thin.
         """
         return self.usb_cutout_depth - self.wall
 
@@ -266,9 +319,12 @@ class CubeSpec:
         )
 
     @property
-    def clamp_bar_length(self) -> float:
-        """End to end, with a half-width of material beyond each hole."""
-        return 2 * self.boss_offset + self.clamp_bar_width
+    def socket_to_wall_gap(self) -> float:
+        """Gap between the socket's face and the wall's inner surface.
+
+        A cable's plug has to cross this, plus the wall, before it engages.
+        """
+        return self.size / 2 - self.wall - self.board.usb_socket_reach
 
 
 def _perimeter_edges(part: Part, axis_end: int) -> ShapeList[Edge]:
@@ -333,7 +389,7 @@ def build_top_plate(spec: CubeSpec) -> Part:
         # down and flipped, because Cone's bottom radius is its larger one.
         Cone(
             bottom_radius=spec.seat_mouth_diameter / 2,
-            top_radius=spec.display_seat_diameter / 2,
+            top_radius=spec.seat_throat_diameter / 2,
             height=spec.wall,
             align=(Align.CENTER, Align.CENTER, Align.MIN),
             mode=Mode.SUBTRACT,
@@ -423,7 +479,8 @@ class Enclosure:
         """Every part moved into its place in the finished cube.
 
         The back plate lies on the bed and the top plate is turned over, so the
-        display looks up out of the top of the assembly.
+        display looks up out of the top of the assembly. The bars are turned to
+        :attr:`CubeSpec.clamp_bar_bearing`, square to the socket.
         """
         spec = self.spec
         clamp_z = spec.size - spec.wall - spec.boss_height - spec.clamp_bar_thickness
@@ -433,7 +490,8 @@ class Enclosure:
             self.top_plate.rotate(Axis.X, 180).moved(Location((0, 0, spec.size))),
         ]
         for x in (spec.boss_offset, -spec.boss_offset):
-            children.append(self.clamp_bar.moved(Location((x, 0, clamp_z))))
+            bar = self.clamp_bar.moved(Location((x, 0, clamp_z)))
+            children.append(bar.rotate(Axis.Z, spec.clamp_bar_bearing))
         return Compound(children=children)
 
     def export(self, directory: Path) -> list[Path]:
@@ -455,8 +513,18 @@ def main() -> None:
     written = enclosure.export(Path(__file__).parent / "build")
     box = enclosure.assembled().bounding_box().size
     print(f"assembled {box.X:.2f} x {box.Y:.2f} x {box.Z:.2f} mm")
-    print(f"display seat {spec.seat_mouth_diameter:.2f} -> {spec.display_seat_diameter:.2f} mm")
-    print(f"module rests {spec.module_seat_depth:.2f} mm below the outer face")
+    print(f"board {spec.board.name}")
+    print(f"display seat {spec.seat_mouth_diameter:.2f} -> {spec.seat_throat_diameter:.2f} mm")
+    print(f"module shoulder seats {spec.module_seat_depth:.2f} mm down, "
+          f"bezel {spec.display_recess:.2f} mm below the face")
+    print(f"clamp bears {spec.board_clamp_height:.2f} mm below the inner face, "
+          f"overlapping the board by {spec.clamp_bar_overlap:.2f} mm")
+    print(f"bars run at {spec.clamp_bar_bearing:.0f} deg, socket at "
+          f"{spec.usb_cutout_bearing:.0f} deg")
+    print(f"usb opening {spec.usb_cutout_width:.2f} x {spec.usb_cutout_height:.2f} mm, "
+          f"{spec.usb_cutout_depth:.2f} mm in, leaving "
+          f"{spec.usb_cutout_top_in_band:.2f} mm of band above it")
+    print(f"socket face sits {spec.socket_to_wall_gap:.2f} mm inside the wall")
     print(f"boss clearance to board {spec.boss_clearance_to_board:.2f} mm")
     for name, count in enclosure.print_quantities.items():
         print(f"  print {count} x {name}")
