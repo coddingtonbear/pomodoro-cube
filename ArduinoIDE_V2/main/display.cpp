@@ -111,9 +111,11 @@ void Display::setBacklight(int percent) {
 }
 
 void Display::setup() {
-  // A paused sleep locks the backlight on through deep sleep; release it before
-  // driving the pin again.
+  // A paused sleep locks the backlight and the panel's reset line on through
+  // deep sleep; release both before driving them again, or tft.begin() cannot
+  // reset the panel.
   gpio_hold_dis((gpio_num_t)TFT_BL_PIN);
+  gpio_hold_dis((gpio_num_t)TFT_RST);
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, HIGH);
   // Initialize TFT
@@ -213,6 +215,13 @@ void Display::holdPausedFrame() {
   // No Sleep In command: the panel keeps refreshing the frame from its own
   // memory, and holding the pin keeps it lit once the CPU stops.
   //
+  // The reset line has to be held too. esp_deep_sleep_start() returns every pad
+  // that is not held to its default -- high impedance -- and a floating RST on
+  // the GC9A01 drifts low within seconds, which resets the controller, clears
+  // its frame memory and drops it back into sleep-in. That is what blanked the
+  // paused frame a few seconds after the cube was set down: the backlight was
+  // still on, there was just nothing left on the panel to light.
+  //
   // Full brightness, not the idle level, and not a choice: nothing is left
   // running to generate PWM once the CPU stops, and gpio_hold_en() freezes the
   // instantaneous level rather than the duty cycle. A parked cube is therefore
@@ -220,6 +229,10 @@ void Display::holdPausedFrame() {
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, HIGH);
   gpio_hold_en((gpio_num_t)TFT_BL_PIN);
+
+  pinMode(TFT_RST, OUTPUT);
+  digitalWrite(TFT_RST, HIGH);
+  gpio_hold_en((gpio_num_t)TFT_RST);
 }
 
 void Display::showPaused() {

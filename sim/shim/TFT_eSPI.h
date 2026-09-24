@@ -9,6 +9,11 @@
 // library, so say so.
 #define GC9A01_DRIVER
 
+// Mirrors ArduinoIDE_V2/User_Setup.h: display.cpp holds the panel's reset line
+// through a paused sleep and so needs the pin number the real library's
+// configuration would have handed it.
+#define TFT_RST 14
+
 class TFT_eSPI {
 public:
   void begin();

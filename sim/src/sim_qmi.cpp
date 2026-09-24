@@ -15,8 +15,8 @@ bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
   az = 0.0f;
 
   switch (SimInput::orientation) {
-    case Orientation::FACE_UP:   az = 1.0f;  break;
-    case Orientation::FACE_DOWN: az = -1.0f; break;
+    case Orientation::FACE_UP:   az = -1.0f; break;
+    case Orientation::FACE_DOWN: az = 1.0f;  break;
     case Orientation::DEG_0:   ax = -1.0f; break;
     case Orientation::DEG_90:  ay = -1.0f; break;
     case Orientation::DEG_180: ax = 1.0f;  break;

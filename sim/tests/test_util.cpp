@@ -156,10 +156,10 @@ void testAnEmptyBankIsABreakOfNoLength() {
 }
 
 void testRestingFaces() {
-  // Which sign is which is an unverified guess; that the two are distinguished
-  // at all, and that both rest rather than run a timer, is the contract.
-  CHECK(Util::calcOrientation(0.0f, 0.0f, 1.0f) == Orientation::FACE_UP);
-  CHECK(Util::calcOrientation(0.0f, 0.0f, -1.0f) == Orientation::FACE_DOWN);
+  // The signs are the ones the board actually reads: +Z points into the back of
+  // the cube, so screen-up is -1g on Z.
+  CHECK(Util::calcOrientation(0.0f, 0.0f, -1.0f) == Orientation::FACE_UP);
+  CHECK(Util::calcOrientation(0.0f, 0.0f, 1.0f) == Orientation::FACE_DOWN);
 
   CHECK(Util::isRestingFace(Orientation::FACE_UP));
   CHECK(Util::isRestingFace(Orientation::FACE_DOWN));
