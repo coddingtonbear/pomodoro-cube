@@ -48,8 +48,29 @@ void delayMicroseconds(unsigned int us) {
 void pinMode(uint8_t pin, uint8_t mode) { (void)pin; (void)mode; }
 
 void digitalWrite(uint8_t pin, uint8_t value) {
-  // The backlight pin is the one GPIO whose state the simulated panel cares about.
-  if (pin == TFT_BL_PIN) SimPanel::backlightOn = (value == HIGH);
+  // The backlight pin is the one GPIO whose state the simulated panel cares
+  // about. Driven directly it is the sleep paths parking it, which are always
+  // full on or fully off.
+  if (pin == TFT_BL_PIN) SimPanel::backlightPercent = (value == HIGH) ? 100 : 0;
+}
+
+bool ledcAttach(uint8_t pin, uint32_t frequency, uint8_t resolution) {
+  (void)pin;
+  (void)frequency;
+  (void)resolution;
+  return true;
+}
+
+bool ledcWrite(uint8_t pin, uint32_t duty) {
+  // The firmware asks for a percentage and converts to 8-bit duty; undo that so
+  // the renderer can dim by the figure the policy actually chose.
+  if (pin == TFT_BL_PIN) SimPanel::backlightPercent = (int)((duty * 100 + 127) / 255);
+  return true;
+}
+
+bool ledcDetach(uint8_t pin) {
+  (void)pin;
+  return true;
 }
 int digitalRead(uint8_t pin) { (void)pin; return LOW; }
 int analogRead(uint8_t pin) { (void)pin; return 0; }

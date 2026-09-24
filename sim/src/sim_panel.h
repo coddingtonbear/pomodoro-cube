@@ -14,7 +14,10 @@ extern uint16_t framebuffer[WIDTH * HEIGHT];
 
 // Set whenever the firmware writes pixels, cleared by the renderer.
 extern bool dirty;
-extern bool backlightOn;
+// 0-100, as the firmware's brightness policy set it. The renderer scales the
+// panel by this rather than treating it as on/off, so a dimmed face on the
+// desktop looks like a dimmed face on the cube.
+extern int backlightPercent;
 extern bool asleep;
 
 void setRotation(uint8_t rotation);

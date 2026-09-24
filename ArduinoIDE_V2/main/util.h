@@ -52,6 +52,24 @@ struct TimerSpec {
 // leaves it alone: a bank is not forfeited by working somewhere else.
 TimerSpec getTimerSpec(Orientation ori, int bankedBreakSeconds);
 
+// What the panel is worth lighting for. Deliberately not a snapshot of the
+// whole timer: brightness answers "is there something to look at just now",
+// which is a narrower question than what the face is showing.
+struct BacklightView {
+  // Since the cube was last set on a different face. That change is a decision
+  // the user just made, and the figure that came up is what they made it for.
+  unsigned long sinceFaceChangeMs;
+  // Remaining on a countdown, including 0 for one that has finished and is
+  // beeping -- the state that most needs to be seen from across a room.
+  int remainingSeconds;
+  // A stint counting up has no end to approach, so it never brightens on its
+  // own; only turning the cube off it is a moment.
+  bool countingUp;
+};
+
+// How bright the backlight should be, as a percentage.
+int backlightPercent(const BacklightView &view);
+
 // What a flow stint of this length adds to the bank: a fifth of it.
 int flowBreakCredit(int workedSeconds);
 

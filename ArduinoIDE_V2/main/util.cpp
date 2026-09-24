@@ -79,6 +79,23 @@ Util::RestPlan Util::restOnFace(RtcState::Data &data, Orientation ori, Orientati
   return {lit, lit ? SleepMode::Paused : SleepMode::Off};
 }
 
+int Util::backlightPercent(const BacklightView &view) {
+  // Just set down. The face was chosen a moment ago, and what it came up with is
+  // the answer to that choice.
+  if (view.sinceFaceChangeMs < (unsigned long)BACKLIGHT_ATTENTION_SECONDS * 1000UL) {
+    return BACKLIGHT_FULL_PERCENT;
+  }
+
+  // Running out, or run out. The same test covers both: a countdown at 0 has
+  // finished and is beeping, and stays lit until it is dealt with -- which is
+  // bounded, because a finished timer sleeps the cube after thirty seconds.
+  if (!view.countingUp && view.remainingSeconds <= BACKLIGHT_ATTENTION_SECONDS) {
+    return BACKLIGHT_FULL_PERCENT;
+  }
+
+  return BACKLIGHT_IDLE_PERCENT;
+}
+
 Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
   switch (ori) {
     case Orientation::DEG_0:

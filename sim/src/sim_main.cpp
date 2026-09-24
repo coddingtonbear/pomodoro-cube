@@ -153,9 +153,9 @@ void updateTitle() {
 
   char title[192];
   std::snprintf(title, sizeof(title),
-                "pomodoro-cube sim  |  %s  |  %s  |  rot %u%s%s",
+                "pomodoro-cube sim  |  %s  |  %s  |  bl %d%%  |  rot %u%s%s",
                 g_sleeping ? "ASLEEP" : orientationName(SimInput::orientation),
-                battery, SimPanel::rotation(),
+                battery, SimPanel::backlightPercent, SimPanel::rotation(),
                 SimInput::beeperActive ? "  |  BEEP" : "",
                 g_userView ? "" : "  |  panel view");
   SDL_SetWindowTitle(g_window, title);
@@ -211,10 +211,24 @@ void saveScreenshot(const uint16_t *pixels, const std::string &path) {
   SDL_FreeSurface(surface);
 }
 
+// Scale an RGB565 pixel by the backlight percentage, per channel at that
+// channel's own width. A crude stand-in for a real backlight -- the panel's
+// response is nothing like linear -- but enough to tell a dimmed face from a
+// bright one at a glance, which is what the policy needs eyeballing for.
+uint16_t dimmed(uint16_t pixel, int percent) {
+  if (percent >= 100) return pixel;
+  if (percent <= 0) return kOffPixel;
+
+  const int red = ((pixel >> 11) & 0x1F) * percent / 100;
+  const int green = ((pixel >> 5) & 0x3F) * percent / 100;
+  const int blue = (pixel & 0x1F) * percent / 100;
+  return (uint16_t)((red << 11) | (green << 5) | blue);
+}
+
 void render() {
   static uint16_t scratch[SimPanel::WIDTH * SimPanel::HEIGHT];
 
-  const bool lit = SimPanel::backlightOn && !SimPanel::asleep;
+  const int brightness = SimPanel::asleep ? 0 : SimPanel::backlightPercent;
   // Squared radius of the round panel's visible aperture.
   constexpr int r = SimPanel::WIDTH / 2;
   constexpr int rSquared = r * r;
@@ -233,7 +247,7 @@ void render() {
       // LVGL is built with LV_COLOR_16_SWAP, so the panel holds RGB565 in
       // big-endian byte order; swap it back for SDL's RGB565 texture.
       const int src = g_userView ? SimPanel::panelIndex(x, y) : i;
-      scratch[i] = lit ? __builtin_bswap16(SimPanel::framebuffer[src]) : kOffPixel;
+      scratch[i] = dimmed(__builtin_bswap16(SimPanel::framebuffer[src]), brightness);
     }
   }
 

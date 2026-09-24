@@ -25,6 +25,9 @@ unsigned long lastTick = 0;  // last count tick timestamp
 unsigned long startedBeeping = 0;
 // The timer face the cube was last stood on, so a pause knows what it paused.
 Orientation lastTimerFace = Orientation::UNDEFINED;
+// When the cube was last set on a different face. Only the backlight reads it:
+// a face change is a decision worth lighting the panel for.
+unsigned long lastFaceChange = 0;
 
 
 // A flow stint has ended: a fifth of it is credited to the break bank, on top of
@@ -94,6 +97,7 @@ void loop() {
     Orientation currentOri = Util::calcOrientation(ax, ay, az);
     if (Util::updateOriDebounce(currentOri)) {
       Orientation ori = Util::getDebouncedOriState();
+      lastFaceChange = millis();
 
       if (Util::isRestingFace(ori)) {
         // Both resting faces park the timer, stored against the face it was
@@ -194,5 +198,10 @@ void loop() {
     if (waitingLong) Display::cycleTimerFinish();
     if (millis() - startedBeeping >= 1000 * 30) Util::deepSleep(Util::SleepMode::Off, true);
   }
+
+  // Last, so it sees the tick this pass produced rather than the one before it.
+  Display::setBacklight(Util::backlightPercent(
+      {millis() - lastFaceChange, remSeconds, countingUp()}));
+
   Battery::cycleBatteryUpdate();
 }

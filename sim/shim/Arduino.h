@@ -40,6 +40,14 @@ int digitalRead(uint8_t pin);
 int analogRead(uint8_t pin);
 uint32_t analogReadMilliVolts(uint8_t pin);
 
+// ---- LEDC (backlight PWM) -------------------------------------------------
+// The firmware picks its LEDC calls on this, and arduino-esp32 3.x is what the
+// board is built against; the shim only implements that side of the branch.
+#define ESP_ARDUINO_VERSION_MAJOR 3
+bool ledcAttach(uint8_t pin, uint32_t frequency, uint8_t resolution);
+bool ledcWrite(uint8_t pin, uint32_t duty);
+bool ledcDetach(uint8_t pin);
+
 // ---- Tone (piezo beeper) --------------------------------------------------
 void tone(uint8_t pin, unsigned int frequency);
 void tone(uint8_t pin, unsigned int frequency, unsigned long duration);

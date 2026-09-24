@@ -4,7 +4,7 @@ namespace SimPanel {
 
 uint16_t framebuffer[WIDTH * HEIGHT] = {0};
 bool dirty = true;
-bool backlightOn = false;
+int backlightPercent = 0;
 bool asleep = false;
 
 namespace {

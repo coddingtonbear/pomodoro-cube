@@ -44,6 +44,20 @@ constexpr int FLOW_LAP_SECONDS = TIMER_WORK_SECONDS;
 // the advertisement's uint24 of milliseconds runs out shortly after this.
 constexpr int FLOW_MAX_SECONDS = 4 * 60 * 60;
 
+// The backlight is the largest single draw while the cube is awake -- of the
+// same order as the whole rest of the board -- so full brightness is rationed
+// rather than held. It is spent on the moments worth looking at: just after the
+// cube is set on a face, and as a countdown runs out. Everything between sits at
+// BACKLIGHT_IDLE_PERCENT, which is legible across a desk for a fraction of the
+// current.
+constexpr int BACKLIGHT_FULL_PERCENT = 100;
+constexpr int BACKLIGHT_IDLE_PERCENT = 20;
+
+// How long either side of a transition counts as worth looking at. Applied to
+// both ends: this many seconds after a face change, and the last this many
+// seconds of a countdown.
+constexpr int BACKLIGHT_ATTENTION_SECONDS = 5;
+
 // The countdown arc runs full to empty, shading from ARC_COLOR_FULL through
 // ARC_COLOR_MID to ARC_COLOR_LOW as the remaining percentage falls past these
 // stops. Below ARC_LOW_PERCENT it stays at ARC_COLOR_LOW.

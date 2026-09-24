@@ -24,15 +24,77 @@ void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 }
 
 
+namespace {
+
+// Well above hearing, so the backlight never sings, and well within what the
+// LED's series resistor and the switching FET will follow.
+constexpr int kBacklightFrequency = 5000;
+constexpr int kBacklightBits = 8;
+// Only used by the 2.x API, which allocates channels by hand. tone() takes
+// channel 0, so stay at the other end.
+constexpr int kBacklightChannel = 7;
+
+bool backlightIsPwm = false;
+int backlightLevel = -1;
+
+void attachBacklightPwm() {
+  if (backlightIsPwm) return;
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcAttach(TFT_BL_PIN, kBacklightFrequency, kBacklightBits);
+#else
+  ledcSetup(kBacklightChannel, kBacklightFrequency, kBacklightBits);
+  ledcAttachPin(TFT_BL_PIN, kBacklightChannel);
+#endif
+  backlightIsPwm = true;
+}
+
+// Hand the pin back to plain GPIO so a static level can be held through deep
+// sleep. Callers set that level themselves; this only gives them the pin.
+void releaseBacklightPwm() {
+  if (backlightIsPwm) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    ledcDetach(TFT_BL_PIN);
+#else
+    ledcDetachPin(TFT_BL_PIN);
+#endif
+    backlightIsPwm = false;
+  }
+  pinMode(TFT_BL_PIN, OUTPUT);
+  backlightLevel = -1;
+}
+
+}  // namespace
+
+void Display::setBacklight(int percent) {
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+  if (percent == backlightLevel) return;
+
+  attachBacklightPwm();
+  const uint32_t duty = (uint32_t)((percent * 255 + 50) / 100);
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcWrite(TFT_BL_PIN, duty);
+#else
+  ledcWrite(kBacklightChannel, duty);
+#endif
+  backlightLevel = percent;
+}
+
 void Display::setup() {
   // A paused sleep locks the backlight on through deep sleep; release it before
   // driving the pin again.
   gpio_hold_dis((gpio_num_t)TFT_BL_PIN);
-  pinMode(TFT_BL_PIN, OUTPUT);
+  releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, HIGH);
   // Initialize TFT
   tft.begin();
   tft.setRotation(0);  // Let LVGL handle software rotation
+
+  // PWM only once TFT_eSPI has finished with the pin. It leaves TFT_BL alone
+  // unless TFT_BACKLIGHT_ON is defined, which tft_setup.h does not define -- but
+  // an LEDC channel it did clobber would be silently stuck, and attaching after
+  // begin() costs nothing to rule that out.
+  Display::setBacklight(BACKLIGHT_FULL_PERCENT);
 
   // Initialize LVGL
   lv_init();
@@ -86,6 +148,7 @@ static void setPalette(uint32_t background, uint32_t text, uint32_t track) {
 }
 
 void Display::deepSleep() {
+  releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, LOW);
   // Send GC9A01 Sleep In command
   tft.writecommand(0x10); 
@@ -93,8 +156,15 @@ void Display::deepSleep() {
 }
 
 void Display::holdPausedFrame() {
-  // No Sleep In command and no backlight change: the panel keeps refreshing the
-  // frame from its own memory. Holding the pin keeps it lit once the CPU stops.
+  // No Sleep In command: the panel keeps refreshing the frame from its own
+  // memory, and holding the pin keeps it lit once the CPU stops.
+  //
+  // Full brightness, not the idle level, and not a choice: nothing is left
+  // running to generate PWM once the CPU stops, and gpio_hold_en() freezes the
+  // instantaneous level rather than the duty cycle. A parked cube is therefore
+  // lit at full or not at all -- turning it face down is how you turn it off.
+  releaseBacklightPwm();
+  digitalWrite(TFT_BL_PIN, HIGH);
   gpio_hold_en((gpio_num_t)TFT_BL_PIN);
 }
 

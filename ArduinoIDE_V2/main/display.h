@@ -5,6 +5,12 @@ namespace Display {
 
 void setup();
 void updateBattery(float voltage);
+
+// Drive the backlight at 0-100 percent. PWM, so the sleep paths take the pin
+// back as a plain output before they park it: gpio_hold_en() freezes whatever
+// instant it catches, which on a PWM signal is a coin toss.
+void setBacklight(int percent);
+
 void deepSleep();
 
 // Leave the last frame on screen through deep sleep: the GC9A01 refreshes

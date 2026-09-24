@@ -265,7 +265,56 @@ void testRestingWithNothingRunningParksNothing() {
   }
 }
 
+// Full brightness is rationed to the moments worth looking at. Everything here
+// is in milliseconds since the last face change.
+constexpr unsigned long kJustSetDown = 0;
+constexpr unsigned long kSettled = (unsigned long)BACKLIGHT_ATTENTION_SECONDS * 1000UL + 1;
+
+void testAFaceChangeLightsThePanel() {
+  CHECK(Util::backlightPercent({kJustSetDown, TIMER_WORK_SECONDS, false}) ==
+        BACKLIGHT_FULL_PERCENT);
+
+  // Right up to the boundary, and dim immediately after it.
+  const unsigned long lastBrightMs = (unsigned long)BACKLIGHT_ATTENTION_SECONDS * 1000UL - 1;
+  CHECK(Util::backlightPercent({lastBrightMs, TIMER_WORK_SECONDS, false}) ==
+        BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false}) ==
+        BACKLIGHT_IDLE_PERCENT);
+}
+
+void testTheLastSecondsOfACountdownLightThePanel() {
+  CHECK(Util::backlightPercent({kSettled, BACKLIGHT_ATTENTION_SECONDS + 1, false}) ==
+        BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, BACKLIGHT_ATTENTION_SECONDS, false}) ==
+        BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 1, false}) == BACKLIGHT_FULL_PERCENT);
+}
+
+// A timer at zero is beeping and wants to be seen across a room. It is the same
+// test as "about to run out", which is why the policy does not need telling
+// about the finished state separately.
+void testAFinishedTimerStaysLit() {
+  CHECK(Util::backlightPercent({kSettled, 0, false}) == BACKLIGHT_FULL_PERCENT);
+}
+
+// A stint has no end to approach, so it dims and stays dim however long it runs.
+// The moment worth lighting is turning the cube off it, and that is a face
+// change like any other.
+void testAFlowStintDimsAndStaysDim() {
+  CHECK(Util::backlightPercent({kJustSetDown, 0, true}) == BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 0, true}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 1, true}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, FLOW_MAX_SECONDS, true}) == BACKLIGHT_IDLE_PERCENT);
+}
+
 }  // namespace
+
+void testBacklightPolicy() {
+  testAFaceChangeLightsThePanel();
+  testTheLastSecondsOfACountdownLightThePanel();
+  testAFinishedTimerStaysLit();
+  testAFlowStintDimsAndStaysDim();
+}
 
 void testRestingFaceParking() {
   testOnlyFaceUpStaysLit();
