@@ -6,6 +6,12 @@
 namespace Util {
 
 void updateBattery();
+
+// The smoothed pack voltage -- the same figure the panel shows, rather than a
+// fresh reading, so the screen and the advertisement never disagree about what
+// the battery is doing. Zero until updateBattery() has run at least once.
+float batteryVolts();
+
 Orientation calcOrientation(float ax, float ay, float az);
 
 // True for the two faces the cube rests flat on, neither of which runs a timer.

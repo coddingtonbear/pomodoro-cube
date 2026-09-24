@@ -40,10 +40,10 @@ which does the same trick for coffee brew times.
 - **A battery indicator that stays out of the way** — nothing on screen at all
   above 3.6 V, and below it a red empty-battery outline with the measured pack
   voltage inside, so the divider and ADC can be checked against a multimeter.
-- **Home Assistant over BLE** — the cube's state is encoded as a
+- **Home Assistant over BLE** — the cube broadcasts its state as a
   [BTHome v2](https://bthome.io/format/) advertisement, which Home Assistant
-  discovers natively. See [Bluetooth](#bluetooth) — the encoder is written and
-  tested, but nothing transmits it yet.
+  discovers natively: no custom component, no MQTT, no ESPHome. See
+  [Bluetooth](#bluetooth).
 
 ## How it works
 
@@ -203,19 +203,53 @@ otherwise read as armed, and an empty-bank break as both armed and finished.
 | 4 | Armed | `not running`, `remaining == started` |
 | 5 | Paused | `not running`, `0 < remaining < started` |
 
-**A farewell advert goes out before every sleep**, with `connectivity` dropped
-to 0, because Home Assistant holds the last state it heard — otherwise a busy
-light keyed on `running` would stay lit until the cube was next picked up. Why
-it slept is inferable from the rest of the payload: `remaining == 0` is a
-normal finish, a low voltage is a flat pack, and anything else is the cube
-being put away.
+**A farewell advert goes out before every sleep**, with `connectivity` *and*
+`running` dropped to 0, because Home Assistant holds the last state it heard —
+otherwise a busy light keyed on `running` would stay lit until the cube was next
+picked up. Why it slept is inferable from the rest of the payload:
+`remaining == 0` is a normal finish, a low voltage is a flat pack, and anything
+else is the cube being put away.
 
-`bthome.cpp` builds this payload and is tested against exact bytes. Nothing
-transmits it yet — that needs NimBLE and a board. The simulator prints what
-would go out when you press `a`:
+`running` has to go for a second reason: it is the only way a pause can be
+described at all. State 5 below needs `running` false, and the cube is always
+asleep while it is paused — so the farewell is the one advertisement that can
+say it.
+
+### How it reaches the air
+
+The work is split in two, because the halves fail in different ways and only one
+of them can be tested without a radio:
+
+- `bthome.cpp` assembles the payload, and is tested against exact bytes. It also
+  holds `BTHome::Sequencer`, which decides when there is anything new to say:
+  the firmware offers its state on every pass of the loop and the sequencer only
+  produces an advertisement when the bytes a receiver would see have changed.
+  That is what keeps the packet id meaning *"something changed"* rather than
+  *"another second went by"* — and it is why a pack voltage wobbling below a
+  millivolt doesn't churn it, since the comparison is on encoded bytes rather
+  than the float behind them.
+- `ble.cpp` hands the result to NimBLE. Non-connectable, no scan response, no
+  GATT server and nothing to connect to: a BTHome device is a beacon. Adverts go
+  out every 300 ms while the cube is awake, which is under a tenth of a milliamp
+  against twenty-odd for the backlight at its dimmest. The farewell goes out at
+  100 ms for 400 ms before the controller is shut down, because it is the one
+  advertisement that cannot be repeated later.
+
+The cube appears in Home Assistant under its BLE MAC — one above the WiFi MAC
+printed on the board — because the payload already uses 30 of the 31 bytes a
+legacy advertisement holds and there is nowhere left to put a name.
+
+> [!NOTE]
+> Home Assistant only offers a BTHome device its Bluetooth integration has
+> actually *seen*, and the cube is silent while asleep. Stand it on a face before
+> adding the integration, or there will be nothing to find.
+
+The simulator prints the payload the firmware last published when you press `a`,
+and `SIM_BLE_TRACE=1` prints every one as it goes out:
 
 ```
-02 01 06 1A 16 D2 FC 44 00 00 0C 3C 0F 0F 01 19 01 27 01 3D 00 00 42 90 DB 16 42 60 E3 16
+[sim] advertisement 3 (30 bytes): 02 01 06 1A 16 D2 FC 44 00 02 0C 3C 0F 0F 01 19 01 27 01 3D 00 00 42 90 DB 16 42 60 E3 16
+[sim] farewell advertisement 4 (30 bytes): 02 01 06 1A 16 D2 FC 44 00 03 0C 3C 0F 0F 01 19 00 27 00 3D 00 00 42 90 DB 16 42 60 E3 16
 ```
 
 ## Hardware
@@ -246,6 +280,10 @@ Library Manager:
 - SensorLib 0.4.1 (Lewis He) — the library that provides `SensorQMI8658.hpp`.
   Searching the Library Manager for the header's name finds other people's
   QMI8658 libraries instead, none of which are this one
+- NimBLE-Arduino 1.4.3 (h2zero) — **not** 2.x, which needs an ESP32 core of 3.x
+  and up; this project is on 2.0.14. NimBLE rather than the core's bundled
+  `BLEDevice.h` because that one is Bluedroid, which costs tens of kilobytes of
+  RAM the cube would rather spend on LVGL
 
 Two of them keep their configuration outside the sketch, and both have to be
 linked into place before anything will work:
@@ -346,8 +384,13 @@ Things that need a board, collected so they can be checked in one sitting:
   cell, so they should only be retuned against real readings.
 - **Whether the display stays powered in deep sleep**, which the lit-while-
   paused behaviour depends on.
-- **Everything about the radio** — NimBLE plumbing, a static MAC, and whether
-  adverts actually escape during the ~1 s window before the CPU stops.
+- **Whether the farewell advert really escapes.** Verified in the simulator, and
+  the awake adverts are confirmed on hardware, but the farewell is the one that
+  races the CPU stopping. Lay a running cube down and watch whether Home
+  Assistant's `running` goes false rather than going stale.
+- **Whether the BLE MAC survives a reflash and a flat battery.** It is derived
+  from the eFused base MAC, so it should, but Home Assistant keys the device on
+  it and a change would silently orphan the entities.
 
 ## Layout
 

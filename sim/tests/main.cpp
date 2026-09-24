@@ -36,6 +36,14 @@ void testOutOfRangeValuesClamp();
 void testRefusesABufferItCannotFill();
 void testFlowAdvertisesWorkWithNoSelectedLength();
 void testBreakAdvertisesNotWork();
+void testUnchangedStateIsNotResent();
+void testPacketIdIgnoresWhatTheCallerPutInIt();
+void testPacketIdAdvancesOnlyWhenTheReadingDoes();
+void testVoltageJitterBelowAMillivoltIsNotAChange();
+void testPacketIdWrapsPastAByte();
+void testFarewellClearsAwakeAndRunning();
+void testFarewellNeedsSomethingToSayFarewellFrom();
+void testFarewellIsNumberedLikeAnyOtherChange();
 
 int main() {
   testTimerSelection();
@@ -72,6 +80,14 @@ int main() {
   testRefusesABufferItCannotFill();
   testFlowAdvertisesWorkWithNoSelectedLength();
   testBreakAdvertisesNotWork();
+  testUnchangedStateIsNotResent();
+  testPacketIdIgnoresWhatTheCallerPutInIt();
+  testPacketIdAdvancesOnlyWhenTheReadingDoes();
+  testVoltageJitterBelowAMillivoltIsNotAChange();
+  testPacketIdWrapsPastAByte();
+  testFarewellClearsAwakeAndRunning();
+  testFarewellNeedsSomethingToSayFarewellFrom();
+  testFarewellIsNumberedLikeAnyOtherChange();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());

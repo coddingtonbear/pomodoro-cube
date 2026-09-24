@@ -36,7 +36,7 @@ sudo apt install cmake build-essential libsdl2-dev
 | `[` `]` | Lower / raise the simulated pack voltage |
 | `v` | Toggle between the upright view and the raw panel |
 | `m` | Toggle the round-panel mask |
-| `a` | Print the BLE advertisement the cube would send |
+| `a` | Print the BLE advertisement the firmware last published |
 | `r` | Reboot, as a wake-from-deep-sleep would |
 | `q` or `Esc` | Quit |
 
@@ -72,10 +72,19 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=180 \
 | `SIM_SCREENSHOT` | Where to write the frame |
 | `SIM_SCREENSHOT_MS` | When to grab it, in ms since boot |
 | `SIM_KEYS` | Keys to press, e.g. `b`, `mv`, or `u@12000` for 12s in |
+| `SIM_BLE_TRACE` | Print every BLE advertisement as it goes out |
 
 `SIM_KEYS` entries are comma-separated, and `key@ms` presses one part-way
 through a run — which is how pausing gets exercised, since it needs a face
 change while a countdown is already going.
+
+`SIM_BLE_TRACE` with `SIM_KEYS` is how the advertising sequence gets checked
+without a keyboard — including the farewell, which only goes out on the way into
+deep sleep:
+
+```bash
+SDL_VIDEODRIVER=dummy SIM_BLE_TRACE=1 SIM_ORIENTATION=0 SIM_KEYS=u@6000 ./build/sim
+```
 
 `SIM_SCREENSHOT_MS` also takes a comma-separated list, which captures a
 countdown at several points in one run; each file then gets its elapsed time

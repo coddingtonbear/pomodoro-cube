@@ -221,3 +221,144 @@ void testBreakAdvertisesNotWork() {
   const uint8_t *work = findObject(advert, length, 0x0F);
   CHECK(work != nullptr && work[0] == 0x00);
 }
+
+// --- Sequencer -------------------------------------------------------------
+// The encoder is told what packet id to write; the sequencer is what decides
+// there is anything to write at all. Those are the two halves of "increments on
+// change", and this is the half a receiver's deduplication depends on.
+
+void testUnchangedStateIsNotResent() {
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  CHECK(sequencer.update(workTimerRunning(), advert, sizeof(advert)) > 0);
+  // Same reading again: nothing for a receiver to hear.
+  CHECK(sequencer.update(workTimerRunning(), advert, sizeof(advert)) == 0);
+  CHECK(sequencer.update(workTimerRunning(), advert, sizeof(advert)) == 0);
+}
+
+void testPacketIdIgnoresWhatTheCallerPutInIt() {
+  // The caller's packet id is not consulted -- if it were, a caller counting
+  // for itself could make an unchanged reading look like a new one.
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  BTHome::State state = workTimerRunning();
+  state.packetId = 7;
+  CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+  const uint8_t *first = findObject(advert, sizeof(advert), 0x00);
+  CHECK(first != nullptr && first[0] == 0);  // numbered from zero regardless
+
+  state.packetId = 200;
+  CHECK(sequencer.update(state, advert, sizeof(advert)) == 0);
+}
+
+void testPacketIdAdvancesOnlyWhenTheReadingDoes() {
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  BTHome::State state = workTimerRunning();
+  sequencer.update(state, advert, sizeof(advert));
+  const uint8_t *id = findObject(advert, sizeof(advert), 0x00);
+  CHECK(id != nullptr && id[0] == 0);
+
+  // A second off the clock is a change.
+  state.remainingSeconds -= 1;
+  CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+  id = findObject(advert, sizeof(advert), 0x00);
+  CHECK(id != nullptr && id[0] == 1);
+
+  // Offering the same second again is not, and does not move the id.
+  CHECK(sequencer.update(state, advert, sizeof(advert)) == 0);
+
+  state.remainingSeconds -= 1;
+  CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+  id = findObject(advert, sizeof(advert), 0x00);
+  CHECK(id != nullptr && id[0] == 2);
+}
+
+void testVoltageJitterBelowAMillivoltIsNotAChange() {
+  // The pack voltage is a ten-reading average of a noisy ADC, so the float is
+  // never quite still. What matters is whether the encoded millivolts move.
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  BTHome::State state = workTimerRunning();
+  state.batteryVolts = 3.8200f;
+  CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+
+  state.batteryVolts = 3.8202f;  // still 3820 mV
+  CHECK(sequencer.update(state, advert, sizeof(advert)) == 0);
+
+  state.batteryVolts = 3.8230f;  // 3823 mV
+  CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+}
+
+void testPacketIdWrapsPastAByte() {
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  BTHome::State state = workTimerRunning();
+  // 256 distinct readings takes the id all the way round.
+  for (int i = 0; i <= 256; i++) {
+    state.remainingSeconds = 1500 - i;
+    CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+  }
+
+  const uint8_t *id = findObject(advert, sizeof(advert), 0x00);
+  CHECK(id != nullptr && id[0] == 0);  // 256 increments from 0
+}
+
+void testFarewellClearsAwakeAndRunning() {
+  // A sleeping cube is not counting, and the README's state table can only
+  // describe a pause as a timer that is stopped part way through -- which needs
+  // running false. The cube is always asleep while paused, so the farewell is
+  // the only advertisement that can say it.
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  BTHome::State state = workTimerRunning();
+  state.remainingSeconds = 600;
+  state.selectedSeconds = 1500;
+  CHECK(sequencer.update(state, advert, sizeof(advert)) > 0);
+
+  const size_t length = sequencer.farewell(advert, sizeof(advert));
+  CHECK(length > 0);
+
+  const uint8_t *connectivity = findObject(advert, length, 0x19);
+  CHECK(connectivity != nullptr && connectivity[0] == 0x00);
+
+  const uint8_t *running = findObject(advert, length, 0x27);
+  CHECK(running != nullptr && running[0] == 0x00);
+
+  // And nothing else moves: a pause has to still say how far it got.
+  const uint8_t *remaining = findObject(advert, length, 0x42, 0);
+  CHECK(remaining != nullptr);
+  CHECK(remaining[0] == 0xC0 && remaining[1] == 0x27 && remaining[2] == 0x09);  // 600_000 ms
+
+  const uint8_t *selected = findObject(advert, length, 0x42, 1);
+  CHECK(selected != nullptr);
+  CHECK(selected[0] == 0x60 && selected[1] == 0xE3 && selected[2] == 0x16);  // 1_500_000 ms
+}
+
+void testFarewellNeedsSomethingToSayFarewellFrom() {
+  // A cube that wakes on a resting face and goes straight back down has
+  // published nothing, and has nothing to withdraw.
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+  CHECK(sequencer.farewell(advert, sizeof(advert)) == 0);
+}
+
+void testFarewellIsNumberedLikeAnyOtherChange() {
+  BTHome::Sequencer sequencer;
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+
+  CHECK(sequencer.update(workTimerRunning(), advert, sizeof(advert)) > 0);
+  CHECK(sequencer.farewell(advert, sizeof(advert)) > 0);
+
+  const uint8_t *id = findObject(advert, sizeof(advert), 0x00);
+  CHECK(id != nullptr && id[0] == 1);
+
+  // Said twice, it is only news once.
+  CHECK(sequencer.farewell(advert, sizeof(advert)) == 0);
+}

@@ -1,5 +1,7 @@
 #include "bthome.h"
 
+#include <string.h>
+
 namespace {
 
 // --- Advertising data structure types, from the Bluetooth assigned numbers ---
@@ -138,4 +140,48 @@ size_t BTHome::encode(const State &state, uint8_t *out, size_t capacity) {
 
   for (size_t i = 0; i < length; i++) out[i] = scratch[i];
   return length;
+}
+
+
+size_t BTHome::Sequencer::update(const State &state, uint8_t *out, size_t capacity) {
+  if (out == nullptr) return 0;
+
+  // Encoded under the id the last advertisement carried, so the comparison
+  // below is between everything *except* the id. Two payloads that differ only
+  // there say the same thing, and a receiver has nothing new to hear.
+  State candidate = state;
+  candidate.packetId = published_ ? last_.packetId : 0;
+
+  uint8_t probe[MAX_ADVERTISEMENT];
+  const size_t length = encode(candidate, probe, sizeof(probe));
+  if (length == 0) return 0;
+
+  if (published_ && length == lastLength_ && memcmp(probe, lastPayload_, length) == 0) {
+    return 0;
+  }
+
+  // Only now does the id move. Wrapping past 255 is what the spec expects of a
+  // one-byte counter, and a receiver deduping on it sees a change either way.
+  if (published_) candidate.packetId = (uint8_t)(candidate.packetId + 1);
+
+  const size_t published = encode(candidate, out, capacity);
+  if (published == 0) return 0;
+
+  last_ = candidate;
+  lastLength_ = published;
+  memcpy(lastPayload_, out, published);
+  published_ = true;
+  return published;
+}
+
+size_t BTHome::Sequencer::farewell(uint8_t *out, size_t capacity) {
+  if (!published_) return 0;
+
+  State state = last_;
+  state.awake = false;
+  state.running = false;
+  // Back through update(), so the farewell is numbered like any other change --
+  // and so a cube that has already said this much sends nothing, which is the
+  // right answer rather than a special case.
+  return update(state, out, capacity);
 }

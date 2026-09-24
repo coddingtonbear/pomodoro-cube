@@ -37,8 +37,9 @@ set(UI_SOURCES
   ${FIRMWARE_DIR}/src/ui_font_Countdown_54.c
 )
 
-# Firmware sources that are portable enough to host-compile. qmi.cpp is the one
-# exception: it needs the vendor QMI8658 driver, so src/sim_qmi.cpp stands in.
+# Firmware sources that are portable enough to host-compile. qmi.cpp and ble.cpp
+# are the exceptions: they need the vendor QMI8658 driver and NimBLE, so
+# src/sim_qmi.cpp and src/sim_ble.cpp stand in.
 set(FIRMWARE_SOURCES
   ${FIRMWARE_DIR}/main.ino
   ${FIRMWARE_DIR}/bthome.cpp
@@ -67,6 +68,7 @@ add_executable(sim
   src/sim_rtc.cpp
   src/sim_input.cpp
   src/sim_qmi.cpp
+  src/sim_ble.cpp
   src/sim_main.cpp
 )
 

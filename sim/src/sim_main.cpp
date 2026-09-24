@@ -10,12 +10,12 @@
 #include <vector>
 #include <unistd.h>
 
-#include "bthome.h"
 #include "consts.h"
 #include "display.h"
 #include "util.h"
 #include "sim_deep_sleep.h"
 #include "sim_host.h"
+#include "sim_ble.h"
 #include "sim_input.h"
 #include "sim_panel.h"
 #include "sim_rtc.h"
@@ -24,10 +24,6 @@
 // Defined by the firmware's main.ino.
 void setup();
 void loop();
-extern int remSeconds;
-extern int selSeconds;
-extern TimerKind timerKind;
-extern TimerMode timerMode;
 
 namespace {
 
@@ -81,34 +77,21 @@ void applyBatteryOverride() {
   }
 }
 
-// There is no radio here, so `a` prints what would go out instead. Handy for
-// reading a payload back against the BTHome spec, or pasting into a decoder.
+// There is no radio here, so `a` prints the payload the firmware last handed to
+// its BLE layer. Handy for reading a payload back against the BTHome spec, or
+// pasting into a decoder -- and unlike building a state here, it can only show
+// what the firmware actually published.
 void dumpAdvertisement() {
-  static uint8_t packetId = 0;
-
-  const bool countingUp = timerMode == TimerMode::CountUp;
-
-  BTHome::State state;
-  state.packetId = packetId++;
-  state.batteryVolts = SimInput::batteryVoltage;
-  state.awake = true;
-  // A stint counting up is running from its first second, before remSeconds has
-  // anything in it.
-  state.running = countingUp || remSeconds > 0;
-  state.work = timerKind == TimerKind::Work;
-  state.pomodoroCount = RtcState::data().pomodoroCount;
-  state.remainingSeconds = remSeconds;
-  state.selectedSeconds = selSeconds;
-
-  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
-  const size_t length = BTHome::encode(state, advert, sizeof(advert));
-  if (length == 0) {
-    std::printf("[sim] advertisement would not fit\n");
+  if (SimBLE::lastLength == 0) {
+    std::printf("[sim] nothing advertised yet\n");
     return;
   }
 
-  std::printf("[sim] advertisement (%zu bytes):", length);
-  for (size_t i = 0; i < length; i++) std::printf(" %02X", advert[i]);
+  std::printf("[sim] advertisement %lu (%zu bytes)%s:", SimBLE::adverts, SimBLE::lastLength,
+              SimBLE::lastWasFarewell ? " [farewell]" : "");
+  for (size_t i = 0; i < SimBLE::lastLength; i++) {
+    std::printf(" %02X", SimBLE::lastPayload[i]);
+  }
   std::printf("\n");
 }
 

@@ -8,6 +8,7 @@
 #include <lvgl.h>
 #include "beeper.h"
 #include "rtc_state.h"
+#include "ble.h"
 
 
 // Counting down, this is the time left. Counting up, it is the time elapsed.
@@ -55,6 +56,24 @@ Display::TimerView timerView() {
           countingUp() ? Util::flowBankPreview(banked, remSeconds) : banked};
 }
 
+// What goes out over BLE. The packet id is left at zero: BLE::publish() hands
+// this to a BTHome::Sequencer, which numbers it and drops it if nothing has
+// changed, so this is free to be called on every pass.
+BTHome::State bthomeState() {
+  BTHome::State state;
+  state.packetId = 0;
+  state.batteryVolts = Util::batteryVolts();
+  state.awake = true;
+  // A stint counting up is running from its first second, before remSeconds has
+  // anything in it.
+  state.running = countingUp() || remSeconds > 0;
+  state.work = timerKind == TimerKind::Work;
+  state.pomodoroCount = RtcState::data().pomodoroCount;
+  state.remainingSeconds = remSeconds;
+  state.selectedSeconds = selSeconds;
+  return state;
+}
+
 
 void setup() {
   Serial.begin(115200);
@@ -85,6 +104,14 @@ void setup() {
   Display::setup();
   Beeper::setup();
   Util::updateBattery();
+
+  // After the panel, because bringing the radio up blocks for a moment while
+  // the NimBLE host syncs, and a blank screen is the one thing worth avoiding
+  // while it does. Deliberately not reached on the path above that wakes onto a
+  // resting face: that path exists to get back to sleep in under a second, and
+  // it has nothing new to say -- the advertisement that matters there already
+  // went out when the cube was set down.
+  BLE::setup();
 }
 
 void loop() {
@@ -207,4 +234,15 @@ void loop() {
       {millis() - lastFaceChange, remSeconds, countingUp()}));
 
   Battery::cycleBatteryUpdate();
+
+  // Offered unconditionally, after the battery so the voltage is this pass's:
+  // the sequencer behind this only reaches for the radio when the payload has
+  // actually changed, which is a cheaper thing to get right than remembering to
+  // publish at each of the places state moves.
+  //
+  // Not before a face is established, though. Between waking and the debounce
+  // settling there is no timer at all, and the fields for that read as a flow
+  // stint at zero seconds -- a state the cube is not in, and one it would
+  // otherwise broadcast for the first 300 ms of every wake.
+  if (lastTimerFace != Orientation::UNDEFINED) BLE::publish(bthomeState());
 }

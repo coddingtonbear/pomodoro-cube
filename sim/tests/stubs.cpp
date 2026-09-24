@@ -1,7 +1,8 @@
-// util.cpp reaches into the display, battery, beeper and IMU on its deep-sleep
-// path. The tests don't exercise that path, but the linker still needs the
-// symbols.
+// util.cpp reaches into the display, battery, beeper, IMU and BLE on its
+// deep-sleep path. The tests don't exercise that path, but the linker still
+// needs the symbols.
 #include "battery.h"
+#include "ble.h"
 #include "beeper.h"
 #include "display.h"
 #include "qmi.h"
@@ -33,3 +34,7 @@ bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
   az = 0.0f;
   return false;
 }
+
+void BLE::setup() {}
+void BLE::publish(const BTHome::State &state) { (void)state; }
+void BLE::farewell() {}

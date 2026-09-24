@@ -8,6 +8,7 @@
 #include <driver/rtc_io.h>
 #include "vFilter.h"
 #include "beeper.h"
+#include "ble.h"
 
 VoltageSmoother<10> vFilter;
 
@@ -15,6 +16,10 @@ VoltageSmoother<10> vFilter;
 void Util::updateBattery() {
   vFilter.add(Battery::getVoltage());
   Display::updateBattery(vFilter.getAverage());
+}
+
+float Util::batteryVolts() {
+  return vFilter.getAverage();
 }
 
 Orientation Util::calcOrientation(float ax, float ay, float az) {
@@ -33,6 +38,12 @@ Orientation Util::calcOrientation(float ax, float ay, float az) {
 
 
 void Util::deepSleep(SleepMode mode, bool playSound) {
+  // Before anything else that takes time: Home Assistant holds the last state
+  // it heard, so a cube that just stopped counting has to say so while it still
+  // has a radio. Everything after this is either invisible to a receiver or
+  // already decided.
+  BLE::farewell();
+
   if (mode == SleepMode::Off) Display::deepSleep();
   else Display::holdPausedFrame();
 
