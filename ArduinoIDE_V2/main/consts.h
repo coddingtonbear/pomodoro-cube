@@ -27,14 +27,9 @@ constexpr int TIMER_SHORT_BREAK_SECONDS = 5 * 60;
 // spells of work accumulate, and an unspent break goes back in.
 constexpr int FLOW_BREAK_DIVISOR = 5;
 
-// The break face fell back on when nothing has been earned -- the ten minutes it
-// was before flow mode -- rather than a zero-second break that would beep the
-// moment it started.
-constexpr int TIMER_LONG_BREAK_SECONDS = 10 * 60;
-
-// There is no floor on a break. The bank is an account -- what it says you have
-// is what you get -- and a minimum would have to be conjured from nowhere and
-// then written back, leaving the account saying something untrue.
+// There is no floor on a break and nothing to fall back on when the bank is
+// empty. The bank is an account: what it says you have is what you get, and a
+// break face turned to with nothing in it finishes at 00:00 on the spot.
 
 // A lap of the flow arc, which is also what a stint scores a pomodoro for: the
 // arc fills over this long, scores, and starts again. Equal to the fixed work

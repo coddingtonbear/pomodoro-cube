@@ -78,12 +78,12 @@ Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
       // turned off it.
       return {TimerKind::Work, TimerMode::CountUp, 0, false};
     case Orientation::DEG_270:
-      // Only a break that came out of the bank spends it. The fallback was
-      // conjured from nothing, so draining it must not credit anything back --
-      // otherwise standing the cube here and picking it up again would mint
-      // break time nobody worked for.
-      return {TimerKind::Break, TimerMode::Countdown, flowBreakSeconds(bankedBreakSeconds),
-              bankedBreakSeconds > 0};
+      // Flow's break face pays out the bank and nothing else. An empty bank is
+      // a break of no length, which finishes the moment it starts -- there is
+      // nothing to fall back on, because any fallback would be break time
+      // nobody worked for.
+      return {TimerKind::Break, TimerMode::Countdown,
+              bankedBreakSeconds > 0 ? bankedBreakSeconds : 0, true};
     default:
       // A resting face runs no timer, but must still not report zero: a
       // zero-length timer would divide by zero in the arc.
@@ -94,11 +94,6 @@ Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
 int Util::flowBreakCredit(int workedSeconds) {
   if (workedSeconds <= 0) return 0;
   return workedSeconds / FLOW_BREAK_DIVISOR;
-}
-
-int Util::flowBreakSeconds(int bankedSeconds) {
-  if (bankedSeconds <= 0) return TIMER_LONG_BREAK_SECONDS;
-  return bankedSeconds;
 }
 
 bool Util::completesFlowLap(int elapsedSeconds) {

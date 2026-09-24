@@ -92,12 +92,12 @@ interrupts it — another face, a pause, a flat battery — leaves the rest stil
 banked. Working on the 25-minute face doesn't cost you the bank either: only
 the break face spends it, and only laying the cube face down clears it.
 
-With nothing banked at all the break face is the fixed ten minutes it was
-before flow mode. That break is conjured rather than earned, so it is the one
-that *doesn't* write back — otherwise standing the cube on that face and
-picking it up again would mint break time nobody worked for. There is no
-minimum on a banked break: the bank is an account, and what it says you have is
-what you get, down to twelve seconds.
+Turn to the break face with nothing banked and you get a break of no length:
+`00:00`, the finish pattern, and the usual half minute before the cube sleeps.
+There is nothing to fall back on, because any fallback would be break time
+nobody worked for. For the same reason there is no minimum on a break either —
+the bank is an account, and what it says you have is what you get, down to
+twelve seconds.
 
 The panel inverts to black on white while a stint runs, because a number that
 is going up looks exactly like one going down:
@@ -130,6 +130,7 @@ The rest of the rules:
 | Flow break → face up | Parked. The bank already holds the remainder, so abandoning the pause loses nothing |
 | A stint reaching four hours | Ends itself and beeps, nine laps scored and 48 minutes credited. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
 | The bank reaching four hours | Capped there, for the same reason a stint is |
+| Flow break with an empty bank | Finishes on the spot: `00:00` and the finish pattern |
 | Face down | Off, and the bank is cleared with everything else |
 
 ## Bluetooth
@@ -171,22 +172,25 @@ of interval it is. State also self-heals where an event can't: an advertisement
 is an unacknowledged broadcast, so a missed event is gone for good while a
 missed state is re-advertised a second later.
 
-**`Duration 2 == 0` means the timer is counting up**, and `Duration` is then the
-elapsed time rather than the remaining. Test it *before* the state table below,
-which assumes a timer with a length: a flow stint at nought seconds would
-otherwise read as both armed and finished, and a paused one as neither. The
-sentinel is free — it needs no object of its own, and no fixed timer ever
-advertises a zero length.
+**`Duration 2 == 0` together with `work` means the timer is counting up**, and
+`Duration` is then the elapsed time rather than the remaining. The `work` half
+of that matters: a *break* of zero length is a real state too — it is what the
+flow break face shows when the bank is empty — and the work flag is the only
+thing telling the two apart, since flow's work face is the one face that ever
+counts up. The sentinel is free either way: it needs no object of its own, and
+no timer with a length ever advertises a zero one.
 
-Five states come out of four fields, with one extra byte pair on the wire:
+Five states come out of four fields, with one extra byte pair on the wire.
+**First match wins**, and the order matters: a stint at nought seconds would
+otherwise read as armed, and an empty-bank break as both armed and finished.
 
-| State | Condition |
-| --- | --- |
-| Counting up | `started == 0` (test this first) |
-| Armed | `not running`, `remaining == started` |
-| Running | `running` |
-| Paused | `not running`, `0 < remaining < started` |
-| Finished | `remaining == 0` |
+| | State | Condition |
+| --- | --- | --- |
+| 1 | Counting up | `started == 0` and `work` |
+| 2 | Finished | `remaining == 0` |
+| 3 | Running | `running` |
+| 4 | Armed | `not running`, `remaining == started` |
+| 5 | Paused | `not running`, `0 < remaining < started` |
 
 **A farewell advert goes out before every sleep**, with `connectivity` dropped
 to 0, because Home Assistant holds the last state it heard — otherwise a busy
@@ -255,7 +259,7 @@ See [sim/README.md](sim/README.md) for the controls, the scripted-screenshot
 environment variables, and what the simulator can't tell you.
 
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
-fifth a flow stint earns, the arc's fill and colour ramp, the lap indicator
+flow bank's arithmetic, the arc's fill and colour ramp, the lap indicator
 and what scores off it, the MM:SS to HH:MM switch, the low-battery threshold,
 the RTC guard, and the BTHome encoder's exact output bytes:
 

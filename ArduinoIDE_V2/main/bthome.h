@@ -20,9 +20,10 @@ struct State {
   bool work;                // work interval rather than a break
   uint16_t pomodoroCount;
   int remainingSeconds;
-  // The interval being counted down. Zero means the timer is counting up
-  // instead, and remainingSeconds is the elapsed time -- see the flow sentinel
-  // in the README's Bluetooth section.
+  // The interval being counted down. Zero alongside `work` means the timer is
+  // counting up instead, and remainingSeconds is the elapsed time; zero on a
+  // break means a break of no length, which an empty flow bank produces. The
+  // work flag is what separates the two -- see the README's Bluetooth section.
   int selectedSeconds;
 };
 

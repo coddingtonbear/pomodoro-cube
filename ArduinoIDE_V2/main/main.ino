@@ -17,8 +17,7 @@ int selSeconds = 0;
 TimerKind timerKind = TimerKind::Work;
 TimerMode timerMode = TimerMode::Countdown;
 // True when the countdown on screen is the flow bank draining, so each tick has
-// to write the new balance back. A fallback break does not set it: that time was
-// conjured rather than earned, and crediting it back would mint break time.
+// to write the new balance back. The fixed faces leave the bank alone.
 bool spendingFlowBank = false;
 unsigned long lastTick = 0;  // last count tick timestamp
 unsigned long startedBeeping = 0;
@@ -134,6 +133,13 @@ void loop() {
         remSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
         selSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
       }
+      // A break face turned to with an empty bank has no time to count, so it
+      // is finished before it starts. Dating the beeping from here rather than
+      // leaving the last finish's timestamp in place is what gives it the usual
+      // thirty seconds before sleeping, instead of a stale one that could sleep
+      // the cube on the spot.
+      if (!countingUp() && remSeconds == 0) startedBeeping = millis();
+
       Display::rotateScreen(ori);
       Display::updateTimer(remSeconds, selSeconds, countingUp());
       lastTick = millis();

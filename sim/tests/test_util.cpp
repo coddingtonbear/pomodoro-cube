@@ -62,17 +62,16 @@ void testAStintCreditsAFifthToTheBank() {
 void testTheBreakFaceCountsTheBankDown() {
   // Whatever is banked is what the break runs for, with no conversion left to
   // do: the fifth was taken on the way in.
-  CHECK(Util::flowBreakSeconds(9 * 60) == 9 * 60);
   CHECK(Util::getTimerSpec(Orientation::DEG_270, 9 * 60).seconds == 9 * 60);
 
   // Down to the smallest balance. A floor would have to be conjured from
   // nowhere and then written back, leaving the bank saying something untrue.
-  CHECK(Util::flowBreakSeconds(12) == 12);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 12).seconds == 12);
 
-  // Only a break that came out of the bank writes back to it.
+  // Only the break face writes back; the fixed faces leave the bank alone.
   CHECK(Util::getTimerSpec(Orientation::DEG_270, 9 * 60).spendsBank);
-  CHECK(!Util::getTimerSpec(Orientation::DEG_270, 0).spendsBank);
   CHECK(!Util::getTimerSpec(Orientation::DEG_0, 9 * 60).spendsBank);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_90, 9 * 60).spendsBank);
   CHECK(!Util::getTimerSpec(Orientation::DEG_180, 9 * 60).spendsBank);
 }
 
@@ -81,11 +80,11 @@ void testWorkedThenBankedMatchesTheWholeJourney() {
   // taken, another 25 minutes of flow -- and the break that follows is 9.
   int bank = 0;
   bank += Util::flowBreakCredit(25 * 60);
-  CHECK(Util::flowBreakSeconds(bank) == 5 * 60);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, bank).seconds == 5 * 60);
 
   bank = 4 * 60;  // a minute of it spent, written back by the running break
   bank += Util::flowBreakCredit(25 * 60);
-  CHECK(Util::flowBreakSeconds(bank) == 9 * 60);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, bank).seconds == 9 * 60);
 }
 
 void testAStintScoresALapAtATime() {
@@ -107,17 +106,22 @@ void testAStintScoresALapAtATime() {
   CHECK(FLOW_LAP_SECONDS == TIMER_WORK_SECONDS);
 }
 
-void testAnEmptyBankFallsBackToTheFixedBreak() {
-  // Nothing banked is a different situation from a small balance: the break
-  // face was chosen without flow work before it, so it is the fixed length it
-  // was before flow mode.
-  CHECK(Util::flowBreakSeconds(0) == TIMER_LONG_BREAK_SECONDS);
-  CHECK(Util::flowBreakSeconds(-1) == TIMER_LONG_BREAK_SECONDS);
-  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).seconds == TIMER_LONG_BREAK_SECONDS);
+void testAnEmptyBankIsABreakOfNoLength() {
+  // Not a fallback to some other length: anything conjured here would be break
+  // time nobody worked for. It finishes on the spot instead.
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).seconds == 0);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, -1).seconds == 0);
 
-  // And it must not write back, or standing the cube here and picking it up
-  // again would mint break time nobody worked for.
-  CHECK(!Util::getTimerSpec(Orientation::DEG_270, 0).spendsBank);
+  // Still a break, and still the face that owns the bank -- there is just
+  // nothing in it to spend.
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).kind == TimerKind::Break);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).mode == TimerMode::Countdown);
+
+  // The fixed faces still report a real length, so nothing else can reach zero:
+  // a zero-length countdown on one of those would divide by zero in the arc.
+  CHECK(Util::getTimerSpec(Orientation::DEG_0, 0).seconds == TIMER_WORK_SECONDS);
+  CHECK(Util::getTimerSpec(Orientation::DEG_90, 0).seconds == TIMER_SHORT_BREAK_SECONDS);
+  CHECK(Util::getTimerSpec(Orientation::FACE_UP, 0).seconds == TIMER_WORK_SECONDS);
 }
 
 void testRestingFaces() {
@@ -155,7 +159,7 @@ void testTimerSelection() {
   testTheBreakFaceCountsTheBankDown();
   testWorkedThenBankedMatchesTheWholeJourney();
   testAStintScoresALapAtATime();
-  testAnEmptyBankFallsBackToTheFixedBreak();
+  testAnEmptyBankIsABreakOfNoLength();
   testRestingFaces();
   testUnknownOrientationsFallBackToWork();
 }
