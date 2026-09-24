@@ -459,7 +459,45 @@ void testBacklightPolicy() {
   testATapLightsARunningFlowStint();
 }
 
+// A cube poised between two faces has to be put on one of them. The margin
+// that stops it alternating needs a face to alternate with; before there is
+// one it would only withhold an answer, which on the board meant nineteen
+// seconds awake showing no timer. These are the real samples from that.
+void testAnAmbiguousAttitudeStillNamesAFace() {
+  Util::resetOriDebounce();
+
+  const Vector poised = {-0.068f, -0.737f, -0.696f};
+  CHECK(!Util::isDecisive(poised.x, poised.y, poised.z));
+
+  unsigned long now = 0;
+  int changes = 0;
+  for (int i = 0; i < 200; i++) {
+    now += 20;
+    if (feed(poised, now)) changes++;
+  }
+
+  // Once, and then it stands: the margin holds the face it settled on.
+  CHECK(changes == 1);
+  CHECK(Util::getDebouncedOriState() == Orientation::DEG_90);
+
+  // And the face it settled on is not given up to the other side of the
+  // halfway line without a decisive reading to justify it.
+  const Vector justOver = {-0.068f, -0.696f, -0.737f};
+  CHECK(!Util::isDecisive(justOver.x, justOver.y, justOver.z));
+  for (int i = 0; i < 200; i++) {
+    now += 20;
+    CHECK_MSG(!feed(justOver, now), "a narrow reading moved an established face");
+  }
+  CHECK(Util::getDebouncedOriState() == Orientation::DEG_90);
+
+  // A clear reading still moves it.
+  CHECK(!feed(kUp, now + 20));
+  CHECK(feed(kUp, now + 20 + ORI_DEBOUNCE_DELAY));
+  CHECK(Util::getDebouncedOriState() == Orientation::FACE_UP);
+}
+
 void testOrientationDebounce() {
+  testAnAmbiguousAttitudeStillNamesAFace();
   testAReadingMustHoldStillToBeAccepted();
   testAFaceInPassingIsNotAcceptedAsAFaceChange();
   testEveryAttitudeNamesAFace();

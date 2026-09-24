@@ -186,7 +186,12 @@ void setup() {
   // longer on, where nothing further will move to wake it. That is the second
   // half of why a cube picked up from its face-up rest and stood on a timer
   // face sometimes sat there still showing the paused frame.
+  Serial.printf("[trace] BOOT hasPause=%d pausedFace=%d holdingFrame=%d\n",
+                (int)RtcState::hasPause(RtcState::data()),
+                (int)RtcState::data().pausedFace,
+                (int)RtcState::data().panelHoldingFrame);
   const Orientation settled = settleOrientation();
+  Serial.printf("[trace] SETTLED ori=%d\n", (int)settled);
   if (Util::isRestingFace(settled)) {
     // Woken but still resting: go back down without touching what is parked.
     // Only face up keeps the panel lit, and only when there is a pause to show.
@@ -248,6 +253,7 @@ void loop() {
       Orientation ori = Util::getDebouncedOriState();
       lastFaceChange = millis();
 
+      Serial.printf("[trace] FACE t=%lu ori=%d\n", millis(), (int)ori);
       if (Util::isRestingFace(ori)) {
         // Both resting faces park the timer, stored against the face it was
         // running on and picked up again only by that face. A flow stint is
@@ -261,6 +267,16 @@ void loop() {
       }
 
       applyFace(ori);
+    }
+  }
+
+  {
+    static unsigned long lastTrace = 0;
+    if (millis() - lastTrace >= 200) {
+      lastTrace = millis();
+      Serial.printf("[trace] awake t=%lu ori=%d ok=%d dec=%d a=%.3f,%.3f,%.3f\n", millis(),
+                    (int)Util::calcOrientation(ax, ay, az), (int)Util::isGravityOnly(ax, ay, az),
+                    (int)Util::isDecisive(ax, ay, az), ax, ay, az);
     }
   }
 

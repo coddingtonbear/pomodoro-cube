@@ -205,7 +205,20 @@ bool Util::updateOriDebounce(float ax, float ay, float az, unsigned long nowMs) 
     // cube is already believed to be on, but is never enough to move it onto a
     // new one. UNDEFINED here means "no opinion", which restarts the clock
     // below rather than being accepted as a face of its own.
-    if (face == debouncedState || isDecisive(ax, ay, az)) rawState = face;
+    //
+    // Unless no face is believed yet, in which case the best available answer
+    // is taken however narrow its lead. The margin exists to stop a cube
+    // alternating between two faces, and that needs an incumbent to alternate
+    // with; with nothing to protect it only withholds an answer. Measured on
+    // the board: a bare disc leaned against something rests at 46 degrees, four
+    // hundredths of a g off the halfway line, and stayed awake for nineteen
+    // seconds showing no timer at all rather than committing to a face. Once a
+    // face is accepted the margin holds it there, so a narrow call is made once
+    // and then stands.
+    if (debouncedState == Orientation::UNDEFINED || face == debouncedState ||
+        isDecisive(ax, ay, az)) {
+      rawState = face;
+    }
   }
 
   // Any change of reading restarts the clock. The earlier version timed from
