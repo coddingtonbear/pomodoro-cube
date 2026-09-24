@@ -4,6 +4,11 @@
 
 #include <cstdint>
 
+// display.cpp refuses to build against a TFT_eSPI that is not configured for
+// this panel. The shim is that configuration, by standing in for the whole
+// library, so say so.
+#define GC9A01_DRIVER
+
 class TFT_eSPI {
 public:
   void begin();

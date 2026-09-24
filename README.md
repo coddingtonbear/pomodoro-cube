@@ -241,23 +241,35 @@ by reflashing.
 Open `ArduinoIDE_V2/main` in the Arduino IDE. Dependencies, all from the
 Library Manager:
 
-- TFT_eSPI 2.5.43 (Bodmer) — configured by `tft_setup.h`, which TFT_eSPI picks
-  up from the sketch folder on its own
+- TFT_eSPI 2.5.43 (Bodmer)
 - lvgl 8.3.11
 - SensorLib 0.4.1 (Lewis He) — the library that provides `SensorQMI8658.hpp`.
   Searching the Library Manager for the header's name finds other people's
   QMI8658 libraries instead, none of which are this one
 
-LVGL is the one that needs a hand: it looks for its configuration one directory
-*above* itself, so `ArduinoIDE_V2/lv_conf.h` has to be linked into place.
+Two of them keep their configuration outside the sketch, and both have to be
+linked into place before anything will work:
 
 ```bash
-ln -s "$PWD/ArduinoIDE_V2/lv_conf.h" ~/Arduino/libraries/lv_conf.h
+ln -s "$PWD/ArduinoIDE_V2/lv_conf.h"    ~/Arduino/libraries/lv_conf.h
+ln -s "$PWD/ArduinoIDE_V2/User_Setup.h" ~/Arduino/libraries/TFT_eSPI/User_Setup.h
 ```
 
-That file sets only the three options that differ from LVGL's defaults, and
+`lv_conf.h` sets only the three options that differ from LVGL's defaults, and
 `sim/CMakeLists.txt` sets the same three, so the simulator and the board render
-from identical settings.
+from identical settings. LVGL looks for it one directory *above* itself, which
+is why it cannot live in the sketch folder.
+
+`User_Setup.h` is the panel: GC9A01, 240×240, and the SPI pins. TFT_eSPI does
+support a `tft_setup.h` in the sketch folder and this project used to rely on
+it, but **that mechanism cannot work under the Arduino build**: TFT_eSPI.h
+looks for `<tft_setup.h>` on the include path, and the sketch folder is not on
+the path when the build compiles the library itself. The sketch's own files
+find it and the library's do not, so the library compiles against its default
+— an ILI9341 on entirely different pins — and the panel stays black with
+nothing anywhere to say why. Overriding `User_Setup.h` configures every
+translation unit alike. `display.cpp` now refuses to compile if `GC9A01_DRIVER`
+is undefined, so a missing symlink is a build error rather than a dead screen.
 
 Board settings, matching the ESP32-S3-WROOM-1 the Waveshare board carries:
 **ESP32S3 Dev Module**, flash size **16MB**, PSRAM **disabled** (this module
@@ -341,6 +353,7 @@ Things that need a board, collected so they can be checked in one sitting:
 
 ```
 ArduinoIDE_V2/lv_conf.h   LVGL settings, linked into ~/Arduino/libraries
+ArduinoIDE_V2/User_Setup.h TFT_eSPI panel settings, linked into the library
 ArduinoIDE_V2/main/       the firmware, built with the Arduino IDE
 ArduinoIDE_V2/main/src/   the LVGL UI, originally SquareLine Studio output
 SquareLine/               the SquareLine Studio project the UI came from

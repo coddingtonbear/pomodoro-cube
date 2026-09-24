@@ -4,6 +4,14 @@
 #include <lvgl.h>
 #include <Wire.h>
 #include <TFT_eSPI.h>  // By Bodmer V2.5.43
+
+// A TFT_eSPI configured for something other than this panel compiles perfectly
+// and then shows nothing at all, which is a miserable thing to debug. Fail at
+// build time instead: if this is not set, ArduinoIDE_V2/User_Setup.h has not
+// been symlinked into the library. See the README's Building section.
+#ifndef GC9A01_DRIVER
+#error "TFT_eSPI is not configured for the GC9A01 -- symlink ArduinoIDE_V2/User_Setup.h into ~/Arduino/libraries/TFT_eSPI/"
+#endif
 #include "src/ui.h"    // SquareLine Studio generated header
 
 
