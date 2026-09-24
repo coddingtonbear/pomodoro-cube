@@ -269,42 +269,115 @@ void testRestingWithNothingRunningParksNothing() {
 // is in milliseconds since the last face change.
 constexpr unsigned long kJustSetDown = 0;
 constexpr unsigned long kSettled = (unsigned long)BACKLIGHT_ATTENTION_SECONDS * 1000UL + 1;
+// Long enough ago that no tap is holding the panel up. Written as the largest
+// value rather than a big number, because that is what the firmware passes
+// before the cube has been tapped at all.
+constexpr unsigned long kNoTap = ~0UL;
+constexpr unsigned long kJustTapped = 0;
 
 void testAFaceChangeLightsThePanel() {
-  CHECK(Util::backlightPercent({kJustSetDown, TIMER_WORK_SECONDS, false}) ==
+  CHECK(Util::backlightPercent({kJustSetDown, TIMER_WORK_SECONDS, false, kNoTap}) ==
         BACKLIGHT_FULL_PERCENT);
 
   // Right up to the boundary, and dim immediately after it.
   const unsigned long lastBrightMs = (unsigned long)BACKLIGHT_ATTENTION_SECONDS * 1000UL - 1;
-  CHECK(Util::backlightPercent({lastBrightMs, TIMER_WORK_SECONDS, false}) ==
+  CHECK(Util::backlightPercent({lastBrightMs, TIMER_WORK_SECONDS, false, kNoTap}) ==
         BACKLIGHT_FULL_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false}) ==
+  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false, kNoTap}) ==
         BACKLIGHT_IDLE_PERCENT);
 }
 
 void testTheLastSecondsOfACountdownLightThePanel() {
-  CHECK(Util::backlightPercent({kSettled, BACKLIGHT_ATTENTION_SECONDS + 1, false}) ==
+  CHECK(Util::backlightPercent({kSettled, BACKLIGHT_ATTENTION_SECONDS + 1, false, kNoTap}) ==
         BACKLIGHT_IDLE_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, BACKLIGHT_ATTENTION_SECONDS, false}) ==
+  CHECK(Util::backlightPercent({kSettled, BACKLIGHT_ATTENTION_SECONDS, false, kNoTap}) ==
         BACKLIGHT_FULL_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, 1, false}) == BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 1, false, kNoTap}) == BACKLIGHT_FULL_PERCENT);
 }
 
 // A timer at zero is beeping and wants to be seen across a room. It is the same
 // test as "about to run out", which is why the policy does not need telling
 // about the finished state separately.
 void testAFinishedTimerStaysLit() {
-  CHECK(Util::backlightPercent({kSettled, 0, false}) == BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 0, false, kNoTap}) == BACKLIGHT_FULL_PERCENT);
 }
 
 // A stint has no end to approach, so it dims and stays dim however long it runs.
 // The moment worth lighting is turning the cube off it, and that is a face
 // change like any other.
 void testAFlowStintDimsAndStaysDim() {
-  CHECK(Util::backlightPercent({kJustSetDown, 0, true}) == BACKLIGHT_FULL_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, 0, true}) == BACKLIGHT_IDLE_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, 1, true}) == BACKLIGHT_IDLE_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, FLOW_MAX_SECONDS, true}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kJustSetDown, 0, true, kNoTap}) == BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 0, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 1, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, FLOW_MAX_SECONDS, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
+}
+
+// A tap is someone asking to read a face that has gone dim. It buys longer than
+// a face change does, because they are coming to it cold.
+void testATapLightsThePanel() {
+  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false, kJustTapped}) ==
+        BACKLIGHT_FULL_PERCENT);
+
+  const unsigned long lastBrightMs = (unsigned long)BACKLIGHT_TAP_SECONDS * 1000UL - 1;
+  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false, lastBrightMs}) ==
+        BACKLIGHT_FULL_PERCENT);
+
+  const unsigned long expiredMs = (unsigned long)BACKLIGHT_TAP_SECONDS * 1000UL;
+  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false, expiredMs}) ==
+        BACKLIGHT_IDLE_PERCENT);
+}
+
+// A stint is the face most worth being able to glance at: it never brightens on
+// its own, so a tap is the only way to read it without picking the cube up.
+void testATapLightsARunningFlowStint() {
+  CHECK(Util::backlightPercent({kSettled, 0, true, kJustTapped}) == BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 0, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
+}
+
+// The debouncer decides which face the cube is on, and a cube in a hand passes
+// through faces it is not being put down on. Timestamps are supplied rather than
+// read from millis(), so the whole of ORI_DEBOUNCE_DELAY can pass in no time.
+void testAReadingMustHoldStillToBeAccepted() {
+  Util::resetOriDebounce();
+
+  // Not on the first sighting, however long the clock has been running.
+  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 10000));
+  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 10000 + ORI_DEBOUNCE_DELAY - 1));
+  CHECK(Util::getDebouncedOriState() == Orientation::UNDEFINED);
+
+  CHECK(Util::updateOriDebounce(Orientation::DEG_0, 10000 + ORI_DEBOUNCE_DELAY));
+  CHECK(Util::getDebouncedOriState() == Orientation::DEG_0);
+
+  // And only once: the same face held longer is not a second change.
+  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 20000));
+}
+
+// The bug this was written for. A cube picked up off its face-up rest and stood
+// on a timer face reads FACE_UP on the way, and the old debouncer -- which timed
+// from the last sample that agreed with the face being left rather than from the
+// last change -- would accept whichever reading landed at the end of the window.
+// Landing on FACE_UP there is what parked the cube again and left the paused
+// frame on a panel that should have gone back to work.
+void testAFaceInPassingIsNotAcceptedAsAFaceChange() {
+  Util::resetOriDebounce();
+  CHECK(!Util::updateOriDebounce(Orientation::DEG_0, 0));
+  CHECK(Util::updateOriDebounce(Orientation::DEG_0, ORI_DEBOUNCE_DELAY));
+
+  // Lifted: a tumble through several faces, none held for long.
+  unsigned long now = 1000;
+  const Orientation tumble[] = {Orientation::FACE_UP, Orientation::DEG_270,
+                                Orientation::FACE_UP, Orientation::DEG_90,
+                                Orientation::FACE_UP};
+  for (const Orientation ori : tumble) {
+    now += ORI_DEBOUNCE_DELAY - 1;
+    CHECK_MSG(!Util::updateOriDebounce(ori, now), "a face in passing was accepted");
+  }
+  CHECK(Util::getDebouncedOriState() == Orientation::DEG_0);
+
+  // Set down at last, and held.
+  CHECK(!Util::updateOriDebounce(Orientation::DEG_180, now + 1));
+  CHECK(Util::updateOriDebounce(Orientation::DEG_180, now + 1 + ORI_DEBOUNCE_DELAY));
+  CHECK(Util::getDebouncedOriState() == Orientation::DEG_180);
 }
 
 }  // namespace
@@ -314,6 +387,13 @@ void testBacklightPolicy() {
   testTheLastSecondsOfACountdownLightThePanel();
   testAFinishedTimerStaysLit();
   testAFlowStintDimsAndStaysDim();
+  testATapLightsThePanel();
+  testATapLightsARunningFlowStint();
+}
+
+void testOrientationDebounce() {
+  testAReadingMustHoldStillToBeAccepted();
+  testAFaceInPassingIsNotAcceptedAsAFaceChange();
 }
 
 void testRestingFaceParking() {

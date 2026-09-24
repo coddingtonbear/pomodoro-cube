@@ -15,6 +15,15 @@
 
 #define ORI_DEBOUNCE_DELAY 300
 
+// How long a wake will wait for the cube to stop moving before deciding what it
+// is resting on. The interrupt that wakes the cube fires *because* it moved, so
+// the first readings after one are taken in mid-air as often as not. Past this
+// the cube is plainly still in a hand, and the firmware boots rather than
+// guessing -- booting a cube that was only being carried costs a few seconds of
+// backlight, where sleeping one that was being set down costs the wrong face on
+// screen until something moves it again.
+constexpr unsigned long WAKE_SETTLE_TIMEOUT_MS = 3000;
+
 // Timer length for each face the cube can rest on, in seconds. DEG_0 is the
 // default orientation and each step from there is a quarter turn clockwise,
 // matching the order of the Orientation enum below.
@@ -57,6 +66,11 @@ constexpr int BACKLIGHT_IDLE_PERCENT = 20;
 // both ends: this many seconds after a face change, and the last this many
 // seconds of a countdown.
 constexpr int BACKLIGHT_ATTENTION_SECONDS = 5;
+
+// How long a tap holds the panel at full brightness. Longer than a face change
+// is worth, because a tap is someone asking to read the thing rather than
+// someone having just set it down and already looking at it.
+constexpr int BACKLIGHT_TAP_SECONDS = 10;
 
 // The countdown arc runs full to empty, shading from ARC_COLOR_FULL through
 // ARC_COLOR_MID to ARC_COLOR_LOW as the remaining percentage falls past these

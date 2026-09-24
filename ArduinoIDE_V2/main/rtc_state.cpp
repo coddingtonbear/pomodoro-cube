@@ -27,6 +27,7 @@ void RtcState::initialise(Data &data) {
   data.pausedSelected = 0;
   data.pausedCountingUp = false;
   data.flowBankSeconds = 0;
+  data.panelHoldingFrame = false;
 }
 
 RtcState::Data &RtcState::data() {

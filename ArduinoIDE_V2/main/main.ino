@@ -29,6 +29,16 @@ Orientation lastTimerFace = Orientation::UNDEFINED;
 // When the cube was last set on a different face. Only the backlight reads it:
 // a face change is a decision worth lighting the panel for.
 unsigned long lastFaceChange = 0;
+// When the cube was last tapped, or 0 for not since this boot. Only the
+// backlight reads this one too.
+unsigned long lastTap = 0;
+
+// How long since the last tap, or past any window when there has not been one.
+// millis() - 0 is millis(), which reads as a tap a moment ago for the first ten
+// seconds of every boot.
+unsigned long sinceTap() {
+  return lastTap == 0 ? ~0UL : millis() - lastTap;
+}
 
 
 // A flow stint has ended: a fifth of it is credited to the break bank, on top of
@@ -75,6 +85,89 @@ BTHome::State bthomeState() {
 }
 
 
+// Everything standing the cube on a timer face asks for: closing off whatever
+// the face being left was counting, picking up a pause that belongs to the new
+// one, and repainting to match. Called from loop() when the debounce settles,
+// and from setup() for the face a wake settles onto -- that one has already
+// been through the debouncer, so nothing in loop() would announce it.
+void applyFace(Orientation ori) {
+  // Turning off the flow face ends the stint it was counting.
+  if (countingUp() && ori != lastTimerFace) bankFlowStint(remSeconds);
+
+  // So does standing the cube on a face that abandons a parked one. The
+  // pause itself is consumed by takePause() below either way; this is only
+  // about banking what it was worth.
+  {
+    const RtcState::Data &stored = RtcState::data();
+    if (RtcState::hasPause(stored) && stored.pausedCountingUp &&
+        stored.pausedFace != ori) {
+      bankFlowStint((int)stored.pausedRemaining);
+    }
+  }
+
+  lastTimerFace = ori;
+
+  // Read rather than spend: the bank is a balance, and only the break face
+  // draining it writes it down. Every other face leaves it where it is, so
+  // a spell on the 25-minute face doesn't cost you the break you earned.
+  const Util::TimerSpec spec = Util::getTimerSpec(ori, RtcState::flowBank(RtcState::data()));
+  spendingFlowBank = spec.spendsBank;
+  onFlowFace = spec.flow;
+
+  bool resumesCountingUp = false;
+  if (RtcState::takePause(RtcState::data(), ori, remSeconds, selSeconds,
+                          resumesCountingUp)) {
+    timerMode = resumesCountingUp ? TimerMode::CountUp : TimerMode::Countdown;
+    timerKind = spec.kind;
+  } else {
+    timerKind = spec.kind;
+    timerMode = spec.mode;
+    remSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
+    selSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
+  }
+  // A break face turned to with an empty bank has no time to count, so it
+  // is finished before it starts. Dating the beeping from here rather than
+  // leaving the last finish's timestamp in place is what gives it the usual
+  // thirty seconds before sleeping, instead of a stale one that could sleep
+  // the cube on the spot.
+  if (!countingUp() && remSeconds == 0) startedBeeping = millis();
+
+  Display::rotateScreen(ori);
+  Display::updateTimer(timerView());
+  lastTick = millis();
+}
+
+// Poll the accelerometer until one reading has held still long enough to be
+// believed, or until the cube has plainly been in a hand for too long to wait
+// out. UNDEFINED means it never settled, which is not a resting face and so
+// boots the cube -- the right way round to be wrong.
+Orientation settleOrientation() {
+  const unsigned long deadline = millis() + WAKE_SETTLE_TIMEOUT_MS;
+  while (millis() < deadline) {
+    float ax, ay, az;
+    if (QMI::getAccelerometer(ax, ay, az) &&
+        Util::updateOriDebounce(Util::calcOrientation(ax, ay, az), millis())) {
+      return Util::getDebouncedOriState();
+    }
+    delay(20);
+  }
+  return Orientation::UNDEFINED;
+}
+
+// The frame a parked cube shows: the figures as they stood when it was set
+// down, drawn from the stored pause rather than from the live timer, which on
+// this path has not been set up and holds nothing.
+Display::TimerView pausedView(const RtcState::Data &stored) {
+  const int banked = RtcState::flowBank(stored);
+  // The face it was paused from is what says whether this is one of flow's,
+  // which the break face is as much as the work face -- countingUp alone would
+  // draw a paused flow break in the fixed faces' colours.
+  const Util::TimerSpec spec = Util::getTimerSpec(stored.pausedFace, banked);
+  const bool up = stored.pausedCountingUp;
+  return {(int)stored.pausedRemaining, (int)stored.pausedSelected, up, spec.flow,
+          up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
+}
+
 void setup() {
   Serial.begin(115200);
   setCpuFrequencyMhz(80);  // reducing CPU clock to 80MHz
@@ -86,24 +179,44 @@ void setup() {
   QMI::setup(); 
 
   // --------- go back to sleep mode ---------
-  delay(200); 
-  float ax, ay, az;
-  if (QMI::getAccelerometer(ax, ay, az)) {
-    Orientation currentOri = Util::calcOrientation(ax, ay, az);
-    if (Util::isRestingFace(currentOri)) {
-      // Woken but still resting: go straight back down without touching what is
-      // parked. Only face up keeps the panel lit, and only when there is a pause
-      // to show -- the frame it holds is the one still on the panel from before.
-      const bool lit =
-          currentOri == Orientation::FACE_UP && RtcState::hasPause(RtcState::data());
-      Util::deepSleep(lit ? Util::SleepMode::Paused : Util::SleepMode::Off, false);
-    }
+  // Settled rather than sampled. The interrupt that woke us fired because the
+  // cube moved, so a single reading taken a fixed delay later is as likely to
+  // catch it in the air as on a face -- and a mid-air reading that looks like a
+  // resting face sends the cube straight back to sleep on a face it is no
+  // longer on, where nothing further will move to wake it. That is the second
+  // half of why a cube picked up from its face-up rest and stood on a timer
+  // face sometimes sat there still showing the paused frame.
+  const Orientation settled = settleOrientation();
+  if (Util::isRestingFace(settled)) {
+    // Woken but still resting: go back down without touching what is parked.
+    // Only face up keeps the panel lit, and only when there is a pause to show.
+    const RtcState::Data &stored = RtcState::data();
+    const bool showPause =
+        settled == Orientation::FACE_UP && RtcState::hasPause(stored);
+    if (!showPause) Util::deepSleep(Util::SleepMode::Off, false);
+
+    // The frame is already on the glass, refreshing itself out of the panel's
+    // own memory. Hold it there rather than spending a second booting the
+    // display to draw what is already drawn.
+    if (stored.panelHoldingFrame) Util::deepSleep(Util::SleepMode::Paused, false);
+
+    // Otherwise the cube was parked face down, where the panel was blanked, and
+    // has since been turned over: there is a pause to show and nothing on the
+    // glass to show it with. Holding the backlight up over a sleeping panel is
+    // what this used to do, which lit a black screen and flattened the pack.
+    Display::setup();
+    Util::updateBattery();
+    Display::rotateScreen(stored.pausedFace);
+    Display::updateTimer(pausedView(stored));
+    Display::showPaused();
+    Util::deepSleep(Util::SleepMode::Paused, false);
   }
   // -----------------------------------------
 
   Display::setup();
   Beeper::setup();
   Util::updateBattery();
+  QMI::enableTapDetection();
 
   // After the panel, because bringing the radio up blocks for a moment while
   // the NimBLE host syncs, and a blank screen is the one thing worth avoiding
@@ -112,6 +225,16 @@ void setup() {
   // it has nothing new to say -- the advertisement that matters there already
   // went out when the cube was set down.
   BLE::setup();
+
+  // The face the settling above landed on. loop()'s debouncer has already
+  // accepted it, so nothing there would announce it -- the timer has to be set
+  // up from here or the cube stands on a face that never starts. Skipped when
+  // the cube never settled: there is no face to apply, and applying UNDEFINED
+  // would take a pause that belongs to a real one and throw it away.
+  if (settled != Orientation::UNDEFINED) {
+    lastFaceChange = millis();
+    applyFace(settled);
+  }
 }
 
 void loop() {
@@ -122,7 +245,7 @@ void loop() {
   float ax, ay, az;
   if (QMI::getAccelerometer(ax, ay, az)) {
     Orientation currentOri = Util::calcOrientation(ax, ay, az);
-    if (Util::updateOriDebounce(currentOri)) {
+    if (Util::updateOriDebounce(currentOri, millis())) {
       Orientation ori = Util::getDebouncedOriState();
       lastFaceChange = millis();
 
@@ -138,52 +261,14 @@ void loop() {
         Util::deepSleep(plan.mode, true);
       }
 
-      // Turning off the flow face ends the stint it was counting.
-      if (countingUp() && ori != lastTimerFace) bankFlowStint(remSeconds);
-
-      // So does standing the cube on a face that abandons a parked one. The
-      // pause itself is consumed by takePause() below either way; this is only
-      // about banking what it was worth.
-      {
-        const RtcState::Data &stored = RtcState::data();
-        if (RtcState::hasPause(stored) && stored.pausedCountingUp &&
-            stored.pausedFace != ori) {
-          bankFlowStint((int)stored.pausedRemaining);
-        }
-      }
-
-      lastTimerFace = ori;
-
-      // Read rather than spend: the bank is a balance, and only the break face
-      // draining it writes it down. Every other face leaves it where it is, so
-      // a spell on the 25-minute face doesn't cost you the break you earned.
-      const Util::TimerSpec spec = Util::getTimerSpec(ori, RtcState::flowBank(RtcState::data()));
-      spendingFlowBank = spec.spendsBank;
-      onFlowFace = spec.flow;
-
-      bool resumesCountingUp = false;
-      if (RtcState::takePause(RtcState::data(), ori, remSeconds, selSeconds,
-                              resumesCountingUp)) {
-        timerMode = resumesCountingUp ? TimerMode::CountUp : TimerMode::Countdown;
-        timerKind = spec.kind;
-      } else {
-        timerKind = spec.kind;
-        timerMode = spec.mode;
-        remSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
-        selSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
-      }
-      // A break face turned to with an empty bank has no time to count, so it
-      // is finished before it starts. Dating the beeping from here rather than
-      // leaving the last finish's timestamp in place is what gives it the usual
-      // thirty seconds before sleeping, instead of a stale one that could sleep
-      // the cube on the spot.
-      if (!countingUp() && remSeconds == 0) startedBeeping = millis();
-
-      Display::rotateScreen(ori);
-      Display::updateTimer(timerView());
-      lastTick = millis();
+      applyFace(ori);
     }
   }
+
+  // A tap only ever buys brightness, so it is read here and left to the
+  // backlight policy below. Nothing else on the cube changes because it was
+  // touched -- the faces are what choose the timer.
+  if (QMI::takeTap()) lastTap = millis();
 
   if (countingUp() && millis() - lastTick >= 1000) {
     remSeconds++;
@@ -231,7 +316,7 @@ void loop() {
 
   // Last, so it sees the tick this pass produced rather than the one before it.
   Display::setBacklight(Util::backlightPercent(
-      {millis() - lastFaceChange, remSeconds, countingUp()}));
+      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap()}));
 
   Battery::cycleBatteryUpdate();
 

@@ -71,6 +71,28 @@ void releaseBacklightPwm() {
   backlightLevel = -1;
 }
 
+// Give back the two pads holdPausedFrame() latched. Until this runs, nothing
+// written to either reaches the pin: gpio_hold_en() survives deep sleep and
+// keeps holding after the wake, which is the point of it. Safe when nothing was
+// held, so every path that is about to drive the backlight or the reset line
+// calls it first rather than reasoning about which sleep it woke from.
+void releaseHeldPins() {
+  gpio_hold_dis((gpio_num_t)TFT_BL_PIN);
+  gpio_hold_dis((gpio_num_t)TFT_RST);
+}
+
+// Whether tft.begin() has run this boot. A wake that decides it should go
+// straight back to sleep never calls Display::setup(), and still has to be able
+// to put the panel away.
+bool panelBegun = false;
+
+void beginPanelOnce() {
+  if (panelBegun) return;
+  tft.begin();
+  tft.setRotation(0);  // Let LVGL handle software rotation
+  panelBegun = true;
+}
+
 // The face last drawn, kept so a change of brightness can repaint it in the
 // other scheme without the caller having to hand the timer over again.
 int lastRampAt = 100;
@@ -114,13 +136,11 @@ void Display::setup() {
   // A paused sleep locks the backlight and the panel's reset line on through
   // deep sleep; release both before driving them again, or tft.begin() cannot
   // reset the panel.
-  gpio_hold_dis((gpio_num_t)TFT_BL_PIN);
-  gpio_hold_dis((gpio_num_t)TFT_RST);
+  releaseHeldPins();
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, HIGH);
   // Initialize TFT
-  tft.begin();
-  tft.setRotation(0);  // Let LVGL handle software rotation
+  beginPanelOnce();
 
   // PWM only once TFT_eSPI has finished with the pin. It leaves TFT_BL alone
   // unless TFT_BACKLIGHT_ON is defined, which tft_setup.h does not define -- but
@@ -204,8 +224,19 @@ void repaintPalette() {
 }  // namespace
 
 void Display::deepSleep() {
+  // Both of these were no-ops when the last sleep held a frame: the pads were
+  // still latched, so the backlight stayed on at full for the whole of the next
+  // sleep. A cube parked face up and then turned face down went dark on the
+  // outside and burned the pack on the inside.
+  releaseHeldPins();
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, LOW);
+  // Reached on a wake that went straight back to sleep without ever bringing
+  // the display up, in which case there is no SPI to send a command over yet --
+  // and a panel left holding a frame is still refreshing one, at a few
+  // milliamps, which is an order above what the rest of the cube draws asleep.
+  // The backlight is already off, so none of this is seen.
+  beginPanelOnce();
   // Send GC9A01 Sleep In command
   tft.writecommand(0x10);
   delay(120); // Required transition delay for the controller to power down
@@ -226,6 +257,7 @@ void Display::holdPausedFrame() {
   // running to generate PWM once the CPU stops, and gpio_hold_en() freezes the
   // instantaneous level rather than the duty cycle. A parked cube is therefore
   // lit at full or not at all -- turning it face down is how you turn it off.
+  releaseHeldPins();
   releaseBacklightPwm();
   digitalWrite(TFT_BL_PIN, HIGH);
   gpio_hold_en((gpio_num_t)TFT_BL_PIN);

@@ -34,6 +34,7 @@ sudo apt install cmake build-essential libsdl2-dev
 | `u` | Lay it face up |
 | `b` | Cycle the low-battery warning: forced on, forced off, voltage-driven |
 | `[` `]` | Lower / raise the simulated pack voltage |
+| `t` | Tap the cube, which brightens the panel for ten seconds |
 | `v` | Toggle between the upright view and the raw panel |
 | `m` | Toggle the round-panel mask |
 | `a` | Print the BLE advertisement the firmware last published |

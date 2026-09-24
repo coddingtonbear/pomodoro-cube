@@ -71,6 +71,10 @@ struct BacklightView {
   // A stint counting up has no end to approach, so it never brightens on its
   // own; only turning the cube off it is a moment.
   bool countingUp;
+  // Since the cube was last tapped, which is someone asking to read it. Must be
+  // past the window when there has been no tap at all: zero reads as "just
+  // tapped" and would light the panel for the first ten seconds of every boot.
+  unsigned long sinceTapMs;
 };
 
 // How bright the backlight should be, as a percentage.
@@ -90,6 +94,16 @@ int flowBankPreview(int bankedSeconds, int elapsedSeconds);
 // hours of flow is four pomodoros, not one.
 bool completesFlowLap(int elapsedSeconds);
 
-bool updateOriDebounce(Orientation rawState);
+// Feed a raw orientation reading in and get back whether the debounced state
+// just changed. A reading has to hold still for ORI_DEBOUNCE_DELAY before it is
+// accepted: anything that flickers restarts the clock, so a cube in mid-air
+// settles on the face it is finally put down on rather than on whichever sample
+// happened to land at the end of the window. `nowMs` is millis() on the device
+// and a supplied clock in the tests.
+bool updateOriDebounce(Orientation rawState, unsigned long nowMs);
 Orientation getDebouncedOriState();
+
+// Forget everything the debouncer has seen. For the tests; the firmware gets a
+// fresh one from every cold boot.
+void resetOriDebounce();
 }

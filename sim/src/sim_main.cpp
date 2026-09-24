@@ -292,6 +292,7 @@ void handleKey(SDL_Keycode key) {
       break;
     case SDLK_m: g_roundMask = !g_roundMask; SimPanel::dirty = true; break;
     case SDLK_v: g_userView = !g_userView; SimPanel::dirty = true; break;
+    case SDLK_t: SimInput::tapPending = true; break;
     case SDLK_a: dumpAdvertisement(); break;
     case SDLK_r: reboot();
     case SDLK_q:
@@ -443,8 +444,8 @@ int main(int argc, char **argv) {
   std::printf(
       "[sim] keys: 1/2/3/4 = cube faces, 0 or s = face down, u = face up,\n"
       "      b = force low battery warning on/off, [ / ] = battery voltage,\n"
-      "      v = user/panel view, m = round mask, a = print BLE advertisement,\n"
-      "      r = reboot, q = quit\n");
+      "      v = user/panel view, m = round mask, t = tap the cube,\n"
+      "      a = print BLE advertisement, r = reboot, q = quit\n");
 
   try {
     setup();

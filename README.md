@@ -34,6 +34,10 @@ which does the same trick for coffee brew times.
   same face to carry on. A *different* face is taken as choosing a different
   interval, so the pause is abandoned.
 - **Face down means off** — the timer is discarded and the panel blanks.
+- **Tap it to read it** — the backlight runs at a fifth of full brightness
+  between the moments worth lighting, and a tap on the glass buys ten seconds
+  at full. The QMI8658 detects the tap itself, so it works on a face that never
+  brightens on its own, flow's especially. See [Brightness](#brightness).
 - **A pause costs the same power as being off.** The GC9A01 refreshes itself
   from its own memory, so the frozen frame survives with the CPU stopped; only
   the backlight draws current.
@@ -51,6 +55,21 @@ Orientation is the whole interface. A QMI8658 accelerometer reports which way
 gravity points, `Util::calcOrientation()` turns that into one of six states —
 four upright faces plus face up and face down — and a 300 ms debounce keeps a
 cube mid-flip from starting a timer it doesn't mean.
+
+The debounce measures how long one reading has *held still*, not how long it is
+since the last one that agreed with the face being left. The difference matters
+because a cube in a hand passes through faces on its way to the one it is being
+put down on: picking it up off its face-up rest and standing it on a timer face
+reads face-up somewhere in the middle, and a debounce timed the other way would
+take that in passing as a decision to set the cube down again — leaving the
+paused frame on a panel that should have gone back to work.
+
+Waking runs the same debounce. The interrupt that wakes the cube fires because
+it moved, so the first readings after one are taken in mid-air as often as not;
+the firmware waits for one to settle, up to three seconds, before deciding
+whether it has been set down or stood up. Guessing wrong towards sleep is the
+expensive mistake — a cube that sleeps on a face it is no longer on has nothing
+left to wake it.
 
 Standing the cube on a face starts that face's timer, unless there's a paused
 one belonging to that same face, in which case it picks up where it left off.
@@ -70,6 +89,30 @@ A paused timer and the pomodoro count live in RTC memory, which survives deep
 sleep but not a flat battery. Because a cold boot leaves arbitrary bits there,
 the block carries a magic word; anything that doesn't match it is discarded
 rather than resumed as a plausible-looking timer.
+
+### Brightness
+
+The backlight is the largest single draw while the cube is awake, of the same
+order as the whole rest of the board, so full brightness is rationed rather than
+held. It is spent on the moments worth looking at — the five seconds after the
+cube is set on a face, and the last five seconds of a countdown, which is also
+what keeps a finished timer lit while it beeps. Everything between sits at 20%,
+which is legible across a desk for a fraction of the current, and swaps to a
+filled-colour scheme that reads at that brightness where a thin arc does not.
+
+A tap on the glass buys ten seconds at full brightness and nothing else: the
+faces are what choose a timer, and tapping never changes one. Longer than a face
+change is worth, because a tap is someone coming to the cube cold rather than
+someone already looking at it. The QMI8658 has a tap detector of its own, which
+is what makes this work — a tap is over in a couple of milliseconds, so the
+50 Hz polling loop would miss almost every one if it had to find them in the
+accelerometer stream itself. The sensor latches the event and the loop reads it
+out. Single taps are accepted; `QMI::takeTap()` is where to narrow that to
+double taps if the cube turns out to brighten at things that were not taps.
+
+The one face this really matters for is flow's. A countdown brightens on its own
+as it runs out, but a stint has no end to approach, so before this the only way
+to read one that had settled was to pick the cube up — which ends the stint.
 
 ## Flow mode
 
@@ -384,6 +427,10 @@ Things that need a board, collected so they can be checked in one sitting:
   cell, so they should only be retuned against real readings.
 - **Whether the display stays powered in deep sleep**, which the lit-while-
   paused behaviour depends on.
+- **Whether the tap thresholds suit the cube.** `QMI::enableTapDetection()`
+  carries the vendor's figures — a 0.8 g² peak and a 0.4 g² quiet floor — which
+  have not been tried against a printed enclosure sitting on a desk. Too deaf
+  and taps go unnoticed; too keen and the panel lights when the desk is knocked.
 - **Whether the farewell advert really escapes.** Verified in the simulator, and
   the awake adverts are confirmed on hardware, but the farewell is the one that
   races the CPU stopping. Lay a running cube down and watch whether Home

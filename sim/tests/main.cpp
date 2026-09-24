@@ -5,6 +5,7 @@
 void testTimerSelection();
 void testRestingFaceParking();
 void testBacklightPolicy();
+void testOrientationDebounce();
 void testRemainingPercent();
 void testLapPercent();
 void testClockFieldsSwitchToHoursPastAnHour();
@@ -49,6 +50,7 @@ int main() {
   testTimerSelection();
   testRestingFaceParking();
   testBacklightPolicy();
+  testOrientationDebounce();
   testRemainingPercent();
   testLapPercent();
   testClockFieldsSwitchToHoursPastAnHour();

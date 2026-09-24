@@ -14,7 +14,7 @@ namespace RtcState {
 
 // Bump the trailing digit whenever Data's layout changes, so a firmware update
 // discards the old layout instead of misreading it.
-constexpr uint32_t MAGIC = 0x504F4D33;  // "POM3"
+constexpr uint32_t MAGIC = 0x504F4D34;  // "POM4"
 
 struct Data {
   uint32_t magic;
@@ -39,6 +39,12 @@ struct Data {
   // handoff, and the break face keeps it in step as it counts down, so an
   // unspent break is still in here whatever interrupts it.
   int32_t flowBankSeconds;
+
+  // True when the panel was left refreshing a frame of its own rather than put
+  // into sleep-in. Only the sleep paths write it, and only a wake that decides
+  // without booting the display reads it: that wake has no other way of knowing
+  // whether there is anything on the glass.
+  bool panelHoldingFrame;
 };
 
 // True when the block was written by this firmware and survived intact.

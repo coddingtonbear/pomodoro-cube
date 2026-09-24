@@ -28,6 +28,8 @@ void Beeper::playShutdown() {}
 
 void QMI::setup() {}
 void QMI::setupWakeup() {}
+void QMI::enableTapDetection() {}
+bool QMI::takeTap() { return false; }
 bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
   ax = 0.0f;
   ay = 0.0f;

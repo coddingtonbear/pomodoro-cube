@@ -44,6 +44,13 @@ void Util::deepSleep(SleepMode mode, bool playSound) {
   // already decided.
   BLE::farewell();
 
+  // Written down rather than worked out again on the next wake. A wake that
+  // goes straight back to sleep never brings the panel up, so it cannot ask the
+  // panel what it is showing -- and the two answers need different handling:
+  // a held frame has to be put away before the panel can go dark, and a blank
+  // panel has to be drawn on before the backlight is worth holding up.
+  RtcState::data().panelHoldingFrame = (mode == SleepMode::Paused);
+
   if (mode == SleepMode::Off) Display::deepSleep();
   else Display::holdPausedFrame();
 
@@ -94,6 +101,13 @@ int Util::backlightPercent(const BacklightView &view) {
   // Just set down. The face was chosen a moment ago, and what it came up with is
   // the answer to that choice.
   if (view.sinceFaceChangeMs < (unsigned long)BACKLIGHT_ATTENTION_SECONDS * 1000UL) {
+    return BACKLIGHT_FULL_PERCENT;
+  }
+
+  // Just tapped, which is the same request made deliberately: someone wants to
+  // read a face that has settled to the idle level. Held longer than a face
+  // change, because they are coming to it cold rather than already looking.
+  if (view.sinceTapMs < (unsigned long)BACKLIGHT_TAP_SECONDS * 1000UL) {
     return BACKLIGHT_FULL_PERCENT;
   }
 
@@ -148,19 +162,40 @@ bool Util::completesFlowLap(int elapsedSeconds) {
   return elapsedSeconds > 0 && elapsedSeconds % FLOW_LAP_SECONDS == 0;
 }
 
-unsigned long lastOriChangeTime = 0;
+// The face the cube is currently being read as, and the one it has been read as
+// for long enough to believe.
+Orientation candidateState = Orientation::UNDEFINED;
+unsigned long candidateSince = 0;
 Orientation debouncedState = Orientation::UNDEFINED;
 
-bool Util::updateOriDebounce(Orientation rawState) {
-  if (rawState == debouncedState) {
-    lastOriChangeTime = millis();
-  } else if ((millis() - lastOriChangeTime) >= ORI_DEBOUNCE_DELAY) {
-    debouncedState = rawState;
-    return true;
+bool Util::updateOriDebounce(Orientation rawState, unsigned long nowMs) {
+  // Any change of reading restarts the clock. The earlier version timed from
+  // the last sample that agreed with the *accepted* face instead, which means a
+  // cube tumbling through three faces on its way to a fourth never reset it:
+  // whatever sample happened to land ORI_DEBOUNCE_DELAY after the cube left the
+  // old face was taken as the new one. Picking a cube up off its face-up rest
+  // and standing it on a timer face goes through face-up on the way, so that is
+  // exactly how a cube ended up believing it had been set down again, parking
+  // the paused frame on a panel that should have gone back to work.
+  if (rawState != candidateState) {
+    candidateState = rawState;
+    candidateSince = nowMs;
+    return false;
   }
-  return false;
+
+  if (rawState == debouncedState) return false;
+  if (nowMs - candidateSince < (unsigned long)ORI_DEBOUNCE_DELAY) return false;
+
+  debouncedState = rawState;
+  return true;
 }
 
 Orientation Util::getDebouncedOriState() {
   return debouncedState;
+}
+
+void Util::resetOriDebounce() {
+  candidateState = Orientation::UNDEFINED;
+  candidateSince = 0;
+  debouncedState = Orientation::UNDEFINED;
 }
