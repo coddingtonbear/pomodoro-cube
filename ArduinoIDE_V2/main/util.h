@@ -22,6 +22,12 @@ struct TimerSpec {
   TimerKind kind;
   TimerMode mode;
   int seconds;
+  // One of flow's two faces. Both invert the panel: what makes flow worth
+  // marking out is the bank behind it, which the break face is spending just as
+  // much as the work face is filling it.
+  bool flow;
+  // This countdown is the bank draining, so the caller keeps the bank in step
+  // as it goes. Implies `flow` and a Break kind; the fixed faces never set it.
   bool spendsBank;
 };
 
@@ -32,6 +38,11 @@ TimerSpec getTimerSpec(Orientation ori, int bankedBreakSeconds);
 
 // What a flow stint of this length adds to the bank: a fifth of it.
 int flowBreakCredit(int workedSeconds);
+
+// What the bank would be worth if a stint of `elapsedSeconds` ended now, which
+// is the figure the flow work face shows: the question you are asking when you
+// look at it is what you would get by turning the cube over.
+int flowBankPreview(int bankedSeconds, int elapsedSeconds);
 
 // True on the second a flow lap completes -- the moment the arc comes back
 // round -- which is when a stint scores a pomodoro. Counting by the lap rather

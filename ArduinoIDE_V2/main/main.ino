@@ -19,6 +19,8 @@ TimerMode timerMode = TimerMode::Countdown;
 // True when the countdown on screen is the flow bank draining, so each tick has
 // to write the new balance back. The fixed faces leave the bank alone.
 bool spendingFlowBank = false;
+// One of flow's faces, either of them: the panel inverts for both.
+bool onFlowFace = false;
 unsigned long lastTick = 0;  // last count tick timestamp
 unsigned long startedBeeping = 0;
 // The timer face the cube was last stood on, so a pause knows what it paused.
@@ -39,6 +41,15 @@ void bankFlowStint(int elapsed) {
 
 bool countingUp() {
   return timerMode == TimerMode::CountUp;
+}
+
+// What the panel is drawn from. The bank shown on a running stint includes what
+// that stint has earned so far, because what you want to know while looking at
+// it is what turning the cube over would give you.
+Display::TimerView timerView() {
+  const int banked = RtcState::flowBank(RtcState::data());
+  return {remSeconds, selSeconds, countingUp(), onFlowFace,
+          countingUp() ? Util::flowBankPreview(banked, remSeconds) : banked};
 }
 
 
@@ -121,6 +132,7 @@ void loop() {
       // a spell on the 25-minute face doesn't cost you the break you earned.
       const Util::TimerSpec spec = Util::getTimerSpec(ori, RtcState::flowBank(RtcState::data()));
       spendingFlowBank = spec.spendsBank;
+      onFlowFace = spec.flow;
 
       bool resumesCountingUp = false;
       if (RtcState::takePause(RtcState::data(), ori, remSeconds, selSeconds,
@@ -141,7 +153,7 @@ void loop() {
       if (!countingUp() && remSeconds == 0) startedBeeping = millis();
 
       Display::rotateScreen(ori);
-      Display::updateTimer(remSeconds, selSeconds, countingUp());
+      Display::updateTimer(timerView());
       lastTick = millis();
     }
   }
@@ -163,7 +175,7 @@ void loop() {
       remSeconds = 0;
       startedBeeping = millis();
     }
-    Display::updateTimer(remSeconds, selSeconds, countingUp());
+    Display::updateTimer(timerView());
   }
 
   if (!countingUp() && remSeconds > 0 && millis() - lastTick >= 1000) {
@@ -171,7 +183,7 @@ void loop() {
     // Keep the balance in step as the break is spent, so whatever interrupts it
     // -- another face, a pause, a flat battery -- leaves the rest still banked.
     if (spendingFlowBank) RtcState::setFlowBank(RtcState::data(), remSeconds);
-    Display::updateTimer(remSeconds, selSeconds, false);
+    Display::updateTimer(timerView());
     lastTick = millis();
     if (remSeconds == 0) {
       startedBeeping = millis();

@@ -87,6 +87,37 @@ void testWorkedThenBankedMatchesTheWholeJourney() {
   CHECK(Util::getTimerSpec(Orientation::DEG_270, bank).seconds == 9 * 60);
 }
 
+void testTheBankPreviewIncludesTheRunningStint() {
+  // Nothing worked yet: just the balance.
+  CHECK(Util::flowBankPreview(0, 0) == 0);
+  CHECK(Util::flowBankPreview(300, 0) == 300);
+
+  // Then it climbs a second for every five worked, on top of what was there.
+  CHECK(Util::flowBankPreview(0, 25 * 60) == 5 * 60);
+  CHECK(Util::flowBankPreview(4 * 60, 25 * 60) == 9 * 60);
+  CHECK(Util::flowBankPreview(0, 5) == 1);
+
+  // Clamped where the bank is, so the figure on screen is one the cube can
+  // actually honour.
+  CHECK(Util::flowBankPreview(FLOW_MAX_SECONDS, FLOW_MAX_SECONDS) == FLOW_MAX_SECONDS);
+  CHECK(Util::flowBankPreview(-5, 0) == 0);
+}
+
+void testBothFlowFacesInvertThePanel() {
+  // The break face is spending the bank just as much as the work face is
+  // filling it, so both wear flow's colours.
+  CHECK(Util::getTimerSpec(Orientation::DEG_180, 0).flow);
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).flow);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_0, 0).flow);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_90, 0).flow);
+  CHECK(!Util::getTimerSpec(Orientation::FACE_UP, 0).flow);
+
+  // Spending the bank implies being one of flow's faces, never the other way
+  // round: the work face fills it rather than draining it.
+  CHECK(Util::getTimerSpec(Orientation::DEG_270, 0).spendsBank);
+  CHECK(!Util::getTimerSpec(Orientation::DEG_180, 0).spendsBank);
+}
+
 void testAStintScoresALapAtATime() {
   // Nothing yet, and nothing for the seconds that are not a lap.
   CHECK(!Util::completesFlowLap(0));
@@ -158,6 +189,8 @@ void testTimerSelection() {
   testAStintCreditsAFifthToTheBank();
   testTheBreakFaceCountsTheBankDown();
   testWorkedThenBankedMatchesTheWholeJourney();
+  testTheBankPreviewIncludesTheRunningStint();
+  testBothFlowFacesInvertThePanel();
   testAStintScoresALapAtATime();
   testAnEmptyBankIsABreakOfNoLength();
   testRestingFaces();

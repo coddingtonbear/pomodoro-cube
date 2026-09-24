@@ -70,30 +70,38 @@ bool Util::isRestingFace(Orientation ori) {
 Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
   switch (ori) {
     case Orientation::DEG_0:
-      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS, false};
+      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS, false, false};
     case Orientation::DEG_90:
-      return {TimerKind::Break, TimerMode::Countdown, TIMER_SHORT_BREAK_SECONDS, false};
+      return {TimerKind::Break, TimerMode::Countdown, TIMER_SHORT_BREAK_SECONDS, false, false};
     case Orientation::DEG_180:
       // Flow's work face: no length, because it counts up until the cube is
       // turned off it.
-      return {TimerKind::Work, TimerMode::CountUp, 0, false};
+      return {TimerKind::Work, TimerMode::CountUp, 0, true, false};
     case Orientation::DEG_270:
       // Flow's break face pays out the bank and nothing else. An empty bank is
       // a break of no length, which finishes the moment it starts -- there is
       // nothing to fall back on, because any fallback would be break time
       // nobody worked for.
       return {TimerKind::Break, TimerMode::Countdown,
-              bankedBreakSeconds > 0 ? bankedBreakSeconds : 0, true};
+              bankedBreakSeconds > 0 ? bankedBreakSeconds : 0, true, true};
     default:
       // A resting face runs no timer, but must still not report zero: a
       // zero-length timer would divide by zero in the arc.
-      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS, false};
+      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS, false, false};
   }
 }
 
 int Util::flowBreakCredit(int workedSeconds) {
   if (workedSeconds <= 0) return 0;
   return workedSeconds / FLOW_BREAK_DIVISOR;
+}
+
+int Util::flowBankPreview(int bankedSeconds, int elapsedSeconds) {
+  if (bankedSeconds < 0) bankedSeconds = 0;
+  const int preview = bankedSeconds + flowBreakCredit(elapsedSeconds);
+  // Clamped the way the bank itself is, so the figure on screen is one the
+  // cube can actually honour.
+  return preview > FLOW_MAX_SECONDS ? FLOW_MAX_SECONDS : preview;
 }
 
 bool Util::completesFlowLap(int elapsedSeconds) {

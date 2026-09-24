@@ -16,11 +16,7 @@ void Display::deepSleep() {}
 void Display::holdPausedFrame() {}
 void Display::showPaused() {}
 void Display::rotateScreen(Orientation ori) { (void)ori; }
-void Display::updateTimer(int seconds, int selSeconds, bool countingUp) {
-  (void)seconds;
-  (void)selSeconds;
-  (void)countingUp;
-}
+void Display::updateTimer(const TimerView &view) { (void)view; }
 void Display::cycleTimerFinish() {}
 
 void Beeper::setup() {}

@@ -20,6 +20,7 @@ extern lv_obj_t * ui_LowBatteryTip;
 extern lv_obj_t * ui_LowBatteryVoltage;
 extern lv_obj_t * ui_Countdown;
 extern lv_obj_t * ui_UnitMarker;
+extern lv_obj_t * ui_BankLabel;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

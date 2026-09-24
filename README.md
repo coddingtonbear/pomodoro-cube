@@ -99,14 +99,25 @@ nobody worked for. For the same reason there is no minimum on a break either —
 the bank is an account, and what it says you have is what you get, down to
 twelve seconds.
 
-The panel inverts to black on white while a stint runs, because a number that
-is going up looks exactly like one going down:
+**Both flow faces wear an inverted panel** — black on white — because a number
+going up looks exactly like one going down, and because the break face is
+spending the bank just as much as the work face is filling it. The two flow
+faces belong together and the two fixed ones belong together:
 
-![Flow mode counting up, and the break it earned](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/flow.png)
+![Flow mode counting up with its bank, and the break it earned](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/flow.png)
+
+The work face carries the bank above the counter in small type — `BANK 4:40`.
+It shows what the bank would be worth **if the stint ended now**, so it climbs a
+second for every five worked rather than sitting at the last committed figure:
+the question you are asking when you glance at it is what turning the cube over
+would give you. The break face has no such label, because there the big number
+*is* the bank, counting down.
 
 Counting up has no total for the arc to drain against, so the arc becomes a lap
 indicator instead: it fills over 25 minutes, shading green to red as the lap
-ages, then starts again. **Each lap that closes scores a pomodoro** — the arc
+ages, then starts again. Flow's arc runs a step darker at every stop than the
+fixed faces' — those colours were picked against black, and amber on white is
+all but invisible. **Each lap that closes scores a pomodoro** — the arc
 coming back round is the cube saying so — which is why the lap is 25 minutes and
 not some other number. Two hours of flow is four pomodoros, counted as they
 happen rather than totted up when the stint ends, so the count reaches Home

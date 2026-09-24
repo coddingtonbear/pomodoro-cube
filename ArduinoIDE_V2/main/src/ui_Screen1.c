@@ -12,6 +12,7 @@ lv_obj_t * ui_LowBatteryTip = NULL;
 lv_obj_t * ui_LowBatteryVoltage = NULL;
 lv_obj_t * ui_Countdown = NULL;
 lv_obj_t * ui_UnitMarker = NULL;
+lv_obj_t * ui_BankLabel = NULL;
 // event funtions
 
 // build funtions
@@ -118,6 +119,20 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_style_text_opa(ui_UnitMarker, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_UnitMarker, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    // How much break the bank holds, shown above the flow work counter while a
+    // stint runs. Above rather than below because the unit marker already owns
+    // the space underneath.
+    ui_BankLabel = lv_label_create(ui_Screen1);
+    lv_obj_set_width(ui_BankLabel, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_BankLabel, LV_SIZE_CONTENT);
+    lv_obj_set_align(ui_BankLabel, LV_ALIGN_CENTER);
+    lv_obj_set_y(ui_BankLabel, -42);
+    lv_label_set_text(ui_BankLabel, "BANK 0:00");
+    lv_obj_add_flag(ui_BankLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_text_color(ui_BankLabel, lv_color_hex(COUNTDOWN_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_BankLabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_BankLabel, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
 }
 
 void ui_Screen1_screen_destroy(void)
@@ -132,5 +147,6 @@ void ui_Screen1_screen_destroy(void)
     ui_LowBatteryVoltage = NULL;
     ui_Countdown = NULL;
     ui_UnitMarker = NULL;
+    ui_BankLabel = NULL;
 
 }

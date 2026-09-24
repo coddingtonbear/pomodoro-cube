@@ -78,9 +78,11 @@ static void setArcAppearance(uint32_t color, lv_opa_t opa) {
 // so the inversion can't half-apply.
 static void setPalette(uint32_t background, uint32_t text, uint32_t track) {
   lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(background), LV_PART_MAIN);
-  lv_obj_set_style_text_color(ui_Countdown, lv_color_hex(text), LV_PART_MAIN);
-  lv_obj_set_style_text_color(ui_UnitMarker, lv_color_hex(text), LV_PART_MAIN);
   lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(track), LV_PART_MAIN);
+  lv_obj_t *const labels[] = {ui_Countdown, ui_UnitMarker, ui_BankLabel};
+  for (lv_obj_t *label : labels) {
+    lv_obj_set_style_text_color(label, lv_color_hex(text), LV_PART_MAIN);
+  }
 }
 
 void Display::deepSleep() {
@@ -135,24 +137,44 @@ static void setCountdownText(int seconds) {
   show(ui_UnitMarker, fields.hours);
 }
 
-void Display::updateTimer(int seconds, int selSeconds, bool countingUp) {
-  setCountdownText(seconds);
+// The bank in the smallest form that stays unambiguous: no marker to explain,
+// because minutes and seconds are shown as such and hours only appear when
+// there are some.
+static void setBankText(int seconds) {
+  if (seconds < 0) seconds = 0;
+  if (seconds >= 3600) {
+    lv_label_set_text_fmt(ui_BankLabel, "BANK %d:%02d:%02d", seconds / 3600,
+                          (seconds % 3600) / 60, seconds % 60);
+  } else {
+    lv_label_set_text_fmt(ui_BankLabel, "BANK %d:%02d", seconds / 60, seconds % 60);
+  }
+}
 
-  if (countingUp) {
-    // Flow mode: no total to drain against, so the arc fills as a lap indicator
-    // and the panel inverts to black on white. Undoes showPaused() as the
-    // countdown branch does, without needing to know whether it ran.
-    const int lap = Indicators::lapPercent(seconds);
-    lv_arc_set_value(ui_Arc1, lap);
-    setArcAppearance(Indicators::flowArcColor(lap), LV_OPA_COVER);
+void Display::updateTimer(const TimerView &view) {
+  setCountdownText(view.seconds);
+
+  // The bank belongs on the work face: on the break face the big number already
+  // is the bank, counting down.
+  const bool showBank = view.flow && view.countingUp;
+  if (showBank) setBankText(view.bankSeconds);
+  show(ui_BankLabel, showBank);
+
+  // Counting up has no total to drain against, so the arc fills as a lap
+  // indicator, its colour running the ramp over what is left of the lap.
+  const int remaining = view.countingUp ? Indicators::lapPercent(view.seconds)
+                                        : Indicators::remainingPercent(view.seconds, view.selSeconds);
+  const int rampAt = view.countingUp ? 100 - remaining : remaining;
+  lv_arc_set_value(ui_Arc1, remaining);
+
+  // Both flow faces invert, and both take the darker ramp that goes with white.
+  // Also undoes showPaused() without needing to know whether it ran.
+  if (view.flow) {
+    setArcAppearance(Indicators::flowArcColor(rampAt), LV_OPA_COVER);
     setPalette(FLOW_BG_COLOR, COUNTDOWN_COLOR_FLOW, FLOW_ARC_TRACK_COLOR);
     return;
   }
 
-  // The countdown arc starts full and drains, shading green through amber to red.
-  const int remaining = Indicators::remainingPercent(seconds, selSeconds);
-  lv_arc_set_value(ui_Arc1, remaining);
-  setArcAppearance(Indicators::arcColor(remaining), LV_OPA_COVER);
+  setArcAppearance(Indicators::arcColor(rampAt), LV_OPA_COVER);
   setPalette(SCREEN_BG_COLOR, COUNTDOWN_COLOR, ARC_TRACK_COLOR);
 }
 

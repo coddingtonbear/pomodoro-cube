@@ -6,7 +6,7 @@ void testTimerSelection();
 void testRemainingPercent();
 void testLapPercent();
 void testClockFieldsSwitchToHoursPastAnHour();
-void testFlowArcColorRunsBackwards();
+void testFlowArcColorMatchesTheCountdownRamp();
 void testArcColorStops();
 void testArcColorIsGradual();
 void testLowBatteryThreshold();
@@ -38,7 +38,7 @@ int main() {
   testRemainingPercent();
   testLapPercent();
   testClockFieldsSwitchToHoursPastAnHour();
-  testFlowArcColorRunsBackwards();
+  testFlowArcColorMatchesTheCountdownRamp();
   testArcColorStops();
   testArcColorIsGradual();
   testLowBatteryThreshold();

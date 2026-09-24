@@ -86,15 +86,20 @@ void testLapPercent() {
   CHECK(Indicators::lapPercent(5 * FLOW_LAP_SECONDS) == 0);
 }
 
-void testFlowArcColorRunsBackwards() {
-  // The countdown's ramp is green when there is time left; a lap's is green when
-  // it is fresh, so the colours have to run the other way round.
-  CHECK(Indicators::flowArcColor(0) == FLOW_ARC_COLOR_FULL);
-  CHECK(Indicators::flowArcColor(100) == FLOW_ARC_COLOR_LOW);
-  CHECK(Indicators::flowArcColor(100 - ARC_MID_PERCENT) == FLOW_ARC_COLOR_MID);
+void testFlowArcColorMatchesTheCountdownRamp() {
+  // Same direction as arcColor -- how much is left -- so both flow faces read
+  // the same way round. A lap inverts at the call site instead.
+  CHECK(Indicators::flowArcColor(100) == FLOW_ARC_COLOR_FULL);
+  CHECK(Indicators::flowArcColor(0) == FLOW_ARC_COLOR_LOW);
+  CHECK(Indicators::flowArcColor(ARC_MID_PERCENT) == FLOW_ARC_COLOR_MID);
+
+  // A fresh lap has all of itself left, so it is the green end.
+  CHECK(Indicators::flowArcColor(100 - 0) == FLOW_ARC_COLOR_FULL);
+  CHECK(Indicators::flowArcColor(100 - 100) == FLOW_ARC_COLOR_LOW);
 
   // And darker than the countdown's at every stop, because it is drawn on white.
-  CHECK(Indicators::flowArcColor(0) != Indicators::arcColor(100));
+  CHECK(Indicators::flowArcColor(100) != Indicators::arcColor(100));
+  CHECK(Indicators::flowArcColor(0) != Indicators::arcColor(0));
 }
 
 void testClockFieldsSwitchToHoursPastAnHour() {

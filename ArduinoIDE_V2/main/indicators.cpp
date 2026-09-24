@@ -51,8 +51,8 @@ int Indicators::lapPercent(int elapsedSeconds) {
   return ((elapsedSeconds % FLOW_LAP_SECONDS) * 100) / FLOW_LAP_SECONDS;
 }
 
-uint32_t Indicators::flowArcColor(int lapPercent) {
-  return ramp(100 - lapPercent, FLOW_ARC_COLOR_FULL, FLOW_ARC_COLOR_MID, FLOW_ARC_COLOR_LOW);
+uint32_t Indicators::flowArcColor(int remainingPercent) {
+  return ramp(remainingPercent, FLOW_ARC_COLOR_FULL, FLOW_ARC_COLOR_MID, FLOW_ARC_COLOR_LOW);
 }
 
 Indicators::ClockFields Indicators::clockFields(int seconds) {

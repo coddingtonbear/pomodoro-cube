@@ -15,10 +15,22 @@ void holdPausedFrame();
 void showPaused();
 void rotateScreen(Orientation ori);
 
-// Repaints the whole face from the timer. `seconds` is the remaining time when
-// counting down and the elapsed time when counting up; `selSeconds` is the
-// interval being counted down, and is ignored when counting up because there
-// isn't one.
-void updateTimer(int seconds, int selSeconds, bool countingUp);
+// Everything the face is drawn from, gathered rather than passed as a row of
+// unlabelled flags.
+struct TimerView {
+  // Remaining when counting down, elapsed when counting up.
+  int seconds;
+  // The interval being counted down; 0 counting up, where there isn't one.
+  int selSeconds;
+  bool countingUp;
+  // One of flow's faces, either of them: the panel inverts for both.
+  bool flow;
+  // Break time banked. Shown above the counter on the flow work face, where it
+  // includes what the running stint has earned so far.
+  int bankSeconds;
+};
+
+// Repaints the whole face.
+void updateTimer(const TimerView &view);
 void cycleTimerFinish();
 }

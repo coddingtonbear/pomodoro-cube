@@ -17,10 +17,11 @@ uint32_t arcColor(int remainingPercent);
 // indicator: 0-100 filling over FLOW_LAP_SECONDS, then starting again.
 int lapPercent(int elapsedSeconds);
 
-// Colour for a lap at that percentage. Runs the ramp backwards -- a fresh lap is
-// green and an old one red, which is the nudge to take a break -- and in flow's
-// darker stops, since it is drawn on white.
-uint32_t flowArcColor(int lapPercent);
+// The same ramp for flow's white panel, a step darker at every stop: the
+// countdown palette was picked against black, and amber on white is all but
+// invisible. Takes how much is *left*, like arcColor -- a lap passes
+// `100 - lapPercent`, since a fresh lap has all of itself still to run.
+uint32_t flowArcColor(int remainingPercent);
 
 // How the countdown label should be split. Past an hour there are not enough
 // digits for MM:SS at the size the panel needs, so it becomes HH:MM -- and the
