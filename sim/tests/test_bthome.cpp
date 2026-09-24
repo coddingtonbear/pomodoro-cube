@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "check.h"
+#include "consts.h"
 
 namespace {
 
@@ -15,6 +16,7 @@ BTHome::State workTimerRunning() {
   state.batteryVolts = 3.82f;
   state.awake = true;
   state.running = true;
+  state.work = true;
   state.pomodoroCount = 3;
   state.remainingSeconds = 1234;
   state.selectedSeconds = 1500;
@@ -27,7 +29,7 @@ constexpr size_t OBJECTS_START = 3 + 1 + 1 + 2 + 1;
 
 size_t valueSizeOf(uint8_t id) {
   switch (id) {
-    case 0x00: case 0x19: case 0x27: return 1;  // uint8 and binaries
+    case 0x00: case 0x0F: case 0x19: case 0x27: return 1;  // uint8 and binaries
     case 0x0C: case 0x3D: return 2;             // uint16
     case 0x42: return 3;                        // uint24
     default: return 0;                          // unknown
@@ -77,9 +79,10 @@ void testEncodesKnownStateExactly() {
 
   const uint8_t expected[] = {
       0x02, 0x01, 0x06,              // Flags: LE general discoverable, BR/EDR not supported
-      0x18, 0x16, 0xD2, 0xFC, 0x44,  // 24 bytes of service data, UUID 0xFCD2, BTHome v2 trigger based
+      0x1A, 0x16, 0xD2, 0xFC, 0x44,  // 26 bytes of service data, UUID 0xFCD2, BTHome v2 trigger based
       0x00, 0x07,                    // packet id 7
       0x0C, 0xEC, 0x0E,              // voltage 3820 mV
+      0x0F, 0x01,                    // work rather than break
       0x19, 0x01,                    // connectivity: awake
       0x27, 0x01,                    // running
       0x3D, 0x03, 0x00,              // 3 pomodoros
@@ -96,8 +99,8 @@ void testFitsInALegacyAdvertisement() {
   state.packetId = 255;
   state.pomodoroCount = 65535;
   state.batteryVolts = 4.2f;
-  state.remainingSeconds = 50 * 60;
-  state.selectedSeconds = 50 * 60;
+  state.remainingSeconds = FLOW_MAX_SECONDS;
+  state.selectedSeconds = FLOW_MAX_SECONDS;
 
   uint8_t advert[BTHome::MAX_ADVERTISEMENT];
   const size_t length = BTHome::encode(state, advert, sizeof(advert));
@@ -115,7 +118,7 @@ void testObjectIdsAscend() {
   uint8_t ids[16];
   const size_t count = objectIdsOf(advert, length, ids, sizeof(ids));
 
-  CHECK(count == 7);
+  CHECK(count == 8);
   for (size_t i = 1; i < count; i++) {
     CHECK_MSG(ids[i] >= ids[i - 1], "object ids must not go backwards");
   }
@@ -154,7 +157,7 @@ void testOutOfRangeValuesClamp() {
 
   // Still a well-formed advertisement of the usual size: a clamped value must
   // not wrap into something that reads as a plausible short timer.
-  CHECK(length == 28);
+  CHECK(length == 30);
 
   const uint8_t *voltage = findObject(advert, length, 0x0C);
   CHECK(voltage != nullptr && voltage[0] == 0x00 && voltage[1] == 0x00);
@@ -179,4 +182,42 @@ void testRefusesABufferItCannotFill() {
   std::memset(probe, 0xAA, sizeof(probe));
   BTHome::encode(workTimerRunning(), probe, sizeof(probe));
   CHECK(std::memcmp(probe, untouched, sizeof(probe)) == 0);
+}
+
+void testFlowAdvertisesWorkWithNoSelectedLength() {
+  // Flow's work face counts up, so there is no interval to report. A zero
+  // Duration 2 is the sentinel for that: no fixed timer ever advertises one,
+  // and with the work flag beside it a receiver can tell a stint counting up
+  // from a countdown that has finished.
+  BTHome::State state = workTimerRunning();
+  state.work = true;
+  state.remainingSeconds = 742;  // elapsed, not remaining
+  state.selectedSeconds = 0;
+
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+  const size_t length = BTHome::encode(state, advert, sizeof(advert));
+  CHECK(length > 0);
+
+  const uint8_t *work = findObject(advert, length, 0x0F);
+  CHECK(work != nullptr && work[0] == 0x01);
+
+  const uint8_t *elapsed = findObject(advert, length, 0x42, 0);
+  CHECK(elapsed != nullptr);
+  CHECK(elapsed[0] == 0x70 && elapsed[1] == 0x52 && elapsed[2] == 0x0B);  // 742_000 ms
+
+  const uint8_t *selected = findObject(advert, length, 0x42, 1);
+  CHECK(selected != nullptr);
+  CHECK(selected[0] == 0x00 && selected[1] == 0x00 && selected[2] == 0x00);
+}
+
+void testBreakAdvertisesNotWork() {
+  BTHome::State state = workTimerRunning();
+  state.work = false;
+
+  uint8_t advert[BTHome::MAX_ADVERTISEMENT];
+  const size_t length = BTHome::encode(state, advert, sizeof(advert));
+  CHECK(length > 0);
+
+  const uint8_t *work = findObject(advert, length, 0x0F);
+  CHECK(work != nullptr && work[0] == 0x00);
 }

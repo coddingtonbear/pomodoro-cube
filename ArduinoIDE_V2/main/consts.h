@@ -20,8 +20,29 @@
 // matching the order of the Orientation enum below.
 constexpr int TIMER_WORK_SECONDS = 25 * 60;
 constexpr int TIMER_SHORT_BREAK_SECONDS = 5 * 60;
-constexpr int TIMER_LONG_WORK_SECONDS = 50 * 60;
+
+// DEG_180 and DEG_270 are flow mode's pair, and carry no fixed length: the work
+// face counts up for as long as the cube stands on it, and the break face then
+// counts down a fifth of what it counted.
+constexpr int FLOW_BREAK_DIVISOR = 5;
+
+// The break face fell back on when nothing has been earned -- the ten minutes it
+// was before flow mode -- rather than a zero-second break that would beep the
+// moment it started.
 constexpr int TIMER_LONG_BREAK_SECONDS = 10 * 60;
+
+// A stint shorter than this earns no break and counts no pomodoro. Turning the
+// cube through the flow face on the way somewhere else shouldn't score.
+constexpr int FLOW_MIN_STINT_SECONDS = 90;
+
+// Counting up has no total to fill the arc against, so the arc becomes a lap
+// indicator: it fills over this long, then starts again.
+constexpr int FLOW_LAP_SECONDS = 25 * 60;
+
+// Where a stint gives up and finishes on its own. A cube left standing on the
+// flow face would otherwise hold the backlight on until the pack went flat, and
+// the advertisement's uint24 of milliseconds runs out shortly after this.
+constexpr int FLOW_MAX_SECONDS = 4 * 60 * 60;
 
 // The countdown arc runs full to empty, shading from ARC_COLOR_FULL through
 // ARC_COLOR_MID to ARC_COLOR_LOW as the remaining percentage falls past these
@@ -51,3 +72,11 @@ enum class Orientation {
   DEG_270,
   UNDEFINED
 };
+
+// What an interval is for. Both work faces -- the 25 minute one and flow's --
+// count towards the pomodoro total, and this is what the advertisement's work
+// flag carries, so the two can never disagree about which is which.
+enum class TimerKind { Work, Break };
+
+// Which way the seconds run. Countdown is every face but flow's work face.
+enum class TimerMode { Countdown, CountUp };

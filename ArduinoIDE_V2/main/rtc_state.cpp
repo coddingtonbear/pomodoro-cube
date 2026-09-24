@@ -25,6 +25,8 @@ void RtcState::initialise(Data &data) {
   data.pausedFace = Orientation::UNDEFINED;
   data.pausedRemaining = 0;
   data.pausedSelected = 0;
+  data.pausedCountingUp = false;
+  data.flowEarnedSeconds = 0;
 }
 
 RtcState::Data &RtcState::data() {
@@ -35,15 +37,19 @@ void RtcState::begin() {
   if (!isInitialised(g_rtcData)) initialise(g_rtcData);
 }
 
-void RtcState::storePause(Data &data, Orientation face, int remaining, int selected) {
+void RtcState::storePause(Data &data, Orientation face, int remaining, int selected,
+                          bool countingUp) {
   // A timer at zero has finished rather than paused, and one that never started
-  // has nothing to hold.
-  if (remaining <= 0 || selected <= 0) return;
+  // has nothing to hold. A count-up stint carries no selected length, so for one
+  // of those the elapsed time is the whole test.
+  if (remaining <= 0) return;
+  if (!countingUp && selected <= 0) return;
 
   data.pauseValid = true;
   data.pausedFace = face;
   data.pausedRemaining = remaining;
   data.pausedSelected = selected;
+  data.pausedCountingUp = countingUp;
 }
 
 void RtcState::clearPause(Data &data) {
@@ -51,19 +57,36 @@ void RtcState::clearPause(Data &data) {
   data.pausedFace = Orientation::UNDEFINED;
   data.pausedRemaining = 0;
   data.pausedSelected = 0;
+  data.pausedCountingUp = false;
 }
 
 bool RtcState::hasPause(const Data &data) {
   return data.pauseValid;
 }
 
-bool RtcState::takePause(Data &data, Orientation face, int &remaining, int &selected) {
+bool RtcState::takePause(Data &data, Orientation face, int &remaining, int &selected,
+                         bool &countingUp) {
   const bool resumable = data.pauseValid && data.pausedFace == face;
   if (resumable) {
     remaining = (int)data.pausedRemaining;
     selected = (int)data.pausedSelected;
+    countingUp = data.pausedCountingUp;
   }
 
   clearPause(data);
   return resumable;
+}
+
+void RtcState::storeFlowEarned(Data &data, int seconds) {
+  data.flowEarnedSeconds = seconds > 0 ? seconds : 0;
+}
+
+int RtcState::takeFlowEarned(Data &data) {
+  const int earned = (int)data.flowEarnedSeconds;
+  clearFlowEarned(data);
+  return earned;
+}
+
+void RtcState::clearFlowEarned(Data &data) {
+  data.flowEarnedSeconds = 0;
 }

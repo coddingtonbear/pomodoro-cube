@@ -25,6 +25,8 @@ void setup();
 void loop();
 extern int remSeconds;
 extern int selSeconds;
+extern TimerKind timerKind;
+extern TimerMode timerMode;
 
 namespace {
 
@@ -83,11 +85,16 @@ void applyBatteryOverride() {
 void dumpAdvertisement() {
   static uint8_t packetId = 0;
 
+  const bool countingUp = timerMode == TimerMode::CountUp;
+
   BTHome::State state;
   state.packetId = packetId++;
   state.batteryVolts = SimInput::batteryVoltage;
   state.awake = true;
-  state.running = remSeconds > 0;
+  // A stint counting up is running from its first second, before remSeconds has
+  // anything in it.
+  state.running = countingUp || remSeconds > 0;
+  state.work = timerKind == TimerKind::Work;
   state.pomodoroCount = RtcState::data().pomodoroCount;
   state.remainingSeconds = remSeconds;
   state.selectedSeconds = selSeconds;

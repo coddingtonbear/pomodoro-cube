@@ -72,3 +72,52 @@ void testLowBatteryThreshold() {
   // or it would never be seen.
   CHECK(LOW_BATTERY_VOLTAGE > BAT_EMPTY_VOLTAGE);
 }
+
+void testLapPercent() {
+  // Counting up has no total, so the arc fills over a lap and starts again.
+  CHECK(Indicators::lapPercent(0) == 0);
+  CHECK(Indicators::lapPercent(-5) == 0);
+  CHECK(Indicators::lapPercent(FLOW_LAP_SECONDS / 2) == 50);
+  CHECK(Indicators::lapPercent(FLOW_LAP_SECONDS - 1) == 99);
+
+  // A lap boundary starts over rather than saturating at full.
+  CHECK(Indicators::lapPercent(FLOW_LAP_SECONDS) == 0);
+  CHECK(Indicators::lapPercent(FLOW_LAP_SECONDS + FLOW_LAP_SECONDS / 4) == 25);
+  CHECK(Indicators::lapPercent(5 * FLOW_LAP_SECONDS) == 0);
+}
+
+void testFlowArcColorRunsBackwards() {
+  // The countdown's ramp is green when there is time left; a lap's is green when
+  // it is fresh, so the colours have to run the other way round.
+  CHECK(Indicators::flowArcColor(0) == FLOW_ARC_COLOR_FULL);
+  CHECK(Indicators::flowArcColor(100) == FLOW_ARC_COLOR_LOW);
+  CHECK(Indicators::flowArcColor(100 - ARC_MID_PERCENT) == FLOW_ARC_COLOR_MID);
+
+  // And darker than the countdown's at every stop, because it is drawn on white.
+  CHECK(Indicators::flowArcColor(0) != Indicators::arcColor(100));
+}
+
+void testClockFieldsSwitchToHoursPastAnHour() {
+  // Minutes and seconds while there is room for them.
+  CHECK(Indicators::clockFields(0).left == 0 && Indicators::clockFields(0).right == 0);
+  CHECK(!Indicators::clockFields(0).hours);
+  CHECK(Indicators::clockFields(-5).left == 0 && Indicators::clockFields(-5).right == 0);
+
+  const Indicators::ClockFields work = Indicators::clockFields(TIMER_WORK_SECONDS);
+  CHECK(work.left == 25 && work.right == 0 && !work.hours);
+
+  const Indicators::ClockFields nearly = Indicators::clockFields(3599);
+  CHECK(nearly.left == 59 && nearly.right == 59 && !nearly.hours);
+
+  // At an hour MM:SS would need three digits for the minutes, which does not
+  // fit, so the fields become hours and minutes.
+  const Indicators::ClockFields hour = Indicators::clockFields(3600);
+  CHECK(hour.left == 1 && hour.right == 0 && hour.hours);
+
+  const Indicators::ClockFields long_ = Indicators::clockFields(3 * 3600 + 25 * 60 + 40);
+  CHECK(long_.left == 3 && long_.right == 25 && long_.hours);
+
+  // The longest a stint can run still fits two digits on each side.
+  const Indicators::ClockFields cap = Indicators::clockFields(FLOW_MAX_SECONDS);
+  CHECK(cap.left == 4 && cap.right == 0 && cap.hours);
+}

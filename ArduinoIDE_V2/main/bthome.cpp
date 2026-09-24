@@ -21,6 +21,7 @@ constexpr uint8_t DEVICE_INFO = (2 << 5) | 0x04;
 // --- Object ids, in the ascending order the spec requires them to be sent ---
 constexpr uint8_t OBJ_PACKET_ID = 0x00;
 constexpr uint8_t OBJ_VOLTAGE = 0x0C;        // uint16, x0.001 V
+constexpr uint8_t OBJ_WORK = 0x0F;           // binary (generic boolean)
 constexpr uint8_t OBJ_CONNECTIVITY = 0x19;   // binary
 constexpr uint8_t OBJ_RUNNING = 0x27;        // binary
 constexpr uint8_t OBJ_COUNT = 0x3D;          // uint16
@@ -105,6 +106,12 @@ size_t BTHome::encode(const State &state, uint8_t *out, size_t capacity) {
 
   writer.u8(OBJ_VOLTAGE);
   writer.u16(millivolts(state.batteryVolts));
+
+  // A generic boolean, because BTHome has no object that means "this interval is
+  // work". It is what separates the two work faces from the two break ones, now
+  // that neither flow face has a length to classify it by.
+  writer.u8(OBJ_WORK);
+  writer.u8(state.work ? 1 : 0);
 
   writer.u8(OBJ_CONNECTIVITY);
   writer.u8(state.awake ? 1 : 0);

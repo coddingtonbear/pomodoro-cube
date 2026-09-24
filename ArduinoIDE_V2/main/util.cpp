@@ -67,14 +67,28 @@ bool Util::isRestingFace(Orientation ori) {
   return ori == Orientation::FACE_UP || ori == Orientation::FACE_DOWN;
 }
 
-int Util::getTimerByOrientation(Orientation ori) {
+Util::TimerSpec Util::getTimerSpec(Orientation ori, int earnedFlowSeconds) {
   switch (ori) {
-    case Orientation::DEG_0: return TIMER_WORK_SECONDS;
-    case Orientation::DEG_90: return TIMER_SHORT_BREAK_SECONDS;
-    case Orientation::DEG_180: return TIMER_LONG_WORK_SECONDS;
-    case Orientation::DEG_270: return TIMER_LONG_BREAK_SECONDS;
-    default: return TIMER_WORK_SECONDS;
+    case Orientation::DEG_0:
+      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS};
+    case Orientation::DEG_90:
+      return {TimerKind::Break, TimerMode::Countdown, TIMER_SHORT_BREAK_SECONDS};
+    case Orientation::DEG_180:
+      // Flow's work face: no length, because it counts up until the cube is
+      // turned off it.
+      return {TimerKind::Work, TimerMode::CountUp, 0};
+    case Orientation::DEG_270:
+      return {TimerKind::Break, TimerMode::Countdown, flowBreakSeconds(earnedFlowSeconds)};
+    default:
+      // A resting face runs no timer, but must still not report zero: a
+      // zero-length timer would divide by zero in the arc.
+      return {TimerKind::Work, TimerMode::Countdown, TIMER_WORK_SECONDS};
   }
+}
+
+int Util::flowBreakSeconds(int earnedSeconds) {
+  if (earnedSeconds < FLOW_MIN_STINT_SECONDS) return TIMER_LONG_BREAK_SECONDS;
+  return earnedSeconds / FLOW_BREAK_DIVISOR;
 }
 
 unsigned long lastOriChangeTime = 0;

@@ -16,9 +16,13 @@ struct State {
   uint8_t packetId;         // increments on change, so receivers can dedupe
   float batteryVolts;
   bool awake;               // false only in the advert sent before deep sleep
-  bool running;             // is the countdown advancing
+  bool running;             // is the timer advancing
+  bool work;                // work interval rather than a break
   uint16_t pomodoroCount;
   int remainingSeconds;
+  // The interval being counted down. Zero means the timer is counting up
+  // instead, and remainingSeconds is the elapsed time -- see the flow sentinel
+  // in the README's Bluetooth section.
   int selectedSeconds;
 };
 

@@ -11,6 +11,7 @@ lv_obj_t * ui_LowBattery = NULL;
 lv_obj_t * ui_LowBatteryTip = NULL;
 lv_obj_t * ui_LowBatteryVoltage = NULL;
 lv_obj_t * ui_Countdown = NULL;
+lv_obj_t * ui_UnitMarker = NULL;
 // event funtions
 
 // build funtions
@@ -19,6 +20,10 @@ void ui_Screen1_screen_init(void)
 {
     ui_Screen1 = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_Screen1, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    // Set explicitly rather than left to the theme: flow mode inverts the
+    // panel, so both backgrounds have to be ours to put back.
+    lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(SCREEN_BG_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_Screen1, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Arc1 = lv_arc_create(ui_Screen1);
     lv_obj_set_width(ui_Arc1, 225);
@@ -28,6 +33,9 @@ void ui_Screen1_screen_init(void)
                       LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE);     /// Flags
     lv_arc_set_value(ui_Arc1, 100);
     lv_obj_set_style_arc_width(ui_Arc1, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // Explicit rather than the theme's, for the same reason as the screen's
+    // background: flow mode swaps it for a light one and has to swap it back.
+    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_TRACK_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_COLOR_FULL), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_opa(ui_Arc1, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
@@ -95,6 +103,21 @@ void ui_Screen1_screen_init(void)
     lv_label_set_text(ui_Countdown, "00:00");
     lv_obj_set_style_text_font(ui_Countdown, &ui_font_Countdown_54, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    // Which two fields the countdown is showing. Past an hour MM:SS runs out of
+    // digits and the label switches to HH:MM, which is indistinguishable from
+    // the other without something saying so. In montserrat rather than the
+    // countdown face, which is subset to digits and a colon.
+    ui_UnitMarker = lv_label_create(ui_Screen1);
+    lv_obj_set_width(ui_UnitMarker, LV_SIZE_CONTENT);
+    lv_obj_set_height(ui_UnitMarker, LV_SIZE_CONTENT);
+    lv_obj_set_align(ui_UnitMarker, LV_ALIGN_CENTER);
+    lv_obj_set_y(ui_UnitMarker, 40);
+    lv_label_set_text(ui_UnitMarker, "h:m");
+    lv_obj_add_flag(ui_UnitMarker, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_text_color(ui_UnitMarker, lv_color_hex(COUNTDOWN_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_UnitMarker, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_UnitMarker, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
 }
 
 void ui_Screen1_screen_destroy(void)
@@ -108,5 +131,6 @@ void ui_Screen1_screen_destroy(void)
     ui_LowBatteryTip = NULL;
     ui_LowBatteryVoltage = NULL;
     ui_Countdown = NULL;
+    ui_UnitMarker = NULL;
 
 }

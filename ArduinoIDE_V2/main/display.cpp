@@ -74,6 +74,15 @@ static void setArcAppearance(uint32_t color, lv_opa_t opa) {
   lv_obj_set_style_bg_opa(ui_Arc1, opa, LV_PART_KNOB);
 }
 
+// Paint the panel's background, the digits and the unit marker as one palette,
+// so the inversion can't half-apply.
+static void setPalette(uint32_t background, uint32_t text, uint32_t track) {
+  lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(background), LV_PART_MAIN);
+  lv_obj_set_style_text_color(ui_Countdown, lv_color_hex(text), LV_PART_MAIN);
+  lv_obj_set_style_text_color(ui_UnitMarker, lv_color_hex(text), LV_PART_MAIN);
+  lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(track), LV_PART_MAIN);
+}
+
 void Display::deepSleep() {
   digitalWrite(TFT_BL_PIN, LOW);
   // Send GC9A01 Sleep In command
@@ -88,8 +97,10 @@ void Display::holdPausedFrame() {
 }
 
 void Display::showPaused() {
+  // Back to the dark palette whether the pause caught a countdown or a flow
+  // stint: paused has to look like one thing.
   setArcAppearance(ARC_COLOR_PAUSED, LV_OPA_COVER);
-  lv_obj_set_style_text_color(ui_Countdown, lv_color_hex(COUNTDOWN_COLOR_PAUSED), LV_PART_MAIN);
+  setPalette(SCREEN_BG_COLOR, COUNTDOWN_COLOR_PAUSED, ARC_TRACK_COLOR);
 
   // The frame has to reach the panel before the CPU stops, so pump LVGL rather
   // than waiting for the next loop() that will never come.
@@ -113,17 +124,36 @@ void Display::rotateScreen(Orientation ori) {
   lv_obj_invalidate(lv_scr_act());
 }
 
-void Display::updateTimer(int remSeconds, int selSeconds) {
-  int minutes = remSeconds / 60;
-  int seconds = remSeconds % 60;
-  lv_label_set_text_fmt(ui_Countdown, "%02d:%02d", minutes, seconds);
+static void show(lv_obj_t *obj, bool visible) {
+  if (visible) lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+}
 
-  // The arc starts full and drains, shading green through amber to red.
-  const int remaining = Indicators::remainingPercent(remSeconds, selSeconds);
+static void setCountdownText(int seconds) {
+  const Indicators::ClockFields fields = Indicators::clockFields(seconds);
+  lv_label_set_text_fmt(ui_Countdown, "%02d:%02d", fields.left, fields.right);
+  show(ui_UnitMarker, fields.hours);
+}
+
+void Display::updateTimer(int seconds, int selSeconds, bool countingUp) {
+  setCountdownText(seconds);
+
+  if (countingUp) {
+    // Flow mode: no total to drain against, so the arc fills as a lap indicator
+    // and the panel inverts to black on white. Undoes showPaused() as the
+    // countdown branch does, without needing to know whether it ran.
+    const int lap = Indicators::lapPercent(seconds);
+    lv_arc_set_value(ui_Arc1, lap);
+    setArcAppearance(Indicators::flowArcColor(lap), LV_OPA_COVER);
+    setPalette(FLOW_BG_COLOR, COUNTDOWN_COLOR_FLOW, FLOW_ARC_TRACK_COLOR);
+    return;
+  }
+
+  // The countdown arc starts full and drains, shading green through amber to red.
+  const int remaining = Indicators::remainingPercent(seconds, selSeconds);
   lv_arc_set_value(ui_Arc1, remaining);
   setArcAppearance(Indicators::arcColor(remaining), LV_OPA_COVER);
-  // Undoes showPaused() without needing to know whether it ran.
-  lv_obj_set_style_text_color(ui_Countdown, lv_color_hex(COUNTDOWN_COLOR), LV_PART_MAIN);
+  setPalette(SCREEN_BG_COLOR, COUNTDOWN_COLOR, ARC_TRACK_COLOR);
 }
 
 unsigned long lastFinishChange = 0;

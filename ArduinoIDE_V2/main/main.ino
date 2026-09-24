@@ -10,12 +10,31 @@
 #include "rtc_state.h"
 
 
-int remSeconds = 0;          // remaining seconds
-int selSeconds = 0;          // selected  timer seconds
+// Counting down, this is the time left. Counting up, it is the time elapsed.
+int remSeconds = 0;
+// The interval being counted down, and 0 while counting up: nothing was chosen.
+int selSeconds = 0;
+TimerKind timerKind = TimerKind::Work;
+TimerMode timerMode = TimerMode::Countdown;
 unsigned long lastTick = 0;  // last count tick timestamp
 unsigned long startedBeeping = 0;
 // The timer face the cube was last stood on, so a pause knows what it paused.
 Orientation lastTimerFace = Orientation::UNDEFINED;
+
+
+// A flow stint has ended. Its time is banked for the break face to spend, and it
+// counts towards the pomodoro total exactly as a completed 25-minute timer does.
+// A stint too short to be worth either banks nothing, so the break face falls
+// back to its fixed length.
+void endFlowStint(int elapsed) {
+  if (elapsed < FLOW_MIN_STINT_SECONDS) return;
+  RtcState::storeFlowEarned(RtcState::data(), elapsed);
+  RtcState::data().pomodoroCount++;
+}
+
+bool countingUp() {
+  return timerMode == TimerMode::CountUp;
+}
 
 
 void setup() {
@@ -62,40 +81,89 @@ void loop() {
 
       if (ori == Orientation::FACE_UP) {
         // Face up parks the timer: stored here, picked up again only by the
-        // face it was paused from.
-        RtcState::storePause(RtcState::data(), lastTimerFace, remSeconds, selSeconds);
+        // face it was paused from. A flow stint is parked rather than ended --
+        // standing the cube back on its face carries on counting up.
+        RtcState::storePause(RtcState::data(), lastTimerFace, remSeconds, selSeconds,
+                             countingUp());
         Display::showPaused();
         Util::deepSleep(Util::SleepMode::Paused, true);
       }
       if (ori == Orientation::FACE_DOWN) {
-        // Face down means off, so nothing is kept.
+        // Face down means off, so nothing is kept -- an unspent flow break
+        // included.
         RtcState::clearPause(RtcState::data());
+        RtcState::clearFlowEarned(RtcState::data());
         Util::deepSleep(Util::SleepMode::Off, true);
       }
 
+      // Turning off the flow face ends the stint it was counting.
+      if (countingUp() && ori != lastTimerFace) endFlowStint(remSeconds);
+
+      // So does standing the cube on a face that abandons a parked one. The
+      // pause itself is consumed by takePause() below either way; this is only
+      // about banking what it was worth.
+      {
+        const RtcState::Data &stored = RtcState::data();
+        if (RtcState::hasPause(stored) && stored.pausedCountingUp &&
+            stored.pausedFace != ori) {
+          endFlowStint((int)stored.pausedRemaining);
+        }
+      }
+
       lastTimerFace = ori;
-      if (!RtcState::takePause(RtcState::data(), ori, remSeconds, selSeconds)) {
-        remSeconds = Util::getTimerByOrientation(ori);
-        selSeconds = remSeconds;
+
+      bool resumesCountingUp = false;
+      if (RtcState::takePause(RtcState::data(), ori, remSeconds, selSeconds,
+                              resumesCountingUp)) {
+        timerMode = resumesCountingUp ? TimerMode::CountUp : TimerMode::Countdown;
+        timerKind = Util::getTimerSpec(ori, 0).kind;
+        // The stint is back in remSeconds, so the bank must not pay it out again.
+        if (resumesCountingUp) RtcState::clearFlowEarned(RtcState::data());
+      } else {
+        // Only the flow break face spends the bank; every other face forfeits
+        // it, the same way it abandons a pause.
+        const int earned = RtcState::takeFlowEarned(RtcState::data());
+        const Util::TimerSpec spec = Util::getTimerSpec(ori, earned);
+        timerKind = spec.kind;
+        timerMode = spec.mode;
+        remSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
+        selSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
       }
       Display::rotateScreen(ori);
-      Display::updateTimer(remSeconds, selSeconds);
+      Display::updateTimer(remSeconds, selSeconds, countingUp());
       lastTick = millis();
     }
   }
 
-  if (remSeconds > 0 && millis() - lastTick >= 1000) {
+  if (countingUp() && millis() - lastTick >= 1000) {
+    remSeconds++;
+    lastTick = millis();
+    if (remSeconds >= FLOW_MAX_SECONDS) {
+      // A stint has to end somewhere: left standing on the flow face the cube
+      // would hold the backlight on until the pack went flat. Ending it here
+      // rather than at the face change means endFlowStint() still runs once.
+      endFlowStint(remSeconds);
+      timerMode = TimerMode::Countdown;
+      selSeconds = FLOW_MAX_SECONDS;
+      remSeconds = 0;
+      startedBeeping = millis();
+    }
+    Display::updateTimer(remSeconds, selSeconds, countingUp());
+  }
+
+  if (!countingUp() && remSeconds > 0 && millis() - lastTick >= 1000) {
     remSeconds--;
-    Display::updateTimer(remSeconds, selSeconds);
+    Display::updateTimer(remSeconds, selSeconds, false);
     lastTick = millis();
     if (remSeconds == 0) {
       startedBeeping = millis();
-      // Only work timers count as pomodoros; breaks do not.
-      if (selSeconds == TIMER_WORK_SECONDS) RtcState::data().pomodoroCount++;
+      // Only work timers count as pomodoros; breaks do not. Flow stints are
+      // counted where they end, in endFlowStint().
+      if (timerKind == TimerKind::Work) RtcState::data().pomodoroCount++;
     }
   }
 
-  if (remSeconds == 0) {
+  if (!countingUp() && remSeconds == 0) {
     bool waitingLong = Beeper::cycleBeeper();
     if (waitingLong) Display::cycleTimerFinish();
     if (millis() - startedBeeping >= 1000 * 30) Util::deepSleep(Util::SleepMode::Off, true);

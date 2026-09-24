@@ -14,6 +14,11 @@ void holdPausedFrame();
 // Recolour the countdown to read as paused, and push it to the panel.
 void showPaused();
 void rotateScreen(Orientation ori);
-void updateTimer(int seconds, int selSeconds);
+
+// Repaints the whole face from the timer. `seconds` is the remaining time when
+// counting down and the elapsed time when counting up; `selSeconds` is the
+// interval being counted down, and is ignored when counting up because there
+// isn't one.
+void updateTimer(int seconds, int selSeconds, bool countingUp);
 void cycleTimerFinish();
 }

@@ -4,6 +4,9 @@
 
 void testTimerSelection();
 void testRemainingPercent();
+void testLapPercent();
+void testClockFieldsSwitchToHoursPastAnHour();
+void testFlowArcColorRunsBackwards();
 void testArcColorStops();
 void testArcColorIsGradual();
 void testLowBatteryThreshold();
@@ -13,6 +16,9 @@ void testInitialiseIsDeterministic();
 void testSurvivingBlockIsKept();
 void testLayoutChangeInvalidates();
 void testPauseRoundTrip();
+void testAPausedFlowStintResumesCountingUp();
+void testFlowEarnedRoundTrip();
+void testFlowEarnedIsSeparateFromThePause();
 void testPauseOnlyResumesOnItsOwnFace();
 void testNothingWorthResumingIsNotStored();
 void testClearPauseWipesTheFace();
@@ -22,10 +28,15 @@ void testObjectIdsAscend();
 void testFarewellAdvert();
 void testOutOfRangeValuesClamp();
 void testRefusesABufferItCannotFill();
+void testFlowAdvertisesWorkWithNoSelectedLength();
+void testBreakAdvertisesNotWork();
 
 int main() {
   testTimerSelection();
   testRemainingPercent();
+  testLapPercent();
+  testClockFieldsSwitchToHoursPastAnHour();
+  testFlowArcColorRunsBackwards();
   testArcColorStops();
   testArcColorIsGradual();
   testLowBatteryThreshold();
@@ -35,6 +46,9 @@ int main() {
   testSurvivingBlockIsKept();
   testLayoutChangeInvalidates();
   testPauseRoundTrip();
+  testAPausedFlowStintResumesCountingUp();
+  testFlowEarnedRoundTrip();
+  testFlowEarnedIsSeparateFromThePause();
   testPauseOnlyResumesOnItsOwnFace();
   testNothingWorthResumingIsNotStored();
   testClearPauseWipesTheFace();
@@ -44,6 +58,8 @@ int main() {
   testFarewellAdvert();
   testOutOfRangeValuesClamp();
   testRefusesABufferItCannotFill();
+  testFlowAdvertisesWorkWithNoSelectedLength();
+  testBreakAdvertisesNotWork();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());

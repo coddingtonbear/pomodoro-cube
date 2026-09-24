@@ -29,6 +29,7 @@ sudo apt install cmake build-essential libsdl2-dev
 | Key | Effect |
 | --- | --- |
 | `1` `2` `3` `4` | Rest the cube on a face — 0°, 90°, 180°, 270° |
+| | `3` is flow's work face, which counts up, and `4` the break it earns |
 | `0` or `s` | Lay it face down |
 | `u` | Lay it face up |
 | `b` | Cycle the low-battery warning: forced on, forced off, voltage-driven |
@@ -88,8 +89,9 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=90 SIM_SCREENSHOT=/tmp/arc.bmp \
 ## Tests
 
 `tests/` holds host tests for the firmware's pure logic — the face-to-timer
-mapping in `util.cpp`, the accelerometer vectors the faces correspond to,
-battery percentage, and the arc fill, arc colour and low-battery threshold in
+mapping and the fifth of a stint a flow break earns in `util.cpp`, the
+accelerometer vectors the faces correspond to, and the arc fill, arc colour,
+flow lap indicator, MM:SS-to-HH:MM switch and low-battery threshold in
 `indicators.cpp`. They build as part of the same project:
 
 ```bash

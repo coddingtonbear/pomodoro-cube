@@ -12,7 +12,25 @@ bool isRestingFace(Orientation ori);
 // Off blanks the panel; Paused leaves the frozen frame lit.
 enum class SleepMode { Off, Paused };
 void deepSleep(SleepMode mode, bool playSound);
-int getTimerByOrientation(Orientation ori);
+
+// What standing the cube on a face asks for. `seconds` is the length to count
+// down; it is 0 in CountUp, where there is no length to count.
+struct TimerSpec {
+  TimerKind kind;
+  TimerMode mode;
+  int seconds;
+};
+
+// The whole face table in one place. `earnedFlowSeconds` is the flow stint
+// waiting to be spent, which only the flow break face reads -- every other face
+// ignores it, so turning to one of them forfeits the break, the same way it
+// abandons a pause.
+TimerSpec getTimerSpec(Orientation ori, int earnedFlowSeconds);
+
+// How long a break a flow stint of this length has earned: a fifth of it, or
+// the fallback break when the stint was too short to earn anything.
+int flowBreakSeconds(int earnedSeconds);
+
 bool updateOriDebounce(Orientation rawState);
 Orientation getDebouncedOriState();
 }
