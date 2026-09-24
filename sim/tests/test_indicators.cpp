@@ -197,3 +197,49 @@ void testPalette() {
   testDimBatteryWarningLeavesTheRampColour();
   testDimBackgroundFollowsTheRamp();
 }
+
+// The alarm is the whole face, not a detail on it: black with red digits, then
+// red with black ones.
+void testAlertFlashInvertsTheWholeFace() {
+  const Indicators::Palette dark = Indicators::alertPalette(false);
+  CHECK(dark.background == SCREEN_BG_COLOR);
+  CHECK(dark.text == ARC_COLOR_LOW);
+
+  const Indicators::Palette lit = Indicators::alertPalette(true);
+  CHECK(lit.background == ARC_COLOR_LOW);
+  CHECK(lit.text == SCREEN_BG_COLOR);
+
+  // The two halves are each other's inverse, which is what makes the flash a
+  // flash rather than two unrelated frames.
+  CHECK(dark.background == lit.text);
+  CHECK(dark.text == lit.background);
+}
+
+constexpr bool kFlashHalves[] = {false, true};
+
+// The ring is hidden while alerting, but a groove left in the old track colour
+// would still draw a circle on the face.
+void testAlertLeavesNoRingBehind() {
+  for (const bool inverted : kFlashHalves) {
+    const Indicators::Palette p = Indicators::alertPalette(inverted);
+    CHECK(p.track == p.background);
+    CHECK(p.arc == p.background);
+  }
+}
+
+// Red on red is nothing at all, and a flat pack is worth knowing about while
+// the alarm has your attention.
+void testAlertBatteryWarningStaysVisible() {
+  CHECK(Indicators::alertPalette(true).battery == SCREEN_BG_COLOR);
+  CHECK(Indicators::alertPalette(false).battery == ARC_COLOR_LOW);
+  for (const bool inverted : kFlashHalves) {
+    const Indicators::Palette p = Indicators::alertPalette(inverted);
+    CHECK(p.battery != p.background);
+  }
+}
+
+void testAlertPalette() {
+  testAlertFlashInvertsTheWholeFace();
+  testAlertLeavesNoRingBehind();
+  testAlertBatteryWarningStaysVisible();
+}

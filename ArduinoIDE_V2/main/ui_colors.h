@@ -15,9 +15,6 @@
 // dark band.
 #define ARC_TRACK_COLOR 0x202020
 
-// The dark half of the pulse once the timer has finished.
-#define ARC_COLOR_FINISH_DIM 0x401512
-
 // A paused timer is frozen on screen while the CPU sleeps, so it has to look
 // unmistakably different from a running one at a glance.
 #define ARC_COLOR_PAUSED 0x5A6472

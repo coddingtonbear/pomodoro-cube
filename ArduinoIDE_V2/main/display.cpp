@@ -69,6 +69,10 @@ int lastRampAt = 100;
 bool lastFlow = false;
 bool dimScheme = false;
 
+// A finished timer owns the panel until something ends it, so the ordinary
+// repaints stand aside rather than fighting the flash for the background.
+bool alerting = false;
+
 // Defined below, once there is an applyPalette() for it to call.
 void repaintPalette();
 
@@ -163,6 +167,11 @@ static void setBatteryColor(uint32_t color) {
   lv_obj_set_style_text_color(ui_LowBatteryVoltage, c, LV_PART_MAIN);
 }
 
+static void show(lv_obj_t *obj, bool visible) {
+  if (visible) lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+}
+
 // Paint every colour on the panel at once, so a swap can't half-apply.
 static void applyPalette(const Indicators::Palette &p) {
   lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(p.background), LV_PART_MAIN);
@@ -178,6 +187,7 @@ static void applyPalette(const Indicators::Palette &p) {
 namespace {
 
 void repaintPalette() {
+  if (alerting) return;
   applyPalette(Indicators::palette(lastRampAt, lastFlow, dimScheme));
 }
 
@@ -208,7 +218,11 @@ void Display::showPaused() {
   // Back to the dark palette whether the pause caught a countdown or a flow
   // stint, and whether the panel was dim or bright: paused has to look like one
   // thing. A parked frame is always held at full brightness, so the dim scheme
-  // has no business here.
+  // has no business here -- and neither does a half-finished flash, which would
+  // otherwise be the frame left lit on the panel for as long as the cube sits
+  // there.
+  alerting = false;
+  show(ui_Arc1, true);
   applyPalette({SCREEN_BG_COLOR, COUNTDOWN_COLOR_PAUSED, ARC_COLOR_PAUSED, ARC_TRACK_COLOR,
                 LOW_BATTERY_COLOR});
 
@@ -234,11 +248,6 @@ void Display::rotateScreen(Orientation ori) {
   lv_obj_invalidate(lv_scr_act());
 }
 
-static void show(lv_obj_t *obj, bool visible) {
-  if (visible) lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
-}
-
 static void setCountdownText(int seconds) {
   const Indicators::ClockFields fields = Indicators::clockFields(seconds);
   lv_label_set_text_fmt(ui_Countdown, "%02d:%02d", fields.left, fields.right);
@@ -259,6 +268,11 @@ static void setBankText(int seconds) {
 }
 
 void Display::updateTimer(const TimerView &view) {
+  // Whatever brought us here ended the alarm: a new face, or a timer with
+  // seconds on it again. Take the ring back before anything is painted.
+  alerting = false;
+  show(ui_Arc1, true);
+
   setCountdownText(view.seconds);
 
   // The bank belongs on the work face: on the break face the big number already
@@ -281,15 +295,25 @@ void Display::updateTimer(const TimerView &view) {
 }
 
 unsigned long lastFinishChange = 0;
-bool finishColorState = false;
+bool finishInverted = false;
 
 void Display::cycleTimerFinish() {
-  if (millis() - lastFinishChange < 800) return;
+  const unsigned long now = millis();
 
-  // A drained arc has nothing left to flash, so refill it and pulse the ring
-  // between red and a dark red instead.
-  lv_arc_set_value(ui_Arc1, 100);
-  setArcAppearance(finishColorState ? ARC_COLOR_LOW : ARC_COLOR_FINISH_DIM, LV_OPA_COVER);
-  finishColorState = !finishColorState;
-  lastFinishChange = millis();
+  // Called every pass while the timer sits at zero, and self-timed: the beeper
+  // blocks for the length of each note, so the flash cannot be hung off the
+  // beep sequence without inheriting its cadence.
+  if (alerting) {
+    if (now - lastFinishChange < (unsigned long)ALERT_FLASH_MS) return;
+    finishInverted = !finishInverted;
+  } else {
+    // First pass of an alarm: take the panel, and start on the dark half so the
+    // flash reads as something arriving rather than something leaving.
+    alerting = true;
+    finishInverted = false;
+    show(ui_Arc1, false);
+  }
+
+  applyPalette(Indicators::alertPalette(finishInverted));
+  lastFinishChange = now;
 }

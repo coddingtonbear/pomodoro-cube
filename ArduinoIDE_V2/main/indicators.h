@@ -49,6 +49,15 @@ struct Palette {
 // white over flow's darker one.
 Palette palette(int rampAt, bool flow, bool dim);
 
+// The two halves a finished timer alternates between: black face with red
+// digits, then red face with black ones. The arc is not in it -- an alarm has
+// nothing left to measure, and a ring still on screen is the one thing that
+// could read as a timer still running. Whole-face rather than a detail, because
+// what a finished timer has to do is be noticed from wherever you have wandered
+// off to. The same on every face: at this point which interval it was no longer
+// matters.
+Palette alertPalette(bool inverted);
+
 // How the countdown label should be split. Past an hour there are not enough
 // digits for MM:SS at the size the panel needs, so it becomes HH:MM -- and the
 // two are indistinguishable on screen, which is what `hours` is for.

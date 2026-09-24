@@ -194,8 +194,11 @@ void loop() {
   }
 
   if (!countingUp() && remSeconds == 0) {
-    bool waitingLong = Beeper::cycleBeeper();
-    if (waitingLong) Display::cycleTimerFinish();
+    // The flash no longer hangs off the beep sequence. Beeper::beep() blocks for
+    // the length of each note, so a flash driven from it inherits that cadence;
+    // cycleTimerFinish() keeps its own clock and is called every pass.
+    Beeper::cycleBeeper();
+    Display::cycleTimerFinish();
     if (millis() - startedBeeping >= 1000 * 30) Util::deepSleep(Util::SleepMode::Off, true);
   }
 

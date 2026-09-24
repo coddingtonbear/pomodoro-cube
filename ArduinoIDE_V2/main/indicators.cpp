@@ -79,6 +79,19 @@ Indicators::Palette Indicators::palette(int rampAt, bool flow, bool dim) {
   return {ramped, foreground, foreground, ramped, foreground};
 }
 
+Indicators::Palette Indicators::alertPalette(bool inverted) {
+  // ARC_COLOR_LOW rather than a red of its own: it is the colour an expiring
+  // timer has been shading towards for the last quarter of its run, so the
+  // alarm arrives as the end of that journey rather than as a new idea.
+  const uint32_t face = inverted ? ARC_COLOR_LOW : SCREEN_BG_COLOR;
+  const uint32_t drawn = inverted ? SCREEN_BG_COLOR : ARC_COLOR_LOW;
+
+  // Track set to the face so the ring leaves no groove behind even if something
+  // fails to hide the arc itself. Battery takes the drawn colour for the same
+  // reason it does when dim: red on red is nothing at all.
+  return {face, drawn, face, face, drawn};
+}
+
 Indicators::ClockFields Indicators::clockFields(int seconds) {
   if (seconds < 0) seconds = 0;
   if (seconds >= 3600) return {seconds / 3600, (seconds % 3600) / 60, true};

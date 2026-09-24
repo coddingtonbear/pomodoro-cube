@@ -70,6 +70,11 @@ constexpr int ARC_LOW_PERCENT = 25;
 // the warning shows the measured voltage for exactly that calibration job.
 constexpr float LOW_BATTERY_VOLTAGE = 3.6f;
 
+// A finished timer flashes the whole face rather than pulsing the arc, so it
+// cannot be mistaken for a running one or missed from across a room. Fast
+// enough to read as an alarm rather than a slow breath.
+constexpr int ALERT_FLASH_MS = 250;
+
 constexpr int beepDurations[3] = { 120, 120, 100 };
 constexpr int beepFrequencies[3] = { 1500, 1000, 2000 };
 constexpr int beepDelays[3] = { 800, 20, 20 };

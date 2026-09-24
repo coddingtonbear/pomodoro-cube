@@ -11,6 +11,7 @@ void testClockFieldsSwitchToHoursPastAnHour();
 void testFlowArcColorMatchesTheCountdownRamp();
 void testArcColorStops();
 void testPalette();
+void testAlertPalette();
 void testArcColorIsGradual();
 void testLowBatteryThreshold();
 void testColdBootIsRejected();
@@ -46,6 +47,7 @@ int main() {
   testFlowArcColorMatchesTheCountdownRamp();
   testArcColorStops();
   testPalette();
+  testAlertPalette();
   testArcColorIsGradual();
   testLowBatteryThreshold();
   testColdBootIsRejected();
