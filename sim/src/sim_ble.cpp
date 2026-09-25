@@ -61,5 +61,8 @@ void BLE::farewell() {
   // Always printed, traced or not: the sim's deep sleep ends the process, so
   // this is the only chance to see the advertisement that mattered most.
   if (!traced && length > 0) dump("farewell advertisement");
+}
+
+void BLE::shutdown() {
   ready = false;
 }

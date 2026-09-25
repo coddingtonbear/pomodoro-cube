@@ -20,12 +20,18 @@ constexpr uint32_t AWAKE_INTERVAL_MS = 300;
 
 // The farewell is the one advertisement that cannot be repeated later, so it
 // goes out at the fastest interval a legacy non-connectable advertisement is
-// allowed, several times over, before the radio loses power.
+// allowed, and stays on the air through the whole of the shutdown sequence
+// rather than for a fixed spell of its own. That sequence is over a second
+// long, which at this interval is a dozen-odd copies -- against the four that
+// used to go out in a 400 ms delay before the radio was shut down, of which a
+// receiver scanning at a low duty cycle could easily miss every one.
 constexpr uint32_t FAREWELL_INTERVAL_MS = 100;
-constexpr uint32_t FAREWELL_AIRTIME_MS = 400;
 
 BTHome::Sequencer sequencer;
 bool ready = false;
+// millis() when the farewell went on the air; meaningful while `farewelling`.
+unsigned long farewellStarted = 0;
+bool farewelling = false;
 
 // Hands a finished payload to the controller. The advertisement data is set
 // whole rather than assembled from NimBLE's field setters, because the BTHome
@@ -79,22 +85,30 @@ void BLE::farewell() {
 
   uint8_t payload[BTHome::MAX_ADVERTISEMENT];
   const size_t length = sequencer.farewell(payload, sizeof(payload));
+  if (length == 0) return;  // already said, or nothing to say it from
 
-  if (length > 0) {
-    NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
-    // Stopped first because the interval is a start-time parameter: set while
-    // advertising, it would not take effect until the next start, which for
-    // this advertisement never comes.
-    advertising->stop();
-    advertising->setMinInterval(intervalUnits(FAREWELL_INTERVAL_MS));
-    advertising->setMaxInterval(intervalUnits(FAREWELL_INTERVAL_MS));
+  NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
+  // Stopped first because the interval is a start-time parameter: set while
+  // advertising, it would not take effect until the next start, which for
+  // this advertisement never comes.
+  advertising->stop();
+  advertising->setMinInterval(intervalUnits(FAREWELL_INTERVAL_MS));
+  advertising->setMaxInterval(intervalUnits(FAREWELL_INTERVAL_MS));
 
-    broadcast(payload, length);
-    delay(FAREWELL_AIRTIME_MS);
+  broadcast(payload, length);
+  farewellStarted = millis();
+  farewelling = true;
+}
+
+void BLE::shutdown() {
+  if (!ready) return;
+
+  if (farewelling) {
+    const unsigned long onAir = millis() - farewellStarted;
+    if (onAir < FAREWELL_MIN_AIRTIME_MS) delay(FAREWELL_MIN_AIRTIME_MS - onAir);
+    farewelling = false;
   }
 
-  // Deep sleep cuts the radio's power anyway; shutting it down in order means
-  // the controller is not mid-transmission when that happens.
   NimBLEDevice::deinit(false);
   ready = false;
 }

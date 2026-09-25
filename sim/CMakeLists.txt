@@ -118,6 +118,7 @@ add_executable(firmware_tests
   tests/test_indicators.cpp
   tests/test_rtc_state.cpp
   tests/test_bthome.cpp
+  tests/test_sleep_sequence.cpp
   tests/main.cpp
 )
 

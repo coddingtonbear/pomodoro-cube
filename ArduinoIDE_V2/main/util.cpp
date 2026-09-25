@@ -69,8 +69,10 @@ bool Util::isDecisive(float ax, float ay, float az) {
 void Util::deepSleep(SleepMode mode, bool playSound) {
   // Before anything else that takes time: Home Assistant holds the last state
   // it heard, so a cube that just stopped counting has to say so while it still
-  // has a radio. Everything after this is either invisible to a receiver or
-  // already decided.
+  // has a radio. This only puts the farewell on the air; the radio goes on
+  // repeating it through everything below and is shut down last, so the
+  // second's pause and the shutdown beeps double as airtime for the one
+  // advertisement that cannot be sent again.
   BLE::farewell();
 
   // Written down rather than worked out again on the next wake. A wake that
@@ -106,6 +108,9 @@ void Util::deepSleep(SleepMode mode, bool playSound) {
   gpio_hold_en((gpio_num_t)BEEPER_PIN);
   gpio_deep_sleep_hold_en();
   // -------------------------
+
+  // Last, so the farewell has had the whole of the above to repeat.
+  BLE::shutdown();
 
   esp_deep_sleep_start();
 }

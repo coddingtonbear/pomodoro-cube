@@ -275,8 +275,13 @@ of them can be tested without a radio:
   GATT server and nothing to connect to: a BTHome device is a beacon. Adverts go
   out every 300 ms while the cube is awake, which is under a tenth of a milliamp
   against twenty-odd for the backlight at its dimmest. The farewell goes out at
-  100 ms for 400 ms before the controller is shut down, because it is the one
-  advertisement that cannot be repeated later.
+  100 ms and stays on the air for the whole of the shutdown sequence — the panel
+  being put away, a second's pause, the shutdown beeps — with the controller
+  shut down last, immediately before the CPU stops, and never after less than a
+  second on the air. That is a dozen-odd copies of the one advertisement that
+  cannot be repeated later, where a fixed 400 ms used to send four, which a
+  receiver scanning at a low duty cycle (an ESPHome Bluetooth proxy listens for
+  30 ms in every 320 by default) could miss altogether.
 
 The cube appears in Home Assistant under its BLE MAC — one above the WiFi MAC
 printed on the board — because the payload already uses 30 of the 31 bytes a

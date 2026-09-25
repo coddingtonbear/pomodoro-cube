@@ -45,6 +45,7 @@ void testPacketIdWrapsPastAByte();
 void testFarewellClearsAwakeAndRunning();
 void testFarewellNeedsSomethingToSayFarewellFrom();
 void testFarewellIsNumberedLikeAnyOtherChange();
+void testSleepSequence();
 
 int main() {
   testTimerSelection();
@@ -90,6 +91,7 @@ int main() {
   testFarewellClearsAwakeAndRunning();
   testFarewellNeedsSomethingToSayFarewellFrom();
   testFarewellIsNumberedLikeAnyOtherChange();
+  testSleepSequence();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());
