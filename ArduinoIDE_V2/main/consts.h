@@ -37,6 +37,35 @@ constexpr float ORI_GRAVITY_MAX_G = 1.15f;
 // alternate between the two.
 constexpr float ORI_DOMINANCE_MARGIN_G = 0.10f;
 
+// The face is drawn upright against gravity at whatever angle the cube is held,
+// rather than at the nearest quarter turn. That needs some of gravity to lie in
+// the plane of the screen: below this much, the cube is close enough to flat
+// that the angle is mostly noise, and the face stays where it last was.
+constexpr float TILT_MIN_INPLANE_G = 0.30f;
+
+// Within TILT_SNAP_CAPTURE_DEG of a quarter turn the face is drawn at exactly
+// that quarter turn, and stays there until the cube is more than
+// TILT_SNAP_RELEASE_DEG off it. A cube stood on a face is never quite square to
+// gravity -- the desk is not level and neither is the print -- and the gap
+// between the two figures is what stops one resting near the edge of the first
+// from flickering in and out of it. Measured on the board, a reading at rest
+// wanders by about a degree and a half, which both are well clear of.
+constexpr float TILT_SNAP_CAPTURE_DEG = 8.0f;
+constexpr float TILT_SNAP_RELEASE_DEG = 12.0f;
+
+// Two time constants, in milliseconds. The first smooths the readings, which
+// is what keeps a hand's unsteadiness out of the angle. The second eases the
+// face towards wherever the readings point, which is what turns the jumps --
+// snapping onto a quarter turn, letting go of one -- into movement. Neither has
+// been tuned against a cube in the hand.
+constexpr int TILT_SENSE_SMOOTHING_MS = 50;
+constexpr int TILT_EASE_MS = 70;
+
+// How far the angle has to move before the face is drawn again. Every redraw
+// at an angle is the whole panel sent over SPI, so movement too small to see
+// is not worth one.
+constexpr float TILT_REDRAW_STEP_DEG = 1.0f;
+
 // How much movement wakes a sleeping cube, in milli-g, as the QMI8658's
 // wake-on-motion detector counts it. The vendor default of 200 mg wanted a
 // deliberate knock: picking the cube up and standing it on a face often failed

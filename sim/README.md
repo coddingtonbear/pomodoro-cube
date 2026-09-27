@@ -30,12 +30,13 @@ sudo apt install cmake build-essential libsdl2-dev
 | --- | --- |
 | `1` `2` `3` `4` | Rest the cube on a face — 0°, 90°, 180°, 270° |
 | | `3` is flow's work face, which counts up, and `4` spends the break it banks |
+| `z` `x` | Lean it 5° anticlockwise / clockwise off that face, up to 40° |
 | `0` or `s` | Lay it face down |
 | `u` | Lay it face up |
 | `b` | Cycle the low-battery warning: forced on, forced off, voltage-driven |
 | `[` `]` | Lower / raise the simulated pack voltage |
 | `t` | Tap the cube, which brightens the panel for ten seconds |
-| `v` | Toggle between the upright view and the raw panel |
+| `v` | Toggle between the viewer's view and the raw panel |
 | `m` | Toggle the round-panel mask |
 | `a` | Print the BLE advertisement the firmware last published |
 | `r` | Reboot, as a wake-from-deep-sleep would |
@@ -48,10 +49,17 @@ of a minute to land — and the window between `LOW_BATTERY_VOLTAGE` (3.6 V) and
 overshoot. The forced states still go through the firmware's own threshold,
 just with the voltage model skipped. `[` or `]` hands control back.
 
-By default the window shows the panel **upright**, the way someone holding the
-cube on the current face sees it. `v` switches to the physical panel, where the
+By default the window shows the panel as someone looking at the cube sees it:
+turned to the angle the cube is held at, which is the face it is on plus any
+lean. A face that has caught up with the cube is therefore upright, and one
+that has not is as crooked as it would be in the hand — which is the only way
+to see a turn being eased. `v` switches to the physical panel, where the
 content appears rotated — useful when checking what `tft.setRotation()` is
 actually doing.
+
+The simulated cube changes face in no time at all, which no hand does, so a
+turn here is the worst case the easing has to cope with rather than what one
+looks like.
 
 Face down switches off and blanks the panel; face up pauses, leaving the frozen
 countdown lit. Either way any key re-executes the process, reproducing the cold

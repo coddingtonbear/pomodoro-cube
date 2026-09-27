@@ -20,6 +20,10 @@ which does the same trick for coffee brew times.
 - **Four intervals, chosen by rotation** — 25 minutes on the default face and
   5 on the next, then flow mode's pair. Nothing to configure and nothing to
   press: the accelerometer reads which face is down and the timer starts.
+- **A face that stays upright** — the picture is drawn against gravity at
+  whatever angle the cube is held, so turning the cube turns the face with it
+  rather than swapping it a quarter turn at a time. See
+  [How it works](#how-it-works).
 - **Flow mode, on the third and fourth faces** — the work face counts *up* for
   as long as the cube stands on it, banking a fifth of what it counts as break
   time. The break face spends that bank. Fifty minutes of work buys ten of
@@ -70,6 +74,17 @@ the firmware waits for one to settle, up to three seconds, before deciding
 whether it has been set down or stood up. Guessing wrong towards sleep is the
 expensive mistake — a cube that sleeps on a face it is no longer on has nothing
 left to wake it.
+
+Which way up the face is *drawn* is a separate question from which face the
+cube is on, and is answered separately. `Tilt::Tracker` follows the angle of
+gravity in the plane of the screen on every pass of the loop, smooths it, and
+hands it to `Display::setAngle()`, so the picture turns as the cube does and a
+cube held at 45° shows a face at 45°. The nearest quarter turn is done by the
+GC9A01 itself, which costs nothing; only what is left over is drawn at an angle
+by LVGL, in software. Within 8° of a quarter turn the face is drawn exactly
+square, and it takes 12° to pull it off again, so a cube at rest has nothing
+left over and draws as cheaply as it would if none of this existed. Laid on its
+back the cube has no angle to follow, and the face stays where it was.
 
 Standing the cube on a face starts that face's timer, unless there's a paused
 one belonging to that same face, in which case it picks up where it left off.
@@ -359,8 +374,8 @@ ln -s "$PWD/ArduinoIDE_V2/lv_conf.h"    ~/Arduino/libraries/lv_conf.h
 ln -s "$PWD/ArduinoIDE_V2/User_Setup.h" ~/Arduino/libraries/TFT_eSPI/User_Setup.h
 ```
 
-`lv_conf.h` sets only the three options that differ from LVGL's defaults, and
-`sim/CMakeLists.txt` sets the same three, so the simulator and the board render
+`lv_conf.h` sets only the four options that differ from LVGL's defaults, and
+`sim/CMakeLists.txt` sets the same four, so the simulator and the board render
 from identical settings. LVGL looks for it one directory *above* itself, which
 is why it cannot live in the sketch folder.
 
@@ -410,7 +425,7 @@ environment variables, and what the simulator can't tell you.
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
 flow bank's arithmetic, the arc's fill and colour ramp, the lap indicator
 and what scores off it, the MM:SS to HH:MM switch, the low-battery threshold,
-the RTC guard, the vibration patterns, and the BTHome encoder's exact output
+the angle the face is drawn at, the RTC guard, the vibration patterns, and the BTHome encoder's exact output
 bytes:
 
 ```bash
@@ -451,6 +466,22 @@ Things that need a board, collected so they can be checked in one sitting:
   cell, so they should only be retuned against real readings.
 - **Whether the display stays powered in deep sleep**, which the lit-while-
   paused behaviour depends on.
+- **How fast a turning face draws.** Every frame drawn at an angle redraws the
+  arc and turns each label through a layer, at 80 MHz and over SPI. The turn
+  is timed by the clock, so a slow panel gives a turn in fewer frames rather
+  than a longer one, but how few is not known. If it is too few, the first
+  thing to try is a taller draw buffer in `display.cpp`: each 20-row strip
+  that crosses the countdown redraws most of it.
+- **Whether 96 KB of LVGL heap is enough on the board.** The layer the
+  countdown is turned in runs to 42 KB and LVGL does not survive being refused
+  it. The simulator peaks well inside 96 KB, and its objects are the larger for
+  being 64-bit, but the board is where it matters.
+- **Whether the motor shakes the face.** The tilt tracker takes every reading
+  that passes for gravity, including those taken while the motor runs. If an
+  alarm makes the picture twitch, feed it `!Haptic::disturbing()` as well.
+- **Whether the tilt constants suit a hand.** `TILT_SENSE_SMOOTHING_MS` and
+  `TILT_EASE_MS` were chosen in the simulator, where the cube turns in no time
+  at all.
 - **Whether the tap thresholds suit the cube.** `QMI::enableTapDetection()`
   carries the vendor's figures — a 0.8 g² peak and a 0.4 g² quiet floor — which
   have not been tried against a printed enclosure sitting on a desk. Too deaf

@@ -1,6 +1,7 @@
 #include "display.h"
 #include "consts.h"
 #include "indicators.h"
+#include "tilt.h"
 #include <lvgl.h>
 #include <Wire.h>
 #include <TFT_eSPI.h>  // By Bodmer V2.5.43
@@ -106,6 +107,49 @@ bool alerting = false;
 // Defined below, once there is an applyPalette() for it to call.
 void repaintPalette();
 
+// How the face is turned: the quarter turn the panel is set to, and the whole
+// degrees LVGL is drawing on top of it.
+int panelQuarter = 0;
+int lean = 0;
+
+constexpr lv_coord_t kPanelCentre = 120;
+
+// Turn everything on the face by the lean, about the centre of the panel.
+//
+// The arc turns itself, by starting its sweep somewhere else. Everything else
+// is drawn flat into a layer and turned on the way to the screen, about a pivot
+// LVGL measures from the object's own corner -- so the pivot is the centre of
+// the panel restated for each object, and has to be restated whenever one
+// changes size, which a label does with its text.
+void applyLean() {
+  lv_arc_set_rotation(ui_Arc1, (uint16_t)((lean + 360) % 360));
+
+  lv_obj_update_layout(ui_Screen1);
+  lv_obj_t *const leaning[] = {ui_LowBattery, ui_LowBatteryTip, ui_Countdown, ui_UnitMarker,
+                               ui_BankLabel};
+  for (lv_obj_t *obj : leaning) {
+    const lv_coord_t pivotX = kPanelCentre - obj->coords.x1;
+    const lv_coord_t pivotY = kPanelCentre - obj->coords.y1;
+    // Each of these invalidates the object whether or not it changed anything,
+    // and most passes change only the angle.
+    if (lv_obj_get_style_transform_pivot_x(obj, LV_PART_MAIN) != pivotX) {
+      lv_obj_set_style_transform_pivot_x(obj, pivotX, LV_PART_MAIN);
+    }
+    if (lv_obj_get_style_transform_pivot_y(obj, LV_PART_MAIN) != pivotY) {
+      lv_obj_set_style_transform_pivot_y(obj, pivotY, LV_PART_MAIN);
+    }
+    if (lv_obj_get_style_transform_angle(obj, LV_PART_MAIN) != lean * 10) {
+      lv_obj_set_style_transform_angle(obj, (lv_coord_t)(lean * 10), LV_PART_MAIN);
+    }
+  }
+}
+
+// For whatever has just changed the size of something on a leaning face. Does
+// nothing on a square one, which is every face at rest.
+void refreshLean() {
+  if (lean != 0) applyLean();
+}
+
 }  // namespace
 
 void Display::setBacklight(int percent) {
@@ -177,6 +221,7 @@ void Display::updateBattery(float voltage) {
     if (warn) lv_obj_clear_flag(part, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(part, LV_OBJ_FLAG_HIDDEN);
   }
+  refreshLean();
 }
 
 // Paint the arc and its knob in one colour, at one opacity.
@@ -299,17 +344,25 @@ void Display::showPaused() {
   }
 }
 
-void Display::rotateScreen(Orientation ori) {
-  switch (ori) {
-    case Orientation::DEG_0: tft.setRotation(0); break;
-    case Orientation::DEG_90: tft.setRotation(1); break;
-    case Orientation::DEG_180: tft.setRotation(2); break;
-    case Orientation::DEG_270: tft.setRotation(3); break;
-    default: tft.setRotation(0);
+void Display::setAngle(float degrees) {
+  const Tilt::Split split = Tilt::split(degrees);
+
+  if (split.quarter != panelQuarter) {
+    panelQuarter = split.quarter;
+    // Changes where writes land, not what is already on the glass, so the old
+    // frame stands until the new one is drawn over it.
+    tft.setRotation(split.quarter);
+    lv_obj_invalidate(lv_scr_act());
   }
-  // No colour reset needed -- updateTimer() always follows a rotation and
-  // repaints the arc from the remaining time.
-  lv_obj_invalidate(lv_scr_act());
+
+  if (split.lean != lean) {
+    lean = split.lean;
+    applyLean();
+  }
+}
+
+void Display::rotateScreen(Orientation ori) {
+  Display::setAngle(Tilt::faceAngle(ori));
 }
 
 static void setCountdownText(int seconds) {
@@ -356,6 +409,8 @@ void Display::updateTimer(const TimerView &view) {
   // Repaints every colour from scratch, which also undoes showPaused() without
   // needing to know whether it ran.
   repaintPalette();
+
+  refreshLean();
 }
 
 unsigned long lastFinishChange = 0;

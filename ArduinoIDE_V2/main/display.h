@@ -19,6 +19,14 @@ void holdPausedFrame();
 
 // Recolour the countdown to read as paused, and push it to the panel.
 void showPaused();
+
+// Draw the face turned this many degrees clockwise from the default
+// orientation. The nearest quarter turn is the panel's to do, for nothing; only
+// what is left over is drawn at an angle by LVGL, so a face at a quarter turn
+// costs what it always did.
+void setAngle(float degrees);
+
+// Draw the face square on a timer face, whatever angle it was at.
 void rotateScreen(Orientation ori);
 
 // Everything the face is drawn from, gathered rather than passed as a row of

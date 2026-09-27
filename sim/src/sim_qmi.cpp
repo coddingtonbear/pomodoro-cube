@@ -4,6 +4,8 @@
 // that orientation.
 #include "qmi.h"
 
+#include <cmath>
+
 #include "sim_input.h"
 
 void QMI::setup() {}
@@ -31,6 +33,14 @@ bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
     case Orientation::DEG_180: ax = 1.0f;  break;
     case Orientation::DEG_270: ay = 1.0f;  break;
     case Orientation::UNDEFINED: return false;
+  }
+
+  // Turned off square, gravity swings round in the plane of the screen. Left
+  // alone when it is not, so a cube square on a face reads exactly one axis.
+  if (SimInput::lean != 0.0f && az == 0.0f) {
+    const float radians = SimInput::attitudeDegrees() * 3.14159265f / 180.0f;
+    ax = -std::cos(radians);
+    ay = -std::sin(radians);
   }
   return true;
 }

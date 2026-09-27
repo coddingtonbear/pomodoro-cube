@@ -9,6 +9,15 @@ namespace SimInput {
 // What face the cube is currently resting on.
 extern Orientation orientation;
 
+// How far the cube is turned off square on that face, in degrees clockwise.
+// Only means anything on a timer face.
+extern float lean;
+
+// The angle the cube is held at in the plane of the screen: the face's own
+// angle plus the lean. On a resting face, where there is no such angle, the one
+// it had when it was last on a timer face.
+float attitudeDegrees();
+
 // Simulated pack voltage, in volts, before the firmware's smoothing filter.
 extern float batteryVoltage;
 

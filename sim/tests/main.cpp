@@ -47,6 +47,7 @@ void testFarewellNeedsSomethingToSayFarewellFrom();
 void testFarewellIsNumberedLikeAnyOtherChange();
 void testSleepSequence();
 void testHaptic();
+void testTilt();
 
 int main() {
   testTimerSelection();
@@ -94,6 +95,7 @@ int main() {
   testFarewellIsNumberedLikeAnyOtherChange();
   testSleepSequence();
   testHaptic();
+  testTilt();
 
   if (checkFailures() > 0) {
     std::printf("%d check(s) failed\n", checkFailures());

@@ -46,6 +46,7 @@ set(FIRMWARE_SOURCES
   ${FIRMWARE_DIR}/display.cpp
   ${FIRMWARE_DIR}/indicators.cpp
   ${FIRMWARE_DIR}/rtc_state.cpp
+  ${FIRMWARE_DIR}/tilt.cpp
   ${FIRMWARE_DIR}/util.cpp
   ${FIRMWARE_DIR}/battery.cpp
   ${FIRMWARE_DIR}/haptic.cpp
@@ -90,7 +91,9 @@ target_compile_definitions(sim PRIVATE
   LV_COLOR_DEPTH=16
   # SquareLine Studio generates UI code that asserts this.
   LV_COLOR_16_SWAP=1
-  LV_MEM_SIZE=65536U
+  LV_MEM_SIZE=98304U
+  # Needed to draw anything at an angle; see lv_conf.h.
+  LV_COLOR_SCREEN_TRANSP=1
 )
 
 target_link_libraries(sim PRIVATE ${SDL2_LIBRARIES})
@@ -109,6 +112,7 @@ add_executable(firmware_tests
   ${FIRMWARE_DIR}/haptic_pattern.cpp
   ${FIRMWARE_DIR}/indicators.cpp
   ${FIRMWARE_DIR}/rtc_state.cpp
+  ${FIRMWARE_DIR}/tilt.cpp
   ${FIRMWARE_DIR}/util.cpp
   shim/Arduino.cpp
   src/sim_panel.cpp
@@ -121,6 +125,7 @@ add_executable(firmware_tests
   tests/test_bthome.cpp
   tests/test_sleep_sequence.cpp
   tests/test_haptic.cpp
+  tests/test_tilt.cpp
   tests/main.cpp
 )
 

@@ -37,8 +37,8 @@ SDL_Texture *g_texture = nullptr;
 char **g_argv = nullptr;
 
 bool g_roundMask = true;
-// True: show the panel upright, as someone holding the cube on the current
-// face sees it. False: show the raw physical panel, which appears rotated.
+// True: show the panel as someone looking at the cube sees it, turned to
+// whatever angle the cube is held at. False: show the raw physical panel.
 bool g_userView = true;
 bool g_sleeping = false;
 
@@ -137,9 +137,9 @@ void updateTitle() {
 
   char title[192];
   std::snprintf(title, sizeof(title),
-                "pomodoro-cube sim  |  %s  |  %s  |  bl %d%%  |  rot %u%s%s",
+                "pomodoro-cube sim  |  %s%+.0f  |  %s  |  bl %d%%  |  rot %u%s%s",
                 g_sleeping ? "ASLEEP" : orientationName(SimInput::orientation),
-                battery, SimPanel::backlightPercent, SimPanel::rotation(),
+                (double)SimInput::lean, battery, SimPanel::backlightPercent, SimPanel::rotation(),
                 SimInput::motorActive ? "  |  BUZZ" : "",
                 g_userView ? "" : "  |  panel view");
   SDL_SetWindowTitle(g_window, title);
@@ -225,6 +225,16 @@ void render() {
   constexpr int r = SimPanel::WIDTH / 2;
   constexpr int rSquared = r * r;
 
+  // The panel turns with the cube, so what the viewer sees at (x, y) is
+  // whichever physical pixel the cube's attitude has carried there. Taken from
+  // the attitude rather than from the rotation the firmware has set, which is
+  // the thing being looked at: a face that has not caught up with the cube
+  // should look as crooked here as it would in the hand.
+  const double attitude = SimInput::attitudeDegrees() * M_PI / 180.0;
+  const double cosA = std::cos(attitude);
+  const double sinA = std::sin(attitude);
+  constexpr double centre = (SimPanel::WIDTH - 1) / 2.0;
+
   for (int y = 0; y < SimPanel::HEIGHT; y++) {
     for (int x = 0; x < SimPanel::WIDTH; x++) {
       const int i = y * SimPanel::WIDTH + x;
@@ -238,7 +248,18 @@ void render() {
       }
       // LVGL is built with LV_COLOR_16_SWAP, so the panel holds RGB565 in
       // big-endian byte order; swap it back for SDL's RGB565 texture.
-      const int src = g_userView ? SimPanel::panelIndex(x, y) : i;
+      int src = i;
+      if (g_userView) {
+        const double dx = x - centre;
+        const double dy = y - centre;
+        const int px = (int)std::lround(centre + dx * cosA - dy * sinA);
+        const int py = (int)std::lround(centre + dx * sinA + dy * cosA);
+        if (px < 0 || px >= SimPanel::WIDTH || py < 0 || py >= SimPanel::HEIGHT) {
+          scratch[i] = kBezelPixel;
+          continue;
+        }
+        src = py * SimPanel::WIDTH + px;
+      }
       scratch[i] = dimmed(__builtin_bswap16(SimPanel::framebuffer[src]), brightness);
     }
   }
@@ -259,10 +280,14 @@ void render() {
 
 void handleKey(SDL_Keycode key) {
   switch (key) {
-    case SDLK_1: SimInput::orientation = Orientation::DEG_0;   break;
-    case SDLK_2: SimInput::orientation = Orientation::DEG_90;  break;
-    case SDLK_3: SimInput::orientation = Orientation::DEG_180; break;
-    case SDLK_4: SimInput::orientation = Orientation::DEG_270; break;
+    case SDLK_1: SimInput::orientation = Orientation::DEG_0;   SimInput::lean = 0.0f; break;
+    case SDLK_2: SimInput::orientation = Orientation::DEG_90;  SimInput::lean = 0.0f; break;
+    case SDLK_3: SimInput::orientation = Orientation::DEG_180; SimInput::lean = 0.0f; break;
+    case SDLK_4: SimInput::orientation = Orientation::DEG_270; SimInput::lean = 0.0f; break;
+    // Short of the halfway point, past which it would be leaning off the
+    // next face round rather than this one.
+    case SDLK_z: SimInput::lean = std::max(SimInput::lean - 5.0f, -40.0f); SimPanel::dirty = true; break;
+    case SDLK_x: SimInput::lean = std::min(SimInput::lean + 5.0f, 40.0f);  SimPanel::dirty = true; break;
     case SDLK_0:
     case SDLK_s: SimInput::orientation = Orientation::FACE_DOWN; break;
     case SDLK_u: SimInput::orientation = Orientation::FACE_UP;   break;
@@ -443,6 +468,7 @@ int main(int argc, char **argv) {
 
   std::printf(
       "[sim] keys: 1/2/3/4 = cube faces, 0 or s = face down, u = face up,\n"
+      "      z / x = lean the cube anticlockwise / clockwise,\n"
       "      b = force low battery warning on/off, [ / ] = battery voltage,\n"
       "      v = user/panel view, m = round mask, t = tap the cube,\n"
       "      a = print BLE advertisement, r = reboot, q = quit\n");

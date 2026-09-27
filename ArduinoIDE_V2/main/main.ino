@@ -9,6 +9,7 @@
 #include "haptic.h"
 #include "rtc_state.h"
 #include "ble.h"
+#include "tilt.h"
 
 
 // Counting down, this is the time left. Counting up, it is the time elapsed.
@@ -34,6 +35,17 @@ unsigned long lastFaceChange = 0;
 // When the cube was last tapped, or 0 for not since this boot. Only the
 // backlight reads this one too.
 unsigned long lastTap = 0;
+
+// The angle the face is drawn at, followed from the accelerometer on every
+// pass. Nothing to do with which face the cube is on, which is debounced and
+// chooses the timer; this only turns the picture.
+Tilt::Tracker tilt;
+
+// Feed the tracker whatever the accelerometer had to say, including nothing.
+// True when the angle to draw has moved.
+bool senseTilt(bool haveReading, float ax, float ay, float az) {
+  return tilt.update(haveReading && Util::isGravityOnly(ax, ay, az), ax, ay, millis());
+}
 
 // How long since the last tap, or past any window when there has not been one.
 // millis() - 0 is millis(), which reads as a tap a moment ago for the first ten
@@ -134,7 +146,11 @@ void applyFace(Orientation ori) {
   // the cube on the spot.
   if (!countingUp() && remSeconds == 0) startedAlarm = millis();
 
-  Display::rotateScreen(ori);
+  // At the angle the cube is actually held, which by now the tracker has been
+  // following for at least the length of the debounce. The face's own angle is
+  // only the fallback for a tracker that has somehow heard nothing.
+  if (!tilt.hasAngle()) tilt.seed(Tilt::faceAngle(ori));
+  Display::setAngle(tilt.angle());
   Display::updateTimer(timerView());
   lastTick = millis();
 }
@@ -147,8 +163,12 @@ Orientation settleOrientation() {
   const unsigned long deadline = millis() + WAKE_SETTLE_TIMEOUT_MS;
   while (millis() < deadline) {
     float ax, ay, az;
-    if (QMI::getAccelerometer(ax, ay, az) &&
-        Util::updateOriDebounce(ax, ay, az, millis())) {
+    const bool haveReading = QMI::getAccelerometer(ax, ay, az);
+    // Followed from here, with no panel up yet to draw on, so that the first
+    // frame is drawn at the angle the cube is held at rather than swinging
+    // round to it.
+    senseTilt(haveReading, ax, ay, az);
+    if (haveReading && Util::updateOriDebounce(ax, ay, az, millis())) {
       return Util::getDebouncedOriState();
     }
     delay(20);
@@ -260,7 +280,10 @@ void loop() {
   lv_tick_inc(20);
 
   float ax, ay, az;
-  if (QMI::getAccelerometer(ax, ay, az)) {
+  const bool haveReading = QMI::getAccelerometer(ax, ay, az);
+  if (senseTilt(haveReading, ax, ay, az)) Display::setAngle(tilt.angle());
+
+  if (haveReading) {
     if (Util::updateOriDebounce(ax, ay, az, millis())) {
       Orientation ori = Util::getDebouncedOriState();
       lastFaceChange = millis();
@@ -274,7 +297,14 @@ void loop() {
         const Util::RestPlan plan =
             Util::restOnFace(RtcState::data(), ori, lastTimerFace, remSeconds, selSeconds,
                              countingUp());
-        if (plan.lit) Display::showPaused();
+        if (plan.lit) {
+          // Square on the face the timer was running on, which is how a wake
+          // that has to redraw this frame will draw it. A cube laid down
+          // part-way through a turn would otherwise be parked at whatever
+          // angle the turn had reached.
+          if (lastTimerFace != Orientation::UNDEFINED) Display::rotateScreen(lastTimerFace);
+          Display::showPaused();
+        }
         Util::deepSleep(plan.mode, true);
       }
 
