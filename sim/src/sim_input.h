@@ -27,8 +27,8 @@ extern BatteryOverride batteryOverride;
 // standing in for the QMI8658's latched tap event.
 extern bool tapPending;
 
-// Set by tone()/noTone() so the renderer can show when the beeper is on.
-extern bool beeperActive;
-extern unsigned int beeperFrequency;
+// Follows the level on HAPTIC_PIN so the renderer can show when the vibration
+// motor is running.
+extern bool motorActive;
 
 }  // namespace SimInput

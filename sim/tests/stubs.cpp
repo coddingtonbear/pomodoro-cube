@@ -1,12 +1,12 @@
-// util.cpp reaches into the display, battery, beeper, IMU and BLE on its
+// util.cpp reaches into the display, battery, motor, IMU and BLE on its
 // deep-sleep path. None of that hardware exists here; the stubs record the
 // calls instead, so the order the path makes them in can be tested.
 #include "stubs.h"
 
 #include "battery.h"
 #include "ble.h"
-#include "beeper.h"
 #include "display.h"
+#include "haptic.h"
 #include "qmi.h"
 
 std::vector<std::string> Stubs::calls;
@@ -30,11 +30,17 @@ void Display::rotateScreen(Orientation ori) { (void)ori; }
 void Display::updateTimer(const TimerView &view) { (void)view; }
 void Display::cycleTimerFinish() {}
 
-void Beeper::setup() {}
-void Beeper::beep(unsigned int frequency, unsigned int duration) { (void)frequency; (void)duration; }
-bool Beeper::cycleBeeper() { return false; }
-void Beeper::playWakeUp() {}
-void Beeper::playShutdown() { called("Beeper::playShutdown"); }
+void Haptic::setup() {}
+void Haptic::play(Pattern pattern) { (void)pattern; }
+void Haptic::playBlocking(Pattern pattern) {
+  (void)pattern;
+  called("Haptic::playBlocking");
+}
+void Haptic::stop() { called("Haptic::stop"); }
+void Haptic::cycle() {}
+Haptic::Pattern Haptic::playing() { return Pattern::None; }
+bool Haptic::disturbing() { return false; }
+void Haptic::holdForSleep() { called("Haptic::holdForSleep"); }
 
 void QMI::setup() {}
 void QMI::setupWakeup() { called("QMI::setupWakeup"); }

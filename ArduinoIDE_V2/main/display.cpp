@@ -364,9 +364,8 @@ bool finishInverted = false;
 void Display::cycleTimerFinish() {
   const unsigned long now = millis();
 
-  // Called every pass while the timer sits at zero, and self-timed: the beeper
-  // blocks for the length of each note, so the flash cannot be hung off the
-  // beep sequence without inheriting its cadence.
+  // Called every pass while the timer sits at zero, and self-timed, so the
+  // flash keeps its own cadence rather than the motor's.
   if (alerting) {
     if (now - lastFinishChange < (unsigned long)ALERT_FLASH_MS) return;
     finishInverted = !finishInverted;

@@ -36,7 +36,7 @@ void farewell();
 // first makes sure a farewell put on the air by farewell() has had at least
 // FAREWELL_MIN_AIRTIME_MS to repeat, blocking for the remainder if the work in
 // between was quicker than that, so the guarantee does not depend on how long
-// the panel and beeper happen to take. Deep sleep cuts the radio's power
+// the panel and motor happen to take. Deep sleep cuts the radio's power
 // anyway; shutting it down in order means the controller is not
 // mid-transmission when that happens.
 //
@@ -45,7 +45,7 @@ void shutdown();
 
 // The least time a farewell is on the air before shutdown() lets the radio go.
 // The shutdown work it overlaps -- putting the panel away, the second's pause,
-// the shutdown beeps -- takes longer than this in practice; the figure is a
+// the shutdown buzz -- takes longer than this in practice; the figure is a
 // floor, not the expectation.
 constexpr unsigned long FAREWELL_MIN_AIRTIME_MS = 1000;
 

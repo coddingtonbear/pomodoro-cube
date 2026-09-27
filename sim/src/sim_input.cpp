@@ -8,7 +8,6 @@ Orientation orientation = Orientation::DEG_90;
 float batteryVoltage = 3.9f;
 BatteryOverride batteryOverride = BatteryOverride::None;
 bool tapPending = false;
-bool beeperActive = false;
-unsigned int beeperFrequency = 0;
+bool motorActive = false;
 
 }  // namespace SimInput

@@ -8,7 +8,7 @@
 #include "display.h"
 #include <driver/rtc_io.h>
 #include "vFilter.h"
-#include "beeper.h"
+#include "haptic.h"
 #include "ble.h"
 
 VoltageSmoother<10> vFilter;
@@ -66,14 +66,23 @@ bool Util::isDecisive(float ax, float ay, float az) {
 }
 
 
-void Util::deepSleep(SleepMode mode, bool playSound) {
+void Util::deepSleep(SleepMode mode, bool announce) {
   // Before anything else that takes time: Home Assistant holds the last state
   // it heard, so a cube that just stopped counting has to say so while it still
   // has a radio. This only puts the farewell on the air; the radio goes on
   // repeating it through everything below and is shut down last, so the
-  // second's pause and the shutdown beeps double as airtime for the one
-  // advertisement that cannot be sent again.
+  // second's pause doubles as airtime for the one advertisement that cannot be
+  // sent again.
   BLE::farewell();
+
+  // Whatever the motor was part-way through ends here: nothing below returns to
+  // loop() to finish it, and a motor left running would be the movement that
+  // wakes the cube straight back up.
+  Haptic::stop();
+
+  // Ahead of the pause below rather than after it, so the motor has that second
+  // to spin down before the wake-on-motion detector is armed.
+  if (announce) Haptic::playBlocking(Haptic::Pattern::FaceChange);
 
   // Written down rather than worked out again on the next wake. A wake that
   // goes straight back to sleep never brings the panel up, so it cannot ask the
@@ -87,8 +96,6 @@ void Util::deepSleep(SleepMode mode, bool playSound) {
 
   delay(1000);
 
-  if (playSound) Beeper::playShutdown();
-
   QMI::setupWakeup();
 
   // Float I2C lines to prevent parasitic draw
@@ -100,14 +107,7 @@ void Util::deepSleep(SleepMode mode, bool playSound) {
 
   esp_sleep_enable_ext0_wakeup(IMU_INT_PIN, 1);  // 1 = Wakeup at HIGH
 
-  // --- Beeper Hold Logic ---
-  // Ensure the pin is explicitly HIGH (OFF) before sleeping
-  digitalWrite(BEEPER_PIN, HIGH);
-
-  // Lock the pin state in the RTC domain
-  gpio_hold_en((gpio_num_t)BEEPER_PIN);
-  gpio_deep_sleep_hold_en();
-  // -------------------------
+  Haptic::holdForSleep();
 
   // Last, so the farewell has had the whole of the above to repeat.
   BLE::shutdown();
@@ -146,7 +146,7 @@ int Util::backlightPercent(const BacklightView &view) {
   }
 
   // Running out, or run out. The same test covers both: a countdown at 0 has
-  // finished and is beeping, and stays lit until it is dealt with -- which is
+  // finished and is buzzing, and stays lit until it is dealt with -- which is
   // bounded, because a finished timer sleeps the cube after thirty seconds.
   if (!view.countingUp && view.remainingSeconds <= BACKLIGHT_ATTENTION_SECONDS) {
     return BACKLIGHT_FULL_PERCENT;

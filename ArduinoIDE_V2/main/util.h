@@ -31,7 +31,9 @@ bool isDecisive(float ax, float ay, float az);
 bool isRestingFace(Orientation ori);
 // Off blanks the panel; Paused leaves the frozen frame lit.
 enum class SleepMode { Off, Paused };
-void deepSleep(SleepMode mode, bool playSound);
+// `announce` buzzes the motor once on the way down, for a sleep the user asked
+// for by setting the cube down on a resting face.
+void deepSleep(SleepMode mode, bool announce);
 
 // What setting the cube down on a resting face asks for. `lit` is the whole
 // difference between the two faces: face up shows the paused figures, face down
@@ -79,7 +81,7 @@ struct BacklightView {
   // the user just made, and the figure that came up is what they made it for.
   unsigned long sinceFaceChangeMs;
   // Remaining on a countdown, including 0 for one that has finished and is
-  // beeping -- the state that most needs to be seen from across a room.
+  // buzzing -- the state that most needs to be seen from across a room.
   int remainingSeconds;
   // A stint counting up has no end to approach, so it never brightens on its
   // own; only turning the cube off it is a moment.

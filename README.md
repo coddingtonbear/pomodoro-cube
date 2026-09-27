@@ -78,8 +78,9 @@ Three of the faces count down and the arc drains as they run; the fourth is
 
 ![The arc draining over a five-minute timer](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/countdown.png)
 
-When the timer reaches zero the beeper plays a repeating pattern, the arc
-refills and pulses red, and after thirty seconds the cube puts itself to sleep.
+When the timer reaches zero the vibration motor buzzes on and off, the whole
+face flashes red, and both go on until the cube is turned to another face. Left
+alone, it puts itself to sleep after thirty seconds.
 Work counts towards a pomodoro total and breaks do not — the fixed work face
 when it reaches zero, and flow's a lap at a time as it runs.
 
@@ -96,7 +97,7 @@ The backlight is the largest single draw while the cube is awake, of the same
 order as the whole rest of the board, so full brightness is rationed rather than
 held. It is spent on the moments worth looking at — the five seconds after the
 cube is set on a face, and the last five seconds of a countdown, which is also
-what keeps a finished timer lit while it beeps. Everything between sits at 20%,
+what keeps a finished timer lit while it buzzes. Everything between sits at 20%,
 which is legible across a desk for a fraction of the current, and swaps to a
 filled-colour scheme that reads at that brightness where a thin arc does not.
 
@@ -182,7 +183,7 @@ The rest of the rules:
 | Flow work → face up | Parked, not ended: standing the cube back on that face carries on counting up, and nothing is credited until it does end |
 | Flow work → any other timer face | The stint ends and credits the bank. Laps already scored are kept |
 | Flow break → face up | Parked. The bank already holds the remainder, so abandoning the pause loses nothing |
-| A stint reaching four hours | Ends itself and beeps, nine laps scored and 48 minutes credited. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
+| A stint reaching four hours | Ends itself and buzzes, nine laps scored and 48 minutes credited. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
 | The bank reaching four hours | Capped there, for the same reason a stint is |
 | Flow break with an empty bank | Finishes on the spot: `00:00` and the finish pattern |
 | Face down | Off, and the bank is cleared with everything else |
@@ -276,7 +277,7 @@ of them can be tested without a radio:
   out every 300 ms while the cube is awake, which is under a tenth of a milliamp
   against twenty-odd for the backlight at its dimmest. The farewell goes out at
   100 ms and stays on the air for the whole of the shutdown sequence — the panel
-  being put away, a second's pause, the shutdown beeps — with the controller
+  being put away, the parting buzz, a second's pause — with the controller
   shut down last, immediately before the CPU stops, and never after less than a
   second on the air. That is a dozen-odd copies of the one advertisement that
   cannot be repeated later, where a fixed 400 ms used to send four, which a
@@ -303,15 +304,32 @@ and `SIM_BLE_TRACE=1` prints every one as it goes out:
 ## Hardware
 
 A [Waveshare ESP32-S3-Touch-LCD-1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28),
-which carries everything except the beeper: the 240×240 round GC9A01 over SPI,
+which carries everything except the vibration motor: the 240×240 round GC9A01 over SPI,
 a QMI8658 accelerometer over I²C, a LiPo connector with an ETA6096 charger and
 the 200k/100k sense divider, and USB-C for flashing. Every pin in
 `ArduinoIDE_V2/main/consts.h` matches that board — including the three that
 distinguish it from the otherwise similar non-touch `ESP32-S3-LCD-1.28`
 (backlight on GPIO2, LCD reset on GPIO14, IMU INT1 on GPIO4).
 
-The one added component is a **piezo beeper on GPIO15**. The board has no
-sounder of its own.
+The one added component is a **vibration motor on GPIO15**, driven high to run
+it. That is one of the six GPIOs the board brings out on its SH1.0 connector
+(15, 16, 17, 18, 21 and 33), and the pin is held low through deep sleep. A GPIO
+cannot supply a motor directly, so this wants a module with its own driver
+transistor. There is no sounder: everything the cube has to say, it says by
+buzzing.
+
+| When | Pattern |
+| --- | --- |
+| Waking onto a timer face | Two short pulses |
+| Set on a different face, resting faces included | One pulse |
+| A timer running out | 400 ms on, 600 ms off, until the cube is turned to another face or sleeps |
+
+A wake that finds the cube still resting goes back to sleep without a buzz,
+because a buzz is movement and movement is what wakes it. For the same reason
+the motor is stopped before the wake-on-motion detector is armed, taps are
+ignored while it runs, and the alarm's silences are longer than the face
+debounce, so the accelerometer always gets a quiet stretch in which to notice
+the cube being turned. The patterns are in `consts.h`.
 
 The board also has a **CST816S capacitive touch controller**, on the same I²C
 bus as the accelerometer, which this firmware does not use at all. It's the
@@ -378,7 +396,7 @@ overwrite it**, countdown font included.
 This compiles the real firmware for a Linux desktop and draws LVGL into an SDL
 window instead of a GC9A01 over SPI. It isn't a reimplementation: `main.ino`,
 `display.cpp`, `util.cpp`, `indicators.cpp`, `rtc_state.cpp`, `bthome.cpp`,
-`battery.cpp` and `beeper.cpp` all compile exactly as they ship, against fake
+`battery.cpp` and `haptic.cpp` all compile exactly as they ship, against fake
 `Arduino.h`, `TFT_eSPI`, `Wire` and `driver/rtc_io` headers. Only `qmi.cpp` is
 replaced, because it needs the vendor IMU driver.
 
@@ -392,7 +410,8 @@ environment variables, and what the simulator can't tell you.
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
 flow bank's arithmetic, the arc's fill and colour ramp, the lap indicator
 and what scores off it, the MM:SS to HH:MM switch, the low-battery threshold,
-the RTC guard, and the BTHome encoder's exact output bytes:
+the RTC guard, the vibration patterns, and the BTHome encoder's exact output
+bytes:
 
 ```bash
 cmake --build sim/build && ctest --test-dir sim/build --output-on-failure

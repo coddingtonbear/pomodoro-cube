@@ -295,7 +295,7 @@ void testTheLastSecondsOfACountdownLightThePanel() {
   CHECK(Util::backlightPercent({kSettled, 1, false, kNoTap}) == BACKLIGHT_FULL_PERCENT);
 }
 
-// A timer at zero is beeping and wants to be seen across a room. It is the same
+// A timer at zero is buzzing and wants to be seen across a room. It is the same
 // test as "about to run out", which is why the policy does not need telling
 // about the finished state separately.
 void testAFinishedTimerStaysLit() {

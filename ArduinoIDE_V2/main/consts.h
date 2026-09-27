@@ -8,7 +8,12 @@
 #define IMU_INT_PIN GPIO_NUM_4
 #define I2C_SDA_PIN 6
 #define I2C_SCL_PIN 7
-#define BEEPER_PIN 15
+// The vibration motor's driver input: high runs the motor. One of the six GPIOs
+// the board brings out on its SH1.0 connector (15, 16, 17, 18, 21 and 33). This
+// one because it is in the RTC domain, so its level can be held through deep
+// sleep, and is not a strapping pin, so a motor hanging off it cannot change
+// how the board boots.
+#define HAPTIC_PIN 15
 
 // Below this the firmware deep-sleeps rather than running the pack flat.
 #define BAT_EMPTY_VOLTAGE 3.5
@@ -120,9 +125,27 @@ constexpr float LOW_BATTERY_VOLTAGE = 3.6f;
 // enough to read as an alarm rather than a slow breath.
 constexpr int ALERT_FLASH_MS = 250;
 
-constexpr int beepDurations[3] = { 120, 120, 100 };
-constexpr int beepFrequencies[3] = { 1500, 1000, 2000 };
-constexpr int beepDelays[3] = { 800, 20, 20 };
+// The vibration motor's patterns, as milliseconds alternating motor on and
+// motor off, starting with on.
+//
+// Waking is two short pulses and a face change is one, so the two can be told
+// apart in the hand. A finished timer repeats its pattern until the cube is
+// moved onto another face or puts itself to sleep.
+constexpr int HAPTIC_WAKE_MS[] = { 120, 100, 120 };
+constexpr int HAPTIC_FACE_CHANGE_MS[] = { 150 };
+constexpr int HAPTIC_ALARM_MS[] = { 400, 600 };
+
+// How long after the motor stops the accelerometer is still taken to be
+// shaking. An allowance for the motor spinning down, not a measurement: there
+// was no motor on the board when this was written.
+constexpr int HAPTIC_SETTLE_MS = 150;
+
+// The alarm shakes the same accelerometer that has to notice the cube being
+// turned to silence it, and a reading taken while the motor runs may not pass
+// for gravity. Its silence therefore has to be long enough, once the motor has
+// spun down, for a new face to sit out the whole debounce.
+static_assert(HAPTIC_ALARM_MS[1] >= ORI_DEBOUNCE_DELAY + HAPTIC_SETTLE_MS + 100,
+              "the alarm's off period leaves no room to debounce a face change");
 
 enum class Orientation {
   // Both resting faces put the cube to sleep and park whatever was running. The

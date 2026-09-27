@@ -52,6 +52,7 @@ void digitalWrite(uint8_t pin, uint8_t value) {
   // about. Driven directly it is the sleep paths parking it, which are always
   // full on or fully off.
   if (pin == TFT_BL_PIN) SimPanel::backlightPercent = (value == HIGH) ? 100 : 0;
+  if (pin == HAPTIC_PIN) SimInput::motorActive = (value == HIGH);
 }
 
 bool ledcAttach(uint8_t pin, uint32_t frequency, uint8_t resolution) {
@@ -80,23 +81,6 @@ uint32_t analogReadMilliVolts(uint8_t pin) {
   // Undo the Waveshare 200k/100k divider that Battery::getVoltage() re-applies,
   // so the firmware reads back whatever pack voltage the sim is pretending to have.
   return (uint32_t)((SimInput::batteryVoltage / 3.0f) * 1000.0f);
-}
-
-void tone(uint8_t pin, unsigned int frequency) {
-  (void)pin;
-  SimInput::beeperActive = true;
-  SimInput::beeperFrequency = frequency;
-}
-
-void tone(uint8_t pin, unsigned int frequency, unsigned long duration) {
-  (void)duration;
-  tone(pin, frequency);
-}
-
-void noTone(uint8_t pin) {
-  (void)pin;
-  SimInput::beeperActive = false;
-  SimInput::beeperFrequency = 0;
 }
 
 bool setCpuFrequencyMhz(uint32_t mhz) { (void)mhz; return true; }

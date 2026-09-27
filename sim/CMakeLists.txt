@@ -1,5 +1,5 @@
 # Desktop build of the cube firmware: the real main.ino, display, util,
-# battery and beeper sources are compiled against the shims in shim/, with
+# battery and haptic sources are compiled against the shims in shim/, with
 # LVGL rendering into an SDL window instead of a GC9A01 over SPI.
 cmake_minimum_required(VERSION 3.16)
 project(pomodoro_cube_sim C CXX)
@@ -48,7 +48,8 @@ set(FIRMWARE_SOURCES
   ${FIRMWARE_DIR}/rtc_state.cpp
   ${FIRMWARE_DIR}/util.cpp
   ${FIRMWARE_DIR}/battery.cpp
-  ${FIRMWARE_DIR}/beeper.cpp
+  ${FIRMWARE_DIR}/haptic.cpp
+  ${FIRMWARE_DIR}/haptic_pattern.cpp
 )
 # The Arduino IDE force-includes Arduino.h into every sketch translation unit
 # and compiles .ino as C++; reproduce both so the firmware needs no edits.
@@ -105,8 +106,8 @@ enable_testing()
 
 add_executable(firmware_tests
   ${FIRMWARE_DIR}/bthome.cpp
+  ${FIRMWARE_DIR}/haptic_pattern.cpp
   ${FIRMWARE_DIR}/indicators.cpp
-  ${FIRMWARE_DIR}/rtc_state.cpp
   ${FIRMWARE_DIR}/rtc_state.cpp
   ${FIRMWARE_DIR}/util.cpp
   shim/Arduino.cpp
@@ -119,6 +120,7 @@ add_executable(firmware_tests
   tests/test_rtc_state.cpp
   tests/test_bthome.cpp
   tests/test_sleep_sequence.cpp
+  tests/test_haptic.cpp
   tests/main.cpp
 )
 

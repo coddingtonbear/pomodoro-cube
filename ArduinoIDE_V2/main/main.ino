@@ -6,7 +6,7 @@
 #include "display.h"
 #include "qmi.h"
 #include <lvgl.h>
-#include "beeper.h"
+#include "haptic.h"
 #include "rtc_state.h"
 #include "ble.h"
 
@@ -23,7 +23,9 @@ bool spendingFlowBank = false;
 // One of flow's faces, either of them: the panel inverts for both.
 bool onFlowFace = false;
 unsigned long lastTick = 0;  // last count tick timestamp
-unsigned long startedBeeping = 0;
+// When the timer on screen ran out, which is what the sleep that ends an
+// unanswered alarm is timed from.
+unsigned long startedAlarm = 0;
 // The timer face the cube was last stood on, so a pause knows what it paused.
 Orientation lastTimerFace = Orientation::UNDEFINED;
 // When the cube was last set on a different face. Only the backlight reads it:
@@ -126,11 +128,11 @@ void applyFace(Orientation ori) {
     selSeconds = spec.mode == TimerMode::CountUp ? 0 : spec.seconds;
   }
   // A break face turned to with an empty bank has no time to count, so it
-  // is finished before it starts. Dating the beeping from here rather than
+  // is finished before it starts. Dating the alarm from here rather than
   // leaving the last finish's timestamp in place is what gives it the usual
   // thirty seconds before sleeping, instead of a stale one that could sleep
   // the cube on the spot.
-  if (!countingUp() && remSeconds == 0) startedBeeping = millis();
+  if (!countingUp() && remSeconds == 0) startedAlarm = millis();
 
   Display::rotateScreen(ori);
   Display::updateTimer(timerView());
@@ -171,6 +173,10 @@ Display::TimerView pausedView(const RtcState::Data &stored) {
 void setup() {
   Serial.begin(115200);
   setCpuFrequencyMhz(80);  // reducing CPU clock to 80MHz
+
+  // First, so the motor's pin is driven low from the earliest moment there is
+  // code to drive it, on every path out of here.
+  Haptic::setup();
 
   // Before anything reads it: keeps what survived deep sleep, discards what
   // did not.
@@ -219,7 +225,10 @@ void setup() {
   // -----------------------------------------
 
   Display::setup();
-  Beeper::setup();
+  // Only on this path, where the cube is staying up. A wake that finds the cube
+  // still resting goes back to sleep in silence: it has nothing to announce,
+  // and a buzz there is movement, which is the very thing that wakes it.
+  Haptic::play(Haptic::Pattern::Wake);
   Util::updateBattery();
   QMI::enableTapDetection();
 
@@ -233,7 +242,10 @@ void setup() {
 
   // The face the settling above landed on. loop()'s debouncer has already
   // accepted it, so nothing there would announce it -- the timer has to be set
-  // up from here or the cube stands on a face that never starts. Skipped when
+  // up from here or the cube stands on a face that never starts. Without the
+  // face change's own buzz: the wake pattern already playing is the
+  // announcement, and this face is where the cube woke rather than somewhere
+  // it was moved to. Skipped when
   // the cube never settled: there is no face to apply, and applying UNDEFINED
   // would take a pause that belongs to a real one and throw it away.
   if (settled != Orientation::UNDEFINED) {
@@ -266,6 +278,9 @@ void loop() {
         Util::deepSleep(plan.mode, true);
       }
 
+      // Replaces whatever was playing, which is what silences an alarm: a
+      // finished timer buzzes until the cube is turned to something else.
+      Haptic::play(Haptic::Pattern::FaceChange);
       applyFace(ori);
     }
   }
@@ -283,7 +298,11 @@ void loop() {
   // A tap only ever buys brightness, so it is read here and left to the
   // backlight policy below. Nothing else on the cube changes because it was
   // touched -- the faces are what choose the timer.
-  if (QMI::takeTap()) lastTap = millis();
+  //
+  // Read every pass so the sensor's latch is cleared, but not believed while
+  // the motor is running: the tap detector cannot tell a finger from the cube
+  // shaking itself.
+  if (QMI::takeTap() && !Haptic::disturbing()) lastTap = millis();
 
   if (countingUp() && millis() - lastTick >= 1000) {
     remSeconds++;
@@ -300,7 +319,7 @@ void loop() {
       timerMode = TimerMode::Countdown;
       selSeconds = FLOW_MAX_SECONDS;
       remSeconds = 0;
-      startedBeeping = millis();
+      startedAlarm = millis();
     }
     Display::updateTimer(timerView());
   }
@@ -313,7 +332,7 @@ void loop() {
     Display::updateTimer(timerView());
     lastTick = millis();
     if (remSeconds == 0) {
-      startedBeeping = millis();
+      startedAlarm = millis();
       // Only work timers count as pomodoros; breaks do not. Flow stints are
       // counted a lap at a time, as they run.
       if (timerKind == TimerKind::Work) RtcState::data().pomodoroCount++;
@@ -321,13 +340,18 @@ void loop() {
   }
 
   if (!countingUp() && remSeconds == 0) {
-    // The flash no longer hangs off the beep sequence. Beeper::beep() blocks for
-    // the length of each note, so a flash driven from it inherits that cadence;
-    // cycleTimerFinish() keeps its own clock and is called every pass.
-    Beeper::cycleBeeper();
+    // Asked for on every pass and started once: a repeating pattern that is
+    // already playing is left to carry on. Not before a face is established,
+    // where the timer reads as finished only because there is not one yet, and
+    // a motor running in the hand would keep the cube from settling on a face.
+    if (lastTimerFace != Orientation::UNDEFINED) Haptic::play(Haptic::Pattern::Alarm);
     Display::cycleTimerFinish();
-    if (millis() - startedBeeping >= 1000 * 30) Util::deepSleep(Util::SleepMode::Off, true);
+    // Unannounced: thirty seconds of alarm has said everything a parting buzz
+    // could.
+    if (millis() - startedAlarm >= 1000 * 30) Util::deepSleep(Util::SleepMode::Off, false);
   }
+
+  Haptic::cycle();
 
   // Last, so it sees the tick this pass produced rather than the one before it.
   Display::setBacklight(Util::backlightPercent(

@@ -140,7 +140,7 @@ void updateTitle() {
                 "pomodoro-cube sim  |  %s  |  %s  |  bl %d%%  |  rot %u%s%s",
                 g_sleeping ? "ASLEEP" : orientationName(SimInput::orientation),
                 battery, SimPanel::backlightPercent, SimPanel::rotation(),
-                SimInput::beeperActive ? "  |  BEEP" : "",
+                SimInput::motorActive ? "  |  BUZZ" : "",
                 g_userView ? "" : "  |  panel view");
   SDL_SetWindowTitle(g_window, title);
 }

@@ -5,7 +5,7 @@ window instead of into the GC9A01 over SPI. The point is to be able to work on
 the UI and the timer behaviour without the hardware.
 
 The firmware is **not** forked for this. `main.ino`, `display.cpp`, `util.cpp`,
-`battery.cpp` and `beeper.cpp` are compiled exactly as they ship, against the
+`battery.cpp` and `haptic.cpp` are compiled exactly as they ship, against the
 shims in `shim/`. The one exception is `qmi.cpp`, which needs the vendor
 QMI8658 driver; `src/sim_qmi.cpp` stands in for it and synthesises an
 accelerometer reading for whichever face the sim says the cube is resting on.
@@ -128,8 +128,10 @@ There is no radio: `a` prints the BTHome payload `bthome.cpp` builds rather than
 transmitting it, which is enough to read a payload back against the spec or paste
 it into a decoder.
 
-Stubbed: the beeper is silent — `tone()` only sets a flag that shows up in the
-window title as `BEEP`, so the sequence timing is visible but not audible. I2C,
+Stubbed: the vibration motor is a flag that follows its pin and shows up in the
+window title as `BUZZ`, so the pattern timing is visible. It does not shake the
+simulated accelerometer, so how the motor disturbs the IMU is a question for the
+board. I2C,
 RTC GPIO holds and the CPU frequency change are no-ops. Timing comes from the
 host clock, so this says nothing about how the real ESP32 performs at 80 MHz.
 

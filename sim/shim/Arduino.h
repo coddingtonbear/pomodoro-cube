@@ -48,10 +48,6 @@ bool ledcAttach(uint8_t pin, uint32_t frequency, uint8_t resolution);
 bool ledcWrite(uint8_t pin, uint32_t duty);
 bool ledcDetach(uint8_t pin);
 
-// ---- Tone (piezo beeper) --------------------------------------------------
-void tone(uint8_t pin, unsigned int frequency);
-void tone(uint8_t pin, unsigned int frequency, unsigned long duration);
-void noTone(uint8_t pin);
 
 // ---- ESP32 power management ----------------------------------------------
 bool setCpuFrequencyMhz(uint32_t mhz);

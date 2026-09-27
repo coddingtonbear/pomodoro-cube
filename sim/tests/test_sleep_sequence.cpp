@@ -23,12 +23,12 @@ void noDelay(unsigned long ms) { (void)ms; }
 // Runs the deep-sleep path to the point the CPU would stop, and returns the
 // calls it made, with the shim's stand-in for stopping the CPU appended so
 // the tests can say "before the CPU stops" in the same terms.
-std::vector<std::string> sleepCalls(Util::SleepMode mode, bool playSound) {
+std::vector<std::string> sleepCalls(Util::SleepMode mode, bool announce) {
   Stubs::clear();
   SimHost::delayHook = noDelay;
   bool slept = false;
   try {
-    Util::deepSleep(mode, playSound);
+    Util::deepSleep(mode, announce);
   } catch (const SimDeepSleep &) {
     slept = true;
   }
@@ -56,12 +56,13 @@ void checkFarewellSpansTheShutdown(const std::vector<std::string> &calls) {
   CHECK(farewell == 0);
 
   // The radio is the last thing to go, immediately before the CPU stops, so
-  // the whole of the panel, pause and beeper work counts as airtime for the
+  // the whole of the panel, pause and motor work counts as airtime for the
   // one advertisement that cannot be repeated.
   CHECK(shutdown == stop - 1);
 
   // Which puts every other device call between the two.
-  for (const char *device : {"Beeper::playShutdown", "QMI::setupWakeup"}) {
+  for (const char *device :
+       {"Haptic::stop", "Haptic::playBlocking", "QMI::setupWakeup", "Haptic::holdForSleep"}) {
     const long at = indexOf(calls, device);
     if (at < 0) continue;
     CHECK_MSG(farewell < at && at < shutdown, device);
@@ -74,7 +75,29 @@ void testFarewellSpansASleepWithTheScreenOff() {
   const long panel = indexOf(calls, "Display::deepSleep");
   CHECK(panel > 0);
   CHECK(panel < indexOf(calls, "BLE::shutdown"));
-  CHECK(indexOf(calls, "Beeper::playShutdown") >= 0);
+  CHECK(indexOf(calls, "Haptic::playBlocking") >= 0);
+}
+
+// The motor is movement, and movement is what wakes the cube. Whatever it was
+// playing has to be over, and the parting buzz with it, before the
+// wake-on-motion detector is armed -- and the pin has to be held low after
+// that, or nothing is left driving it once the CPU stops.
+void testTheMotorIsQuietBeforeTheWakeIsArmed() {
+  const auto calls = sleepCalls(Util::SleepMode::Off, true);
+  const long stopped = indexOf(calls, "Haptic::stop");
+  const long buzz = indexOf(calls, "Haptic::playBlocking");
+  const long armed = indexOf(calls, "QMI::setupWakeup");
+  const long held = indexOf(calls, "Haptic::holdForSleep");
+  CHECK(stopped >= 0);
+  CHECK(armed >= 0);
+  CHECK(held >= 0);
+  CHECK(stopped < buzz);
+  CHECK(buzz < armed);
+  CHECK(held < indexOf(calls, "esp_deep_sleep_start"));
+
+  // The panel is put away after the buzz, not before: the second's pause that
+  // follows it is the motor's time to spin down.
+  CHECK(buzz < indexOf(calls, "Display::deepSleep"));
 }
 
 void testFarewellSpansASleepHoldingThePausedFrame() {
@@ -83,9 +106,10 @@ void testFarewellSpansASleepHoldingThePausedFrame() {
   const long panel = indexOf(calls, "Display::holdPausedFrame");
   CHECK(panel > 0);
   CHECK(panel < indexOf(calls, "BLE::shutdown"));
-  // No sound asked for, so none played -- but the radio still outlasts the
-  // rest of the path.
-  CHECK(indexOf(calls, "Beeper::playShutdown") < 0);
+  // No buzz asked for, so none played -- but the radio still outlasts the
+  // rest of the path, and the pin is still held.
+  CHECK(indexOf(calls, "Haptic::playBlocking") < 0);
+  CHECK(indexOf(calls, "Haptic::holdForSleep") >= 0);
 }
 
 }  // namespace
@@ -93,4 +117,5 @@ void testFarewellSpansASleepHoldingThePausedFrame() {
 void testSleepSequence() {
   testFarewellSpansASleepWithTheScreenOff();
   testFarewellSpansASleepHoldingThePausedFrame();
+  testTheMotorIsQuietBeforeTheWakeIsArmed();
 }
