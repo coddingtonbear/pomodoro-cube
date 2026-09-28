@@ -190,6 +190,22 @@ Display::TimerView pausedView(const RtcState::Data &stored) {
           up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
 }
 
+// Follow the faces for up to `forMs`, and return the first face other than
+// `current` the cube settles on, or `current` if it settles on nothing else.
+Orientation watchFaces(unsigned long forMs, Orientation current) {
+  const unsigned long started = millis();
+  while (millis() - started < forMs) {
+    feedLoopWDT();
+    float ax, ay, az;
+    if (QMI::getAccelerometer(ax, ay, az) && Util::updateOriDebounce(ax, ay, az, millis())) {
+      const Orientation face = Util::getDebouncedOriState();
+      if (face != current) return face;
+    }
+    delay(20);
+  }
+  return current;
+}
+
 // A switched-off cube has been woken: listen for the gesture that switches it
 // back on. Dark and silent throughout -- no panel, no radio, no buzz -- because
 // most wakes of a switched-off cube are a bag being carried, and the only thing
@@ -212,10 +228,11 @@ bool heardSwitchOn() {
     // start to count. A wake in a bag never gets this far, and stays dark. The
     // panel then stays up until the cube sleeps or is switched on, even if it
     // is picked up again in between.
-    if (listener.armed()) Display::showSwitchOnPrompt();
+    if (listener.armed()) Display::showMessage("Double-tap\nto start");
     if (verdict != Util::SwitchOnVerdict::Listening) {
       return verdict == Util::SwitchOnVerdict::On;
     }
+
     delay(20);
   }
 }
@@ -267,9 +284,20 @@ void setup() {
     // dark, now waiting to be stood on a face like any other. The buzz is the
     // only sign of having been switched on when there is nothing to show.
     RtcState::data().switchedOff = false;
-    Display::hideSwitchOnPrompt();
     Haptic::playBlocking(Haptic::Pattern::Wake);
     settled = Orientation::FACE_UP;
+
+    // A parked timer is what the resting-face path below puts up. With none,
+    // there is nothing to show, and a panel that went dark the moment it was
+    // switched on read as the switch-on having failed -- so say what to do next,
+    // for a moment. Watching the faces while it does: a cube stood on one now is
+    // doing what it was told, and has to start its timer rather than sleep
+    // through the setting down, which would leave nothing to wake it.
+    if (!RtcState::hasPause(RtcState::data())) {
+      Display::showMessage("Stand on a side\nto start");
+      settled = watchFaces(SWITCHED_ON_MESSAGE_MS, Orientation::FACE_UP);
+    }
+    Display::hideMessage();
   } else {
     // --------- go back to sleep mode ---------
     // Settled rather than sampled. The interrupt that woke us fired because the

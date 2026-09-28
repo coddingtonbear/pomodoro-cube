@@ -160,8 +160,16 @@ double tap on the glass. Taps only count from then on, so the flip and the
 landing can't be taken for them.
 
 A double tap in that window switches it on with a buzz. A parked timer comes up
-paused on the glass, and with nothing parked it goes back to sleep dark but on,
-so standing it on a face starts a timer as usual. If the cube is left still on
+paused on the glass. With nothing parked it shows **Stand on a side to start**
+for three seconds and then goes dark, still on, so standing it on a face starts
+a timer as usual. Standing it on a face while the message is up starts that
+timer immediately.
+
+The taps are detected by the QMI8658's own tap engine, with its peak threshold
+lowered from the datasheet's example of 0.8 g² to 0.25 g². On a cube lying on a
+hard desk the example let through only about one tap in six, and never both
+taps of a double tap. The lower threshold also makes the tap that brightens the
+panel easier to trigger. If the cube is left still on
 any other face for a second and a half, or never settles within five seconds,
 it goes back to sleep still off. Those wakes, which are what a bag causes,
 never light the panel and never use the radio. A double tap that misses the

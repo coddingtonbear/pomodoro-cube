@@ -3,6 +3,7 @@
 #include "indicators.h"
 #include "tilt.h"
 #include <lvgl.h>
+#include <string.h>
 #include <Wire.h>
 #include <TFT_eSPI.h>  // By Bodmer V2.5.43
 
@@ -181,8 +182,9 @@ void Display::setBacklight(int percent) {
 // frame, which asks again; LVGL cannot be initialised twice.
 bool displayUp = false;
 
-// The screen that asks for the double tap, while it is up.
-lv_obj_t *switchOnPrompt = nullptr;
+// The screen showMessage() puts up, and its one label, while it is up.
+lv_obj_t *messageScreen = nullptr;
+lv_obj_t *messageLabel = nullptr;
 
 // Push whatever LVGL has pending to the panel now, for the paths that are about
 // to block or sleep rather than return to a loop() that would do it.
@@ -361,34 +363,37 @@ void Display::showPaused() {
   pumpLvgl();
 }
 
-void Display::showSwitchOnPrompt() {
+void Display::showMessage(const char *text) {
   Display::setup();
-  if (switchOnPrompt) return;
+  if (!messageScreen) {
+    // A screen of its own rather than a label over the face: nothing of the
+    // timer belongs on it, and dropping it afterwards leaves the face as it was.
+    messageScreen = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(messageScreen, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(messageScreen, LV_OPA_COVER, LV_PART_MAIN);
 
-  // A screen of its own rather than a label over the face: nothing of the timer
-  // belongs on it, and dropping it afterwards leaves the face as it was.
-  switchOnPrompt = lv_obj_create(NULL);
-  lv_obj_set_style_bg_color(switchOnPrompt, lv_color_black(), LV_PART_MAIN);
-  lv_obj_set_style_bg_opa(switchOnPrompt, LV_OPA_COVER, LV_PART_MAIN);
+    messageLabel = lv_label_create(messageScreen);
+    lv_obj_set_style_text_color(messageLabel, lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(messageLabel, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_obj_set_style_text_align(messageLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_scr_load(messageScreen);
+  } else if (strcmp(lv_label_get_text(messageLabel), text) == 0) {
+    return;
+  }
 
-  lv_obj_t *label = lv_label_create(switchOnPrompt);
-  lv_label_set_text(label, "Double-tap\nto start");
-  lv_obj_set_style_text_color(label, lv_color_white(), LV_PART_MAIN);
-  lv_obj_set_style_text_font(label, &lv_font_montserrat_20, LV_PART_MAIN);
-  lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  lv_obj_center(label);
-
-  lv_scr_load(switchOnPrompt);
-  // Nothing returns to loop() while the cube is listening, so the prompt has
-  // to be pushed out here or it never reaches the glass.
+  lv_label_set_text(messageLabel, text);
+  lv_obj_center(messageLabel);
+  // Nothing is running loop() while one of these is up, so the frame has to be
+  // pushed out here or it never reaches the glass.
   pumpLvgl();
 }
 
-void Display::hideSwitchOnPrompt() {
-  if (!switchOnPrompt) return;
+void Display::hideMessage() {
+  if (!messageScreen) return;
   lv_scr_load(ui_Screen1);
-  lv_obj_del(switchOnPrompt);
-  switchOnPrompt = nullptr;
+  lv_obj_del(messageScreen);
+  messageScreen = nullptr;
+  messageLabel = nullptr;
 }
 
 void Display::setAngle(float degrees) {
