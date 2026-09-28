@@ -51,6 +51,10 @@ void testInitialiseStampsAndClears() {
   CHECK(!data.pausedCountingUp);
   CHECK(data.pausedFace == Orientation::UNDEFINED);
   CHECK(data.flowBankSeconds == 0);
+  // A cold boot is a cube that was never set down face down, so it has not been
+  // switched off -- and junk that happened to read as true must not leave a
+  // freshly powered cube waiting for a double tap nobody knows to give it.
+  CHECK(!data.switchedOff);
 }
 
 void testInitialiseIsDeterministic() {

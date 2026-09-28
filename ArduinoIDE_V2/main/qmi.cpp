@@ -37,19 +37,20 @@ void QMI::enableTapDetection() {
   qmi.enableTap(SensorQMI8658::INTERRUPT_PIN_1);
 }
 
-bool QMI::takeTap() {
+QMI::Tap QMI::takeTap() {
   // Polled rather than wired to the interrupt. INT1 belongs to the wake-on-
   // motion configuration the sleep path installs, and while the cube is awake
   // the loop is already talking to the sensor every 20 ms anyway. update()
   // reads and clears the latched status, so the event is consumed here.
-  if ((qmi.update() & SensorQMI8658::STATUS1_TAP_MOTION) == 0) return false;
+  if ((qmi.update() & SensorQMI8658::STATUS1_TAP_MOTION) == 0) return Tap::None;
 
   // Single and double taps arrive through the same event bit; the tap status
-  // register is what tells them apart. Either counts, because what was asked
-  // for is a tap -- narrowing this to DOUBLE_TAP is the whole change if single
-  // taps turn out to fire at things that were not taps.
-  const SensorQMI8658::TapEvent event = qmi.getTapStatus();
-  return event == SensorQMI8658::SINGLE_TAP || event == SensorQMI8658::DOUBLE_TAP;
+  // register is what tells them apart.
+  switch (qmi.getTapStatus()) {
+    case SensorQMI8658::SINGLE_TAP: return Tap::Single;
+    case SensorQMI8658::DOUBLE_TAP: return Tap::Double;
+    default: return Tap::None;
+  }
 }
 
 void QMI::setupWakeup() {

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "consts.h"
+#include "qmi.h"
 
 namespace SimInput {
 
@@ -32,9 +33,9 @@ enum class BatteryOverride {
 };
 extern BatteryOverride batteryOverride;
 
-// Set by the `t` key and cleared by the first QMI::takeTap() that sees it,
-// standing in for the QMI8658's latched tap event.
-extern bool tapPending;
+// Set by the `t` (single) and `d` (double) keys and cleared by the first
+// QMI::takeTap() that sees it, standing in for the QMI8658's latched tap event.
+extern QMI::Tap pendingTap;
 
 // Follows the level on HAPTIC_PIN so the renderer can show when the vibration
 // motor is running.

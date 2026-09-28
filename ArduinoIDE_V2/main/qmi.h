@@ -12,8 +12,11 @@ bool getAccelerometer(float &ax, float &ay, float &az);
 // couple of milliseconds, so almost every one would fall between two samples.
 void enableTapDetection();
 
-// True once per tap. The sensor latches the event and clears it on read, so a
-// tap between two calls is not missed and no tap is ever reported twice.
-bool takeTap();
+enum class Tap { None, Single, Double };
+
+// Once per tap, and None in between. The sensor latches the event and clears it
+// on read, so a tap between two calls is not missed and no tap is ever reported
+// twice. A double tap is reported once, as Double, not as two Singles.
+Tap takeTap();
 
 }

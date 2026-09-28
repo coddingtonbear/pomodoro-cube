@@ -46,7 +46,7 @@ void Haptic::holdForSleep() { called("Haptic::holdForSleep"); }
 void QMI::setup() {}
 void QMI::setupWakeup() { called("QMI::setupWakeup"); }
 void QMI::enableTapDetection() {}
-bool QMI::takeTap() { return false; }
+QMI::Tap QMI::takeTap() { return QMI::Tap::None; }
 bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
   ax = 0.0f;
   ay = 0.0f;

@@ -37,7 +37,10 @@ which does the same trick for coffee brew times.
   left showing the frozen countdown in muted colours. Stand it back on the
   same face to carry on. A *different* face is taken as choosing a different
   interval, so the pause is abandoned.
-- **Face down means off** — the timer is discarded and the panel blanks.
+- **Face down means off** — the panel blanks and the cube stays dark however
+  much it is jostled, so it can go in a bag. Whatever was running is parked,
+  exactly as face up parks it. To switch it back on, lay it face up and
+  double-tap the glass within five seconds. See [Switching off](#switching-off).
 - **Tap it to read it** — the backlight runs at a fifth of full brightness
   between the moments worth lighting, and a tap on the glass buys ten seconds
   at full. The QMI8658 detects the tap itself, so it works on a face that never
@@ -123,12 +126,39 @@ someone already looking at it. The QMI8658 has a tap detector of its own, which
 is what makes this work — a tap is over in a couple of milliseconds, so the
 50 Hz polling loop would miss almost every one if it had to find them in the
 accelerometer stream itself. The sensor latches the event and the loop reads it
-out. Single taps are accepted; `QMI::takeTap()` is where to narrow that to
-double taps if the cube turns out to brighten at things that were not taps.
+out. Single and double taps both brighten it; `main.ino`'s loop is where to
+narrow that to `QMI::Tap::Double` if the cube turns out to brighten at things
+that were not taps.
 
 The one face this really matters for is flow's. A countdown brightens on its own
 as it runs out, but a stint has no end to approach, so before this the only way
 to read one that had settled was to pick the cube up — which ends the stint.
+
+### Switching off
+
+There are no buttons, so off has to be a way of setting the cube down, and it
+has to survive being carried. Every bump wakes a sleeping cube — that is how
+standing it on a face starts a timer — so off can't just be a sleep, or a cube
+in a bag would light up and start counting whenever it landed on an edge.
+
+Setting the cube down face down switches it off: it parks what was running, as
+face up does, blanks the panel and notes in RTC memory that it is off. A wake
+that finds that note ignores the face it settles on. Standing it on a timer
+face does nothing, and neither does a wake that never settles, which is what a
+bag in motion looks like. Only lying face up gets further: the cube then
+listens for five seconds, still dark and silent, for a double tap on the
+glass. Tap detection only starts once it is lying face up, so the flip itself
+can't count as the taps.
+
+A double tap in that window switches it on with a buzz. A parked timer comes up
+paused on the glass, and with nothing parked it goes back to sleep dark but on,
+so standing it on a face starts a timer as usual. Anything else and it goes
+back to sleep still off. A double tap that misses the window is movement, so it
+wakes the cube and opens a new window, and the next one works.
+
+A wake that ends in going back to sleep costs a moment of the CPU and the
+accelerometer, with no panel, no backlight and no radio. The sleep that ends an
+unanswered alarm doesn't switch the cube off; only face down does.
 
 ## Flow mode
 
@@ -149,7 +179,7 @@ of work add up and an interrupted break keep its remainder:
 A running break writes the new balance back every second, so whatever
 interrupts it — another face, a pause, a flat battery — leaves the rest still
 banked. Working on the 25-minute face doesn't cost you the bank either: only
-the break face spends it, and only laying the cube face down clears it.
+the break face spends it, and only a flat battery clears it.
 
 Turn to the break face with nothing banked and you get a break of no length:
 `00:00`, the finish pattern, and the usual half minute before the cube sleeps.
@@ -201,7 +231,7 @@ The rest of the rules:
 | A stint reaching four hours | Ends itself and buzzes, nine laps scored and 48 minutes credited. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
 | The bank reaching four hours | Capped there, for the same reason a stint is |
 | Flow break with an empty bank | Finishes on the spot: `00:00` and the finish pattern |
-| Face down | Off, and the bank is cleared with everything else |
+| Face down | Off, with the stint parked and the bank kept, as face up keeps them |
 
 ## Bluetooth
 

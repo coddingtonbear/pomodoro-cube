@@ -199,6 +199,25 @@ void testOnlyFaceUpStaysLit() {
   CHECK(down.mode == Util::SleepMode::Off);
 }
 
+// Face down is off, and face up is not: a cube set down face up has only been
+// paused, and has to wake onto whatever face it is stood on next.
+void testOnlyFaceDownSwitchesOff() {
+  RtcState::Data data;
+  RtcState::initialise(data);
+
+  Util::restOnFace(data, Orientation::FACE_DOWN, Orientation::DEG_0, 900, 1500, false);
+  CHECK(data.switchedOff);
+
+  // With nothing running, too: switching off is about the face, not the timer.
+  RtcState::initialise(data);
+  Util::restOnFace(data, Orientation::FACE_DOWN, Orientation::DEG_0, 0, 1500, false);
+  CHECK(data.switchedOff);
+
+  RtcState::initialise(data);
+  Util::restOnFace(data, Orientation::FACE_UP, Orientation::DEG_0, 900, 1500, false);
+  CHECK(!data.switchedOff);
+}
+
 // The regression this pair guards: face down used to empty the bank on its way
 // into sleep, so a break earned before putting the cube away was gone when it
 // came back.
@@ -507,6 +526,7 @@ void testOrientationDebounce() {
 
 void testRestingFaceParking() {
   testOnlyFaceUpStaysLit();
+  testOnlyFaceDownSwitchesOff();
   testBothRestingFacesKeepTheBank();
   testBothRestingFacesParkTheTimer();
   testAParkedFlowStintIsStillCountingUp();

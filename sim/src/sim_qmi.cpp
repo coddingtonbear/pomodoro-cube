@@ -12,12 +12,12 @@ void QMI::setup() {}
 void QMI::setupWakeup() {}
 void QMI::enableTapDetection() {}
 
-// The sensor latches a tap and clears it on read; `t` sets the flag and the
+// The sensor latches a tap and clears it on read; `t` or `d` sets the flag and the
 // first poll that sees it takes it, which is the same contract.
-bool QMI::takeTap() {
-  if (!SimInput::tapPending) return false;
-  SimInput::tapPending = false;
-  return true;
+QMI::Tap QMI::takeTap() {
+  const QMI::Tap tap = SimInput::pendingTap;
+  SimInput::pendingTap = QMI::Tap::None;
+  return tap;
 }
 
 bool QMI::getAccelerometer(float &ax, float &ay, float &az) {

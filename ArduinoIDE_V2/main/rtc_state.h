@@ -14,7 +14,7 @@ namespace RtcState {
 
 // Bump the trailing digit whenever Data's layout changes, so a firmware update
 // discards the old layout instead of misreading it.
-constexpr uint32_t MAGIC = 0x504F4D34;  // "POM4"
+constexpr uint32_t MAGIC = 0x504F4D35;  // "POM5"
 
 struct Data {
   uint32_t magic;
@@ -45,6 +45,12 @@ struct Data {
   // without booting the display reads it: that wake has no other way of knowing
   // whether there is anything on the glass.
   bool panelHoldingFrame;
+
+  // Set down face down, which is off. A wake that finds this set does nothing
+  // until the cube is lying face up and has been double-tapped; standing it on
+  // a timer face is not enough. Only setting the cube down writes it, so the
+  // sleep that ends an unanswered alarm leaves a cube that wakes normally.
+  bool switchedOff;
 };
 
 // True when the block was written by this firmware and survived intact.

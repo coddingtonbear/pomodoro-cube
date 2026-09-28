@@ -190,6 +190,23 @@ Display::TimerView pausedView(const RtcState::Data &stored) {
           up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
 }
 
+// A switched-off cube has been woken lying face up: listen for the double tap
+// that switches it back on. Dark and silent throughout -- no panel, no radio,
+// no buzz -- because most wakes of a switched-off cube are a bag being carried,
+// and the only thing worth spending on one of those is getting back to sleep.
+bool heardSwitchOn() {
+  // Only now, so that the flip that brought the cube face up cannot be taken
+  // for the taps: the gesture is turning it over *and then* tapping it.
+  QMI::enableTapDetection();
+  const unsigned long opened = millis();
+  while (millis() - opened < SWITCH_ON_WINDOW_MS) {
+    feedLoopWDT();
+    if (QMI::takeTap() == QMI::Tap::Double) return true;
+    delay(20);
+  }
+  return false;
+}
+
 void setup() {
   Serial.begin(115200);
   setCpuFrequencyMhz(80);  // reducing CPU clock to 80MHz
@@ -233,6 +250,24 @@ void setup() {
   // seconds; the rest of setup() gets a fresh allowance.
   feedLoopWDT();
   Serial.printf("[trace] SETTLED ori=%d\n", (int)settled);
+
+  // Switched off by being set down face down. Nothing wakes it but lying face
+  // up and a double tap on the glass: not standing it on a timer face, and not
+  // a wake that never settles, which is what a bag in motion looks like. Either
+  // way the cube goes back to sleep still switched off, and wakes to ask again
+  // the next time it moves.
+  if (RtcState::data().switchedOff) {
+    const bool switchOn = settled == Orientation::FACE_UP && heardSwitchOn();
+    Serial.printf("[trace] SWITCHED_OFF switchOn=%d\n", (int)switchOn);
+    if (!switchOn) Util::deepSleep(Util::SleepMode::Off, false);
+
+    // On, and lying face up, which is where the resting-face path below takes
+    // over: a parked timer comes up on the glass, and with none the cube sleeps
+    // dark, now waiting to be stood on a face like any other. The buzz is the
+    // only sign of having been switched on when there is nothing to show.
+    RtcState::data().switchedOff = false;
+    Haptic::playBlocking(Haptic::Pattern::Wake);
+  }
   if (Util::isRestingFace(settled)) {
     // Woken but still resting: go back down without touching what is parked.
     // Only face up keeps the panel lit, and only when there is a pause to show.
@@ -342,12 +377,14 @@ void loop() {
 
   // A tap only ever buys brightness, so it is read here and left to the
   // backlight policy below. Nothing else on the cube changes because it was
-  // touched -- the faces are what choose the timer.
+  // touched -- the faces are what choose the timer. Single or double, either
+  // counts: what was asked for is a tap. Narrowing this to Tap::Double is the
+  // whole change if single taps turn out to fire at things that were not taps.
   //
   // Read every pass so the sensor's latch is cleared, but not believed while
   // the motor is running: the tap detector cannot tell a finger from the cube
   // shaking itself.
-  if (QMI::takeTap() && !Haptic::disturbing()) lastTap = millis();
+  if (QMI::takeTap() != QMI::Tap::None && !Haptic::disturbing()) lastTap = millis();
 
   if (countingUp() && millis() - lastTick >= 1000) {
     remSeconds++;

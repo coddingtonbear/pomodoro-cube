@@ -47,6 +47,7 @@ struct RestPlan {
 // abandoning the interval, so both faces keep the pause, and neither touches the
 // break bank: a balance outlives being put away. `timerFace` is the face the
 // timer was running on, which is the only face the pause will resume onto.
+// Face down also switches the cube off -- see RtcState::Data::switchedOff.
 RestPlan restOnFace(RtcState::Data &data, Orientation ori, Orientation timerFace,
                     int remaining, int selected, bool countingUp);
 

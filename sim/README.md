@@ -36,6 +36,7 @@ sudo apt install cmake build-essential libsdl2-dev
 | `b` | Cycle the low-battery warning: forced on, forced off, voltage-driven |
 | `[` `]` | Lower / raise the simulated pack voltage |
 | `t` | Tap the cube, which brightens the panel for ten seconds |
+| `d` | Double-tap it, which also switches on a switched-off cube lying face up |
 | `v` | Toggle between the viewer's view and the raw panel |
 | `m` | Toggle the round-panel mask |
 | `a` | Print the BLE advertisement the firmware last published |
@@ -63,7 +64,9 @@ looks like.
 
 Face down switches off and blanks the panel; face up pauses, leaving the frozen
 countdown lit. Either way any key re-executes the process, reproducing the cold
-boot the IMU interrupt causes on hardware.
+boot the IMU interrupt causes on hardware. A face key wakes onto that face and
+any other key onto 90°. To switch a face-down cube back on, wake it with `u`
+and press `d` within five seconds.
 
 ## Scripted screenshots
 

@@ -89,6 +89,17 @@ constexpr uint8_t WAKE_ON_MOTION_THRESHOLD_MG = 64;
 // screen until something moves it again.
 constexpr unsigned long WAKE_SETTLE_TIMEOUT_MS = 3000;
 
+// How long a switched-off cube, woken and found lying face up, listens for the
+// double tap that switches it back on. Face down is off, and off has to survive
+// a bag: every bump wakes the cube, so the wake alone cannot be what switches it
+// on. Turning it face up and then double-tapping the glass is a gesture a bag
+// does not make. Long enough to turn the cube over and reach for it; short
+// enough that a cube knocked face up in a drawer is back asleep, dark and
+// silent, in a few seconds. A double tap that misses the window still wakes the
+// cube -- it is movement -- which opens a fresh one, so the second attempt
+// works however long the cube has been lying there.
+constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
+
 // Timer length for each face the cube can rest on, in seconds. DEG_0 is the
 // default orientation and each step from there is a quarter turn clockwise,
 // matching the order of the Orientation enum below.

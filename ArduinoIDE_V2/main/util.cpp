@@ -127,7 +127,11 @@ Util::RestPlan Util::restOnFace(RtcState::Data &data, Orientation ori, Orientati
   // face up with the lights out.
   RtcState::storePause(data, timerFace, remaining, selected, countingUp);
 
+  // Face down is also off, which is the one thing that tells the two faces
+  // apart after the lights: a cube put away face down stays down until it is
+  // deliberately switched back on, however much it is jostled.
   const bool lit = ori == Orientation::FACE_UP;
+  data.switchedOff = !lit;
   return {lit, lit ? SleepMode::Paused : SleepMode::Off};
 }
 
