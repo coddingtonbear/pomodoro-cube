@@ -395,8 +395,24 @@ Board settings, matching the ESP32-S3-WROOM-1 the Waveshare board carries:
 has none). USB CDC on boot stays **disabled** — the USB-C port is a CH343
 UART bridge rather than the S3's native USB, so `Serial` is UART0 either way
 and the port appears as `/dev/ttyACM0`. The default 4MB partition scheme is
-kept despite the 16MB flash: the sketch is 586 kB against that scheme's 1.3 MB
+kept despite the 16MB flash: the sketch is 801 kB against that scheme's 1.3 MB
 app slot, and nothing here uses the filesystem.
+
+The IDE isn't needed to flash it, though — `tools/flash.sh` compiles and
+uploads in one go with the `arduino-cli` the IDE ships with, passing those board
+settings itself:
+
+```bash
+tools/flash.sh              # compile, upload, reset
+tools/flash.sh --build-only # just check it compiles
+tools/flash.sh --monitor    # ...and then tail UART0 at 115200
+```
+
+It checks the two symlinks above before compiling, loads `cdc_acm` if
+`/dev/ttyACM0` is missing (the module is blacklisted on some machines, so the
+port doesn't appear on its own), and resets the board a second time after
+uploading — straight out of an upload the QMI8658 has come up silent, with
+every read returning zero, and a second reset clears it.
 
 `ArduinoIDE_V2/main/src/` began life as SquareLine Studio output and is now
 maintained by hand. **Re-exporting from `SquareLine/coffee_timer.spj` would
