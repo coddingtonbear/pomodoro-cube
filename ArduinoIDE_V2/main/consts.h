@@ -114,8 +114,8 @@ constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
 // turning it, is not taken for it having been left alone.
 constexpr unsigned long SWITCH_ON_GIVE_UP_MS = 1500;
 
-// How long a cube just switched on, with no paused timer to show, says what to
-// do next before going dark. Not held: a frame is only held lit through sleep
+// How long a cube just switched on, with no paused timer to show, says so
+// before going dark. Not held: a frame is only held lit through sleep
 // when there is a timer in it, since holding one costs the backlight for as
 // long as the cube lies there.
 constexpr unsigned long SWITCHED_ON_MESSAGE_MS = 3000;

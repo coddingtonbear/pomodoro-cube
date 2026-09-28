@@ -185,6 +185,7 @@ bool displayUp = false;
 // The screen showMessage() puts up, and its one label, while it is up.
 lv_obj_t *messageScreen = nullptr;
 lv_obj_t *messageLabel = nullptr;
+bool messageInverted = false;
 
 // Push whatever LVGL has pending to the panel now, for the paths that are about
 // to block or sleep rather than return to a loop() that would do it.
@@ -363,24 +364,28 @@ void Display::showPaused() {
   pumpLvgl();
 }
 
-void Display::showMessage(const char *text) {
+void Display::showMessage(const char *text, bool inverted) {
   Display::setup();
   if (!messageScreen) {
     // A screen of its own rather than a label over the face: nothing of the
     // timer belongs on it, and dropping it afterwards leaves the face as it was.
     messageScreen = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(messageScreen, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(messageScreen, LV_OPA_COVER, LV_PART_MAIN);
 
     messageLabel = lv_label_create(messageScreen);
-    lv_obj_set_style_text_color(messageLabel, lv_color_white(), LV_PART_MAIN);
     lv_obj_set_style_text_font(messageLabel, &lv_font_montserrat_20, LV_PART_MAIN);
     lv_obj_set_style_text_align(messageLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_scr_load(messageScreen);
-  } else if (strcmp(lv_label_get_text(messageLabel), text) == 0) {
+  } else if (strcmp(lv_label_get_text(messageLabel), text) == 0 &&
+             messageInverted == inverted) {
     return;
   }
 
+  messageInverted = inverted;
+  lv_obj_set_style_bg_color(messageScreen, inverted ? lv_color_white() : lv_color_black(),
+                            LV_PART_MAIN);
+  lv_obj_set_style_text_color(messageLabel, inverted ? lv_color_black() : lv_color_white(),
+                              LV_PART_MAIN);
   lv_label_set_text(messageLabel, text);
   lv_obj_center(messageLabel);
   // Nothing is running loop() while one of these is up, so the frame has to be

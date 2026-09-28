@@ -289,12 +289,13 @@ void setup() {
 
     // A parked timer is what the resting-face path below puts up. With none,
     // there is nothing to show, and a panel that went dark the moment it was
-    // switched on read as the switch-on having failed -- so say what to do next,
-    // for a moment. Watching the faces while it does: a cube stood on one now is
-    // doing what it was told, and has to start its timer rather than sleep
-    // through the setting down, which would leave nothing to wake it.
+    // switched on read as the switch-on having failed -- so answer the double
+    // tap, for a moment, inverted from the prompt so the change is plain from
+    // across a desk. Watching the faces while it does: a cube stood on one now
+    // has to start its timer rather than sleep through being set down, which
+    // would leave nothing to wake it.
     if (!RtcState::hasPause(RtcState::data())) {
-      Display::showMessage("Stand on a side\nto start");
+      Display::showMessage("Let's go", true);
       settled = watchFaces(SWITCHED_ON_MESSAGE_MS, Orientation::FACE_UP);
     }
     Display::hideMessage();

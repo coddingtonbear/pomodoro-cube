@@ -20,11 +20,12 @@ void holdPausedFrame();
 // Recolour the countdown to read as paused, and push it to the panel.
 void showPaused();
 
-// A line or two of white on black in place of the face, for switching on and
-// off: what to do next, when there is no timer to show. Brings the panel up if
-// it is not already, and pushes the frame out at once, since nothing is running
-// loop() while one of these is up. Showing the text already up does nothing.
-void showMessage(const char *text);
+// A line or two of white on black in place of the face -- black on white when
+// `inverted` -- for switching on and off, when there is no timer to show.
+// Brings the panel up if it is not already, and pushes the frame out at once,
+// since nothing is running loop() while one of these is up. Showing what is
+// already up does nothing.
+void showMessage(const char *text, bool inverted = false);
 
 // Back to the face. Does nothing if no message is up.
 void hideMessage();

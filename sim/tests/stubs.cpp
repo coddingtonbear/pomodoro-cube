@@ -26,7 +26,10 @@ void Display::updateBattery(float voltage) { (void)voltage; }
 void Display::deepSleep() { called("Display::deepSleep"); }
 void Display::holdPausedFrame() { called("Display::holdPausedFrame"); }
 void Display::showPaused() {}
-void Display::showMessage(const char *text) { (void)text; }
+void Display::showMessage(const char *text, bool inverted) {
+  (void)text;
+  (void)inverted;
+}
 void Display::hideMessage() {}
 void Display::setAngle(float degrees) { (void)degrees; }
 void Display::rotateScreen(Orientation ori) { (void)ori; }

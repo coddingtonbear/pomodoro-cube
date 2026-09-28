@@ -160,7 +160,7 @@ double tap on the glass. Taps only count from then on, so the flip and the
 landing can't be taken for them.
 
 A double tap in that window switches it on with a buzz. A parked timer comes up
-paused on the glass. With nothing parked it shows **Stand on a side to start**
+paused on the glass. With nothing parked it shows **Let's go**, black on white,
 for three seconds and then goes dark, still on, so standing it on a face starts
 a timer as usual. Standing it on a face while the message is up starts that
 timer immediately.
