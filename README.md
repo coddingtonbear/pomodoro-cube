@@ -166,7 +166,7 @@ a timer as usual. Standing it on a face while the message is up starts that
 timer immediately.
 
 The taps are detected by the QMI8658's own tap engine, with its peak threshold
-lowered from the datasheet's example of 0.8 g² to 0.25 g². On a cube lying on a
+lowered from the datasheet's example of 0.8 g² to 0.15 g². On a cube lying on a
 hard desk the example let through only about one tap in six, and never both
 taps of a double tap. The lower threshold also makes the tap that brightens the
 panel easier to trigger. If the cube is left still on
