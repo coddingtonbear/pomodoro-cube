@@ -194,6 +194,18 @@ void setup() {
   Serial.begin(115200);
   setCpuFrequencyMhz(80);  // reducing CPU clock to 80MHz
 
+  // Put this task under the task watchdog, which the core then feeds before
+  // every pass of loop(). A pass that has not come back within the watchdog's
+  // 5 seconds -- an I2C read that never returns, a wait on something that never
+  // happens -- panics and reboots the cube rather than leaving it frozen on
+  // whatever was last drawn. Nothing that blocks here comes near that: the
+  // longest is going to sleep, a little over two seconds end to end. setup()
+  // is covered too, which is why the settle below feeds it on its way out.
+  enableLoopWDT();
+  // A watchdog reboot looks like any other boot from the outside; this is how
+  // to tell one apart on the serial log.
+  Serial.printf("[trace] RESET reason=%d\n", (int)esp_reset_reason());
+
   // First, so the motor's pin is driven low from the earliest moment there is
   // code to drive it, on every path out of here.
   Haptic::setup();
@@ -217,6 +229,9 @@ void setup() {
                 (int)RtcState::data().pausedFace,
                 (int)RtcState::data().panelHoldingFrame);
   const Orientation settled = settleOrientation();
+  // The settle can take up to WAKE_SETTLE_TIMEOUT_MS of the watchdog's five
+  // seconds; the rest of setup() gets a fresh allowance.
+  feedLoopWDT();
   Serial.printf("[trace] SETTLED ori=%d\n", (int)settled);
   if (Util::isRestingFace(settled)) {
     // Woken but still resting: go back down without touching what is parked.

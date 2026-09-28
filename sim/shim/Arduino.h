@@ -57,6 +57,13 @@ void gpio_deep_sleep_hold_en();
 void esp_sleep_enable_ext0_wakeup(gpio_num_t pin, int level);
 [[noreturn]] void esp_deep_sleep_start();
 
+// ---- Watchdog and reset reason --------------------------------------------
+// The sim has no watchdog to arm, and every run of it is a power-on.
+void enableLoopWDT();
+void feedLoopWDT();
+typedef enum { ESP_RST_UNKNOWN, ESP_RST_POWERON } esp_reset_reason_t;
+esp_reset_reason_t esp_reset_reason();
+
 // ---- Serial ---------------------------------------------------------------
 class SimSerial {
 public:

@@ -91,6 +91,10 @@ void esp_sleep_enable_ext0_wakeup(gpio_num_t pin, int level) { (void)pin; (void)
 
 void esp_deep_sleep_start() { throw SimDeepSleep{}; }
 
+void enableLoopWDT() {}
+void feedLoopWDT() {}
+esp_reset_reason_t esp_reset_reason() { return ESP_RST_POWERON; }
+
 void SimSerial::begin(unsigned long baud) { (void)baud; }
 void SimSerial::print(const char *s) { std::fputs(s, stdout); }
 void SimSerial::println(const char *s) { std::printf("%s\n", s); }
