@@ -26,6 +26,8 @@ void Display::updateBattery(float voltage) { (void)voltage; }
 void Display::deepSleep() { called("Display::deepSleep"); }
 void Display::holdPausedFrame() { called("Display::holdPausedFrame"); }
 void Display::showPaused() {}
+void Display::showSwitchOnPrompt() {}
+void Display::hideSwitchOnPrompt() {}
 void Display::setAngle(float degrees) { (void)degrees; }
 void Display::rotateScreen(Orientation ori) { (void)ori; }
 void Display::updateTimer(const TimerView &view) { (void)view; }

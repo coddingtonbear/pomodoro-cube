@@ -94,6 +94,8 @@ target_compile_definitions(sim PRIVATE
   LV_MEM_SIZE=98304U
   # Needed to draw anything at an angle; see lv_conf.h.
   LV_COLOR_SCREEN_TRANSP=1
+  # The switch-on prompt's font; see lv_conf.h.
+  LV_FONT_MONTSERRAT_20=1
 )
 
 target_link_libraries(sim PRIVATE ${SDL2_LIBRARIES})

@@ -176,7 +176,28 @@ void Display::setBacklight(int percent) {
   }
 }
 
+// Whether setup() has run this boot. A switched-off cube brings the panel up to
+// ask for the double tap, and switching it on can then go on to draw a paused
+// frame, which asks again; LVGL cannot be initialised twice.
+bool displayUp = false;
+
+// The screen that asks for the double tap, while it is up.
+lv_obj_t *switchOnPrompt = nullptr;
+
+// Push whatever LVGL has pending to the panel now, for the paths that are about
+// to block or sleep rather than return to a loop() that would do it.
+void pumpLvgl() {
+  for (int i = 0; i < 4; i++) {
+    lv_timer_handler();
+    lv_tick_inc(20);
+    delay(20);
+  }
+}
+
 void Display::setup() {
+  if (displayUp) return;
+  displayUp = true;
+
   // A paused sleep locks the backlight and the panel's reset line on through
   // deep sleep; release both before driving them again, or tft.begin() cannot
   // reset the panel.
@@ -337,11 +358,37 @@ void Display::showPaused() {
 
   // The frame has to reach the panel before the CPU stops, so pump LVGL rather
   // than waiting for the next loop() that will never come.
-  for (int i = 0; i < 4; i++) {
-    lv_timer_handler();
-    lv_tick_inc(20);
-    delay(20);
-  }
+  pumpLvgl();
+}
+
+void Display::showSwitchOnPrompt() {
+  Display::setup();
+  if (switchOnPrompt) return;
+
+  // A screen of its own rather than a label over the face: nothing of the timer
+  // belongs on it, and dropping it afterwards leaves the face as it was.
+  switchOnPrompt = lv_obj_create(NULL);
+  lv_obj_set_style_bg_color(switchOnPrompt, lv_color_black(), LV_PART_MAIN);
+  lv_obj_set_style_bg_opa(switchOnPrompt, LV_OPA_COVER, LV_PART_MAIN);
+
+  lv_obj_t *label = lv_label_create(switchOnPrompt);
+  lv_label_set_text(label, "Double-tap\nto start");
+  lv_obj_set_style_text_color(label, lv_color_white(), LV_PART_MAIN);
+  lv_obj_set_style_text_font(label, &lv_font_montserrat_20, LV_PART_MAIN);
+  lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_obj_center(label);
+
+  lv_scr_load(switchOnPrompt);
+  // Nothing returns to loop() while the cube is listening, so the prompt has
+  // to be pushed out here or it never reaches the glass.
+  pumpLvgl();
+}
+
+void Display::hideSwitchOnPrompt() {
+  if (!switchOnPrompt) return;
+  lv_scr_load(ui_Screen1);
+  lv_obj_del(switchOnPrompt);
+  switchOnPrompt = nullptr;
 }
 
 void Display::setAngle(float degrees) {

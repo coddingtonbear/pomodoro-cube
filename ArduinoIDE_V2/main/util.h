@@ -110,6 +110,31 @@ int flowBankPreview(int bankedSeconds, int elapsedSeconds);
 // hours of flow is four pomodoros, not one.
 bool completesFlowLap(int elapsedSeconds);
 
+// Listens, on a wake of a switched-off cube, for the gesture that switches it
+// back on: turned face up and then double-tapped. Fed a pass at a time -- the
+// accelerometer reading and whether a double tap was taken since the last pass
+// -- and says when it has heard enough either way. Drives the orientation
+// debouncer below, which a wake starts fresh.
+enum class SwitchOnVerdict { Listening, On, StayOff };
+
+class SwitchOnListener {
+ public:
+  explicit SwitchOnListener(unsigned long nowMs);
+  SwitchOnVerdict update(bool haveReading, float ax, float ay, float az, bool doubleTap,
+                         unsigned long nowMs);
+
+  // Resting face up, and so listening for the taps rather than for the turn.
+  bool armed() const { return wasFaceUp_; }
+
+ private:
+  // When the listening ends. Pushed back once when the cube comes to rest face
+  // up, so the time spent turning it over is not taken from the time to tap.
+  unsigned long deadline_;
+  // The last reading that was not the cube resting on its current face.
+  unsigned long lastDisturbed_;
+  bool wasFaceUp_ = false;
+};
+
 // Feed a raw accelerometer reading in and get back whether the debounced face
 // just changed. Takes the vector rather than an orientation because the two
 // reasons to distrust a reading -- it is not gravity, or it does not clearly

@@ -200,6 +200,38 @@ bool Util::completesFlowLap(int elapsedSeconds) {
   return elapsedSeconds > 0 && elapsedSeconds % FLOW_LAP_SECONDS == 0;
 }
 
+Util::SwitchOnListener::SwitchOnListener(unsigned long nowMs)
+    : deadline_(nowMs + SWITCH_ON_WINDOW_MS), lastDisturbed_(nowMs) {}
+
+Util::SwitchOnVerdict Util::SwitchOnListener::update(bool haveReading, float ax, float ay,
+                                                     float az, bool doubleTap,
+                                                     unsigned long nowMs) {
+  if (haveReading) updateOriDebounce(ax, ay, az, nowMs);
+  const Orientation face = getDebouncedOriState();
+  const bool faceUp = face == Orientation::FACE_UP;
+
+  // Only once it is resting face up, which is what keeps the turn itself --
+  // and setting the cube down at the end of it -- from being taken for the
+  // taps. The debouncer only calls it face up once it has held still there.
+  if (doubleTap && faceUp) return SwitchOnVerdict::On;
+
+  if (faceUp && !wasFaceUp_) deadline_ = nowMs + SWITCH_ON_WINDOW_MS;
+  wasFaceUp_ = faceUp;
+
+  const bool resting = haveReading && isGravityOnly(ax, ay, az) &&
+                       calcOrientation(ax, ay, az) == face;
+  if (!resting) lastDisturbed_ = nowMs;
+
+  // Left lying on some other face: not being switched on, so no reason to wait
+  // out the window.
+  if (!faceUp && face != Orientation::UNDEFINED &&
+      nowMs - lastDisturbed_ >= SWITCH_ON_GIVE_UP_MS) {
+    return SwitchOnVerdict::StayOff;
+  }
+  if ((long)(nowMs - deadline_) >= 0) return SwitchOnVerdict::StayOff;
+  return SwitchOnVerdict::Listening;
+}
+
 // The face the cube is currently being read as, and the one it has been read as
 // for long enough to believe.
 Orientation candidateState = Orientation::UNDEFINED;

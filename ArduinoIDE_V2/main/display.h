@@ -20,6 +20,16 @@ void holdPausedFrame();
 // Recolour the countdown to read as paused, and push it to the panel.
 void showPaused();
 
+// "Double-tap to start", white on black, for a switched-off cube that has been
+// turned face up and is listening for the taps. Brings the panel up if it is
+// not already, and pushes the frame out at once, since nothing is running
+// loop() while the cube listens.
+void showSwitchOnPrompt();
+
+// Back to the face, for a cube that has been switched on and has a paused
+// frame to draw. Does nothing if the prompt is not up.
+void hideSwitchOnPrompt();
+
 // Draw the face turned this many degrees clockwise from the default
 // orientation. The nearest quarter turn is the panel's to do, for nothing; only
 // what is left over is drawn at an angle by LVGL, so a face at a quarter turn

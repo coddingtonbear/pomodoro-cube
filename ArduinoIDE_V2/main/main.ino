@@ -190,21 +190,34 @@ Display::TimerView pausedView(const RtcState::Data &stored) {
           up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
 }
 
-// A switched-off cube has been woken lying face up: listen for the double tap
-// that switches it back on. Dark and silent throughout -- no panel, no radio,
-// no buzz -- because most wakes of a switched-off cube are a bag being carried,
-// and the only thing worth spending on one of those is getting back to sleep.
+// A switched-off cube has been woken: listen for the gesture that switches it
+// back on. Dark and silent throughout -- no panel, no radio, no buzz -- because
+// most wakes of a switched-off cube are a bag being carried, and the only thing
+// worth spending on one of those is getting back to sleep.
 bool heardSwitchOn() {
-  // Only now, so that the flip that brought the cube face up cannot be taken
-  // for the taps: the gesture is turning it over *and then* tapping it.
   QMI::enableTapDetection();
-  const unsigned long opened = millis();
-  while (millis() - opened < SWITCH_ON_WINDOW_MS) {
+  Util::SwitchOnListener listener(millis());
+  for (;;) {
     feedLoopWDT();
-    if (QMI::takeTap() == QMI::Tap::Double) return true;
+    const QMI::Tap tap = QMI::takeTap();
+    if (tap != QMI::Tap::None) {
+      Serial.printf("[trace] SWITCH_ON_TAP t=%lu tap=%d ori=%d\n", millis(), (int)tap,
+                    (int)Util::getDebouncedOriState());
+    }
+    float ax, ay, az;
+    const bool haveReading = QMI::getAccelerometer(ax, ay, az);
+    const Util::SwitchOnVerdict verdict =
+        listener.update(haveReading, ax, ay, az, tap == QMI::Tap::Double, millis());
+    // Lit only once the cube is lying face up, which is the moment the taps
+    // start to count. A wake in a bag never gets this far, and stays dark. The
+    // panel then stays up until the cube sleeps or is switched on, even if it
+    // is picked up again in between.
+    if (listener.armed()) Display::showSwitchOnPrompt();
+    if (verdict != Util::SwitchOnVerdict::Listening) {
+      return verdict == Util::SwitchOnVerdict::On;
+    }
     delay(20);
   }
-  return false;
 }
 
 void setup() {
@@ -233,31 +246,19 @@ void setup() {
   
   QMI::setup(); 
 
-  // --------- go back to sleep mode ---------
-  // Settled rather than sampled. The interrupt that woke us fired because the
-  // cube moved, so a single reading taken a fixed delay later is as likely to
-  // catch it in the air as on a face -- and a mid-air reading that looks like a
-  // resting face sends the cube straight back to sleep on a face it is no
-  // longer on, where nothing further will move to wake it. That is the second
-  // half of why a cube picked up from its face-up rest and stood on a timer
-  // face sometimes sat there still showing the paused frame.
-  Serial.printf("[trace] BOOT hasPause=%d pausedFace=%d holdingFrame=%d\n",
+  Serial.printf("[trace] BOOT hasPause=%d pausedFace=%d holdingFrame=%d switchedOff=%d\n",
                 (int)RtcState::hasPause(RtcState::data()),
                 (int)RtcState::data().pausedFace,
-                (int)RtcState::data().panelHoldingFrame);
-  const Orientation settled = settleOrientation();
-  // The settle can take up to WAKE_SETTLE_TIMEOUT_MS of the watchdog's five
-  // seconds; the rest of setup() gets a fresh allowance.
-  feedLoopWDT();
-  Serial.printf("[trace] SETTLED ori=%d\n", (int)settled);
+                (int)RtcState::data().panelHoldingFrame,
+                (int)RtcState::data().switchedOff);
 
-  // Switched off by being set down face down. Nothing wakes it but lying face
-  // up and a double tap on the glass: not standing it on a timer face, and not
-  // a wake that never settles, which is what a bag in motion looks like. Either
-  // way the cube goes back to sleep still switched off, and wakes to ask again
-  // the next time it moves.
+  // Switched off by being set down face down. Nothing wakes it but being turned
+  // face up and double-tapped: not standing it on a timer face, and not being
+  // carried. Anything short of that and it goes back to sleep still switched
+  // off, to ask again the next time it moves.
+  Orientation settled;
   if (RtcState::data().switchedOff) {
-    const bool switchOn = settled == Orientation::FACE_UP && heardSwitchOn();
+    const bool switchOn = heardSwitchOn();
     Serial.printf("[trace] SWITCHED_OFF switchOn=%d\n", (int)switchOn);
     if (!switchOn) Util::deepSleep(Util::SleepMode::Off, false);
 
@@ -266,11 +267,32 @@ void setup() {
     // dark, now waiting to be stood on a face like any other. The buzz is the
     // only sign of having been switched on when there is nothing to show.
     RtcState::data().switchedOff = false;
+    Display::hideSwitchOnPrompt();
     Haptic::playBlocking(Haptic::Pattern::Wake);
+    settled = Orientation::FACE_UP;
+  } else {
+    // --------- go back to sleep mode ---------
+    // Settled rather than sampled. The interrupt that woke us fired because the
+    // cube moved, so a single reading taken a fixed delay later is as likely to
+    // catch it in the air as on a face -- and a mid-air reading that looks like
+    // a resting face sends the cube straight back to sleep on a face it is no
+    // longer on, where nothing further will move to wake it. That is the second
+    // half of why a cube picked up from its face-up rest and stood on a timer
+    // face sometimes sat there still showing the paused frame.
+    settled = settleOrientation();
   }
+  // Either of the above can take a good part of the watchdog's five seconds;
+  // the rest of setup() gets a fresh allowance.
+  feedLoopWDT();
+  Serial.printf("[trace] SETTLED ori=%d\n", (int)settled);
   if (Util::isRestingFace(settled)) {
     // Woken but still resting: go back down without touching what is parked.
     // Only face up keeps the panel lit, and only when there is a pause to show.
+    //
+    // Face down is off however the cube got there -- including turned over
+    // while it slept face up, which is the commonest way to put it away and the
+    // one that, before this, left it merely asleep.
+    if (settled == Orientation::FACE_DOWN) RtcState::data().switchedOff = true;
     const RtcState::Data &stored = RtcState::data();
     const bool showPause =
         settled == Orientation::FACE_UP && RtcState::hasPause(stored);

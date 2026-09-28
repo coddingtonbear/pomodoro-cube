@@ -33,4 +33,10 @@
  * the labels vanish for as long as the face is turned off square. */
 #define LV_COLOR_SCREEN_TRANSP 1
 
+/* For "Double-tap to start", which has to be read by someone who has not seen
+ * it before, from wherever they are holding the cube. The default 14 px is the
+ * size of the small print on the face. Keep the simulator's CMakeLists.txt in
+ * step. */
+#define LV_FONT_MONTSERRAT_20 1
+
 #endif /* LV_CONF_H */

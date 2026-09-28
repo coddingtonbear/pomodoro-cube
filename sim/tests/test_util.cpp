@@ -1,5 +1,7 @@
 // Host tests for the parts of util.cpp that are pure logic. Built by the
 // simulator's CMake project; run with `ctest --test-dir sim/build`.
+#include <initializer_list>
+
 #include "check.h"
 #include "consts.h"
 #include "util.h"
@@ -513,6 +515,132 @@ void testAnAmbiguousAttitudeStillNamesAFace() {
   CHECK(!feed(kUp, now + 20));
   CHECK(feed(kUp, now + 20 + ORI_DEBOUNCE_DELAY));
   CHECK(Util::getDebouncedOriState() == Orientation::FACE_UP);
+}
+
+namespace {
+
+// A switched-off cube listening for the gesture that switches it on, fed a pass
+// every 20 ms as the firmware does. `kShaken` is a reading that is plainly not
+// gravity alone -- a cube in a hand, or in a bag.
+constexpr Vector kShaken = {0.9f, 0.9f, 0.9f};
+constexpr unsigned long kPass = 20;
+
+// Feeds `v` from `fromMs` until `untilMs` with no taps, and returns the first
+// verdict that is not Listening, or Listening if there was none.
+Util::SwitchOnVerdict hold(Util::SwitchOnListener &listener, const Vector &v,
+                           unsigned long fromMs, unsigned long untilMs) {
+  for (unsigned long t = fromMs; t < untilMs; t += kPass) {
+    const Util::SwitchOnVerdict verdict = listener.update(true, v.x, v.y, v.z, false, t);
+    if (verdict != Util::SwitchOnVerdict::Listening) return verdict;
+  }
+  return Util::SwitchOnVerdict::Listening;
+}
+
+Util::SwitchOnVerdict doubleTap(Util::SwitchOnListener &listener, const Vector &v,
+                                unsigned long nowMs) {
+  return listener.update(true, v.x, v.y, v.z, true, nowMs);
+}
+
+// What went wrong on the board the first time: the hand lifts the cube, which
+// wakes it still face down, holds it a moment, then turns it over and taps. All
+// of that has to be one listening, not a wake that decides "still face down"
+// and goes back to sleep before the turn.
+void testTheWholeGestureIsHeardFromTheWake() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kDown, 0, 1000) == V::Listening);
+  CHECK(hold(listener, kShaken, 1000, 1400) == V::Listening);
+  CHECK(hold(listener, kUp, 1400, 2200) == V::Listening);
+  CHECK(doubleTap(listener, kUp, 2200) == V::On);
+}
+
+// A double tap is only a switch-on once the cube is lying face up. The turn and
+// the landing at the end of it are the likeliest things to look like one.
+void testTapsBeforeItRestsFaceUpDoNotCount() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kShaken, 0, 400) == V::Listening);
+  CHECK(doubleTap(listener, kShaken, 400) == V::Listening);
+  // Face up, but not yet for long enough to be believed.
+  CHECK(doubleTap(listener, kUp, 420) == V::Listening);
+  CHECK(hold(listener, kUp, 440, 1000) == V::Listening);
+  CHECK(doubleTap(listener, kUp, 1000) == V::On);
+}
+
+// Nor on a face that runs a timer: standing a switched-off cube up is not a
+// way of switching it on, however it is tapped.
+void testTapsOnAnyOtherFaceDoNotCount() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kDeg90, 0, 500) == V::Listening);
+  CHECK(doubleTap(listener, kDeg90, 500) == V::Listening);
+}
+
+// A bag's wake: the cube comes to rest on some face other than face up and is
+// left there. It gives up well before the window, which is most of what a wake
+// in a bag costs.
+void testLeftOnAnotherFaceItGivesUpEarly() {
+  for (const Vector &v : {kDown, kDeg0, kDeg180}) {
+    Util::resetOriDebounce();
+    Util::SwitchOnListener listener(0);
+    // The debounce's 300 ms to accept the face, then the give-up's stillness
+    // counted from the first reading of it.
+    CHECK(hold(listener, v, 0, SWITCH_ON_GIVE_UP_MS - kPass) ==
+          Util::SwitchOnVerdict::Listening);
+    CHECK(hold(listener, v, SWITCH_ON_GIVE_UP_MS - kPass, SWITCH_ON_GIVE_UP_MS + 400) ==
+          Util::SwitchOnVerdict::StayOff);
+  }
+}
+
+// Handled rather than left: the give-up waits for stillness, so a hand holding
+// a face-down cube that is about to be turned is not taken for a cube put away.
+void testMovementPutsOffGivingUp() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kDown, 0, 1000) == V::Listening);
+  CHECK(hold(listener, kShaken, 1000, 1100) == V::Listening);
+  CHECK(hold(listener, kDown, 1100, 2400) == V::Listening);
+}
+
+// A bag in motion never settles on anything, and is let go at the window.
+void testConstantMotionEndsAtTheWindow() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  CHECK(hold(listener, kShaken, 0, SWITCH_ON_WINDOW_MS - kPass) ==
+        Util::SwitchOnVerdict::Listening);
+  CHECK(hold(listener, kShaken, SWITCH_ON_WINDOW_MS - kPass, SWITCH_ON_WINDOW_MS + kPass) ==
+        Util::SwitchOnVerdict::StayOff);
+}
+
+// The window starts again once the cube is resting face up, so a slow turn over
+// does not eat into the time to tap -- and once it has run out, it has.
+void testTheWindowRestartsWhenItLiesFaceUp() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kShaken, 0, 3000) == V::Listening);
+  // Accepted as face up 300 ms after it lands, which is where the window
+  // starts again from.
+  const unsigned long faceUp = 3000 + ORI_DEBOUNCE_DELAY;
+  CHECK(hold(listener, kUp, 3000, faceUp + SWITCH_ON_WINDOW_MS - kPass) == V::Listening);
+  CHECK(hold(listener, kUp, faceUp + SWITCH_ON_WINDOW_MS - kPass,
+             faceUp + SWITCH_ON_WINDOW_MS + kPass) == V::StayOff);
+}
+
+}  // namespace
+
+void testSwitchingOn() {
+  testTheWholeGestureIsHeardFromTheWake();
+  testTapsBeforeItRestsFaceUpDoNotCount();
+  testTapsOnAnyOtherFaceDoNotCount();
+  testLeftOnAnotherFaceItGivesUpEarly();
+  testMovementPutsOffGivingUp();
+  testConstantMotionEndsAtTheWindow();
+  testTheWindowRestartsWhenItLiesFaceUp();
 }
 
 void testOrientationDebounce() {

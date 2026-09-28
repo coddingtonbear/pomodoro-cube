@@ -141,24 +141,34 @@ has to survive being carried. Every bump wakes a sleeping cube — that is how
 standing it on a face starts a timer — so off can't just be a sleep, or a cube
 in a bag would light up and start counting whenever it landed on an edge.
 
-Setting the cube down face down switches it off: it parks what was running, as
-face up does, blanks the panel and notes in RTC memory that it is off. A wake
-that finds that note ignores the face it settles on. Standing it on a timer
-face does nothing, and neither does a wake that never settles, which is what a
-bag in motion looks like. Only lying face up gets further: the cube then
-listens for five seconds, still dark and silent, for a double tap on the
-glass. Tap detection only starts once it is lying face up, so the flip itself
-can't count as the taps.
+Laying the cube face down switches it off, however it gets there: set down
+face down while it is running, or turned over while it sleeps face up. It parks
+whatever was running, as face up does, blanks the panel and notes in RTC memory
+that it is off.
+
+A wake that finds that note listens for the gesture that turns it back on
+instead of settling and deciding. It has to, because the first thing a hand
+reaching for a face-down cube does is lift it, which wakes it while it is still
+face down. Deciding then went back to sleep, and finished going to sleep while
+the cube was being turned over. The turn woke nothing, and the double tap was
+spent waking the cube instead of switching it on.
+
+So from the moment it wakes, the cube waits for itself to come to rest face up.
+Standing it on a timer face does nothing. Once it is lying face up it shows
+**Double-tap to start** in white on black and gives you five seconds for a
+double tap on the glass. Taps only count from then on, so the flip and the
+landing can't be taken for them.
 
 A double tap in that window switches it on with a buzz. A parked timer comes up
 paused on the glass, and with nothing parked it goes back to sleep dark but on,
-so standing it on a face starts a timer as usual. Anything else and it goes
-back to sleep still off. A double tap that misses the window is movement, so it
-wakes the cube and opens a new window, and the next one works.
+so standing it on a face starts a timer as usual. If the cube is left still on
+any other face for a second and a half, or never settles within five seconds,
+it goes back to sleep still off. Those wakes, which are what a bag causes,
+never light the panel and never use the radio. A double tap that misses the
+window is movement, so it wakes the cube and opens a new window.
 
-A wake that ends in going back to sleep costs a moment of the CPU and the
-accelerometer, with no panel, no backlight and no radio. The sleep that ends an
-unanswered alarm doesn't switch the cube off; only face down does.
+The sleep that ends an unanswered alarm doesn't switch the cube off; only face
+down does.
 
 ## Flow mode
 

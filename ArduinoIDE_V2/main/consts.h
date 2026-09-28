@@ -89,16 +89,30 @@ constexpr uint8_t WAKE_ON_MOTION_THRESHOLD_MG = 64;
 // screen until something moves it again.
 constexpr unsigned long WAKE_SETTLE_TIMEOUT_MS = 3000;
 
-// How long a switched-off cube, woken and found lying face up, listens for the
-// double tap that switches it back on. Face down is off, and off has to survive
-// a bag: every bump wakes the cube, so the wake alone cannot be what switches it
-// on. Turning it face up and then double-tapping the glass is a gesture a bag
-// does not make. Long enough to turn the cube over and reach for it; short
-// enough that a cube knocked face up in a drawer is back asleep, dark and
-// silent, in a few seconds. A double tap that misses the window still wakes the
-// cube -- it is movement -- which opens a fresh one, so the second attempt
-// works however long the cube has been lying there.
+// How long a woken, switched-off cube listens for the gesture that switches it
+// back on: turned face up, then double-tapped on the glass. Face down is off,
+// and off has to survive a bag -- every bump wakes the cube, so the wake alone
+// cannot be what switches it on. The window runs from waking, for the turn
+// over, and starts again from the moment the cube comes to rest face up, for
+// the taps. A double tap that misses it still wakes the cube -- it is movement
+// -- which opens a fresh one, so the second attempt works however long the cube
+// has been lying there.
+//
+// The listening has to start at the wake rather than once the cube has settled:
+// the first thing a hand reaching for a face-down cube does is lift it, which
+// wakes it while it is still face down. Settling first, as on the hardware the
+// first time round, read that as "still face down", went back to sleep, and
+// finished going to sleep while the cube was being turned over -- so the turn
+// woke nothing, and the double tap was spent waking the cube rather than
+// switching it on.
 constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
+
+// How long a woken, switched-off cube will sit still on any face but face up
+// before giving up and going back to sleep. What cuts short the wakes a bag
+// causes, each of which would otherwise keep the CPU up for the whole window;
+// long enough that the pause as a hand takes hold of a face-down cube, before
+// turning it, is not taken for it having been left alone.
+constexpr unsigned long SWITCH_ON_GIVE_UP_MS = 1500;
 
 // Timer length for each face the cube can rest on, in seconds. DEG_0 is the
 // default orientation and each step from there is a quarter turn clockwise,
