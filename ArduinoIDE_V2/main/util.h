@@ -23,6 +23,10 @@ Orientation calcOrientation(float ax, float ay, float az);
 // while it comes up after being configured.
 bool isGravityOnly(float ax, float ay, float az);
 
+// True when a reading is far enough from one g to be the cube being shaken,
+// which is a good deal further than it takes not to be gravity alone.
+bool isShaken(float ax, float ay, float az);
+
 // True when the dominant axis leads the runner-up by enough to name a face
 // outright, rather than the cube sitting between two of them.
 bool isDecisive(float ax, float ay, float az);

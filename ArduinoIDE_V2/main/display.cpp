@@ -220,12 +220,6 @@ void Display::setup() {
   beginPanelOnce();
   tft.fillScreen(TFT_BLACK);
 
-  // PWM only once TFT_eSPI has finished with the pin. It leaves TFT_BL alone
-  // unless TFT_BACKLIGHT_ON is defined, which tft_setup.h does not define -- but
-  // an LEDC channel it did clobber would be silently stuck, and attaching after
-  // begin() costs nothing to rule that out.
-  Display::setBacklight(BACKLIGHT_FULL_PERCENT);
-
   // Initialize LVGL
   lv_init();
   lv_disp_draw_buf_init(&draw_buf, buf, NULL, 240 * 20);
@@ -238,6 +232,18 @@ void Display::setup() {
   lv_disp_drv_register(&disp_drv);
 
   ui_init();
+
+  // PWM only once TFT_eSPI has finished with the pin. It leaves TFT_BL alone
+  // unless TFT_BACKLIGHT_ON is defined, which tft_setup.h does not define -- but
+  // an LEDC channel it did clobber would be silently stuck, and attaching after
+  // begin() costs nothing to rule that out.
+  //
+  // At nothing, and after the face exists, since a change of level repaints
+  // it. Whoever draws the first frame lights it: loop() does at the end of
+  // every pass, and the paths that never reach loop() do for themselves.
+  // Wiping the glass first was not enough on the board, where the last frame
+  // still showed for a moment.
+  Display::setBacklight(0);
 }
 
 
@@ -401,6 +407,7 @@ void Display::showMessage(const char *text, bool inverted) {
   // Nothing is running loop() while one of these is up, so the frame has to be
   // pushed out here or it never reaches the glass.
   pumpLvgl();
+  Display::setBacklight(BACKLIGHT_FULL_PERCENT);
 }
 
 void Display::hideMessage() {

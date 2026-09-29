@@ -51,6 +51,11 @@ bool Util::isGravityOnly(float ax, float ay, float az) {
   return magnitude >= ORI_GRAVITY_MIN_G && magnitude <= ORI_GRAVITY_MAX_G;
 }
 
+bool Util::isShaken(float ax, float ay, float az) {
+  const float magnitude = sqrtf(ax * ax + ay * ay + az * az);
+  return fabsf(magnitude - 1.0f) >= SHAKE_MIN_DEVIATION_G;
+}
+
 bool Util::isDecisive(float ax, float ay, float az) {
   float mx = fabsf(ax);
   float my = fabsf(ay);
@@ -235,7 +240,7 @@ Util::SwitchOnVerdict Util::SwitchOnListener::update(bool haveReading, float ax,
   // stay on the desk for it: readings that are not gravity never move the
   // debouncer off the face it last believed, so one picked up and shaken is
   // still, as far as this is concerned, the cube that was lying face up.
-  if (faceUp && haveReading && !isGravityOnly(ax, ay, az)) {
+  if (faceUp && haveReading && isShaken(ax, ay, az)) {
     if (shaken_ == 0 || nowMs - shakeStarted_ > SHAKE_WINDOW_MS) {
       shaken_ = 0;
       shakeStarted_ = nowMs;

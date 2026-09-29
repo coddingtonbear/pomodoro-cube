@@ -161,8 +161,8 @@ Standing it on a timer face does nothing. Once it is lying face up it shows
 picked up or where it lies. A double tap on the glass does as well. Either
 only counts from then on, so the flip and the landing can't be taken for them.
 
-A shake is read off the accelerometer: five readings that are more or less
-than gravity within a second. The tap engine is no use for it, because what it
+A shake is read off the accelerometer: five readings at least half a g more or
+less than gravity within a second, which handling the cube does not reach. The tap engine is no use for it, because what it
 listens for is one sharp jolt that dies away. The price is that a cube which
 comes to rest face up in a bag, and is then jostled, switches on.
 

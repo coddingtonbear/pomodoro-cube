@@ -592,6 +592,21 @@ void testAShakeSwitchesItOn() {
   CHECK(hold(listener, kShaken, 1000 + (SHAKE_READINGS - 1) * kPass, 2000) == V::On);
 }
 
+// Being picked up and handled is not gravity alone, and is not a shake either.
+void testHandlingIsNotAShake() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  const Vector handled = {0.0f, 0.0f, -1.3f};
+  CHECK(!Util::isGravityOnly(handled.x, handled.y, handled.z));
+  CHECK(!Util::isShaken(handled.x, handled.y, handled.z));
+  CHECK(Util::isShaken(kShaken.x, kShaken.y, kShaken.z));
+  // Freefall counts as much as a jolt: it is the distance from one g.
+  CHECK(Util::isShaken(0.0f, 0.0f, -0.4f));
+  CHECK(hold(listener, kUp, 0, 1000) == V::Listening);
+  CHECK(hold(listener, handled, 1000, 2000) == V::Listening);
+}
+
 // A knock on the desk is a reading or two, and knocks far enough apart never
 // add up to a shake.
 void testAKnockIsNotAShake() {
@@ -688,6 +703,7 @@ void testSwitchingOn() {
   testTapsBeforeItRestsFaceUpDoNotCount();
   testAShakeSwitchesItOn();
   testAKnockIsNotAShake();
+  testHandlingIsNotAShake();
   testAShakeBeforeItRestsFaceUpDoesNotCount();
   testTapsOnAnyOtherFaceDoNotCount();
   testLeftOnAnotherFaceItGivesUpEarly();
