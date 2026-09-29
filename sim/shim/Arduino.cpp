@@ -83,7 +83,9 @@ uint32_t analogReadMilliVolts(uint8_t pin) {
   return (uint32_t)((SimInput::batteryVoltage / 3.0f) * 1000.0f);
 }
 
-bool setCpuFrequencyMhz(uint32_t mhz) { (void)mhz; return true; }
+static uint32_t g_cpuMhz = 240;
+bool setCpuFrequencyMhz(uint32_t mhz) { g_cpuMhz = mhz; return true; }
+uint32_t getCpuFrequencyMhz() { return g_cpuMhz; }
 void gpio_hold_en(gpio_num_t pin) { (void)pin; }
 void gpio_hold_dis(gpio_num_t pin) { (void)pin; }
 void gpio_deep_sleep_hold_en() {}

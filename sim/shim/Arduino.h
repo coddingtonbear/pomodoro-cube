@@ -51,6 +51,7 @@ bool ledcDetach(uint8_t pin);
 
 // ---- ESP32 power management ----------------------------------------------
 bool setCpuFrequencyMhz(uint32_t mhz);
+uint32_t getCpuFrequencyMhz();
 void gpio_hold_en(gpio_num_t pin);
 void gpio_hold_dis(gpio_num_t pin);
 void gpio_deep_sleep_hold_en();

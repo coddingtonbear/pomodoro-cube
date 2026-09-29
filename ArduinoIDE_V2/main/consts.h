@@ -172,6 +172,14 @@ constexpr int FLOW_MAX_SECONDS = 4 * 60 * 60;
 constexpr int BACKLIGHT_FULL_PERCENT = 100;
 constexpr int BACKLIGHT_IDLE_PERCENT = 20;
 
+// The CPU clock to run at while the panel is lit at full, and otherwise. Idle
+// at 80 MHz is a saving worth keeping, but at 80 MHz a face drawn at an angle
+// takes 89 ms to draw, which is 9 frames a second; at 240 it takes 37 and
+// the face follows a tilt at 17. Full brightness is when someone is looking,
+// and it is rationed to seconds at a time, so that is when the clock goes up.
+constexpr uint32_t CPU_MHZ_LIT = 240;
+constexpr uint32_t CPU_MHZ_IDLE = 80;
+
 // How long either side of a transition counts as worth looking at. Applied to
 // both ends: this many seconds after a face change, and the last this many
 // seconds of a countdown.

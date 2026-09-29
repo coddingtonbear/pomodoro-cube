@@ -274,7 +274,8 @@ bool heardSwitchOn() {
 
 void setup() {
   Serial.begin(115200);
-  setCpuFrequencyMhz(80);  // reducing CPU clock to 80MHz
+  // Raised by loop() while the panel is lit at full; see CPU_MHZ_LIT.
+  setCpuFrequencyMhz(CPU_MHZ_IDLE);
 
   // Put this task under the task watchdog, which the core then feeds before
   // every pass of loop(). A pass that has not come back within the watchdog's
@@ -522,8 +523,16 @@ void loop() {
   Haptic::cycle();
 
   // Last, so it sees the tick this pass produced rather than the one before it.
-  Display::setBacklight(Util::backlightPercent(
-      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap(), paused}));
+  const int backlight = Util::backlightPercent(
+      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap(), paused});
+  Display::setBacklight(backlight);
+  // Takes effect from the next pass's render, which is the first one it could.
+  static uint32_t cpuMhz = CPU_MHZ_IDLE;
+  if (Util::cpuMhz(backlight) != cpuMhz) {
+    cpuMhz = Util::cpuMhz(backlight);
+    setCpuFrequencyMhz(cpuMhz);
+    Serial.printf("[trace] CPU t=%lu mhz=%u\n", millis(), (unsigned)getCpuFrequencyMhz());
+  }
 
   Battery::cycleBatteryUpdate();
 

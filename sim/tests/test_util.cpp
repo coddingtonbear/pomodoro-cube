@@ -481,6 +481,15 @@ void testAMotionlessCubeDoesNotChangeFace() {
   CHECK(Util::getDebouncedOriState() == Orientation::DEG_90);
 }
 
+// The clock goes up exactly when the panel is lit at full, and no other time:
+// the idle level, and every step between it and full, stays at the saving.
+void testTheCpuRunsFastOnlyWhileThePanelIsLit() {
+  CHECK(Util::cpuMhz(BACKLIGHT_FULL_PERCENT) == CPU_MHZ_LIT);
+  CHECK(Util::cpuMhz(BACKLIGHT_FULL_PERCENT - 1) == CPU_MHZ_IDLE);
+  CHECK(Util::cpuMhz(BACKLIGHT_IDLE_PERCENT) == CPU_MHZ_IDLE);
+  CHECK(Util::cpuMhz(0) == CPU_MHZ_IDLE);
+}
+
 }  // namespace
 
 void testBacklightPolicy() {
@@ -491,6 +500,7 @@ void testBacklightPolicy() {
   testATapLightsThePanel();
   testATapLightsARunningFlowStint();
   testAPausedTimerLiesDim();
+  testTheCpuRunsFastOnlyWhileThePanelIsLit();
 }
 
 // A cube poised between two faces has to be put on one of them. The margin

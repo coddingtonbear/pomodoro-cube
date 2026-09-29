@@ -174,6 +174,10 @@ int Util::backlightPercent(const BacklightView &view) {
   return BACKLIGHT_IDLE_PERCENT;
 }
 
+uint32_t Util::cpuMhz(int backlightPercent) {
+  return backlightPercent >= BACKLIGHT_FULL_PERCENT ? CPU_MHZ_LIT : CPU_MHZ_IDLE;
+}
+
 Util::TimerSpec Util::getTimerSpec(Orientation ori, int bankedBreakSeconds) {
   switch (ori) {
     case Orientation::DEG_0:

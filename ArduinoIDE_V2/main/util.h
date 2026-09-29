@@ -111,6 +111,9 @@ struct BacklightView {
 // How bright the backlight should be, as a percentage.
 int backlightPercent(const BacklightView &view);
 
+// The CPU clock to run at while the backlight is at this percentage.
+uint32_t cpuMhz(int backlightPercent);
+
 // What a flow stint of this length adds to the bank: a fifth of it.
 int flowBreakCredit(int workedSeconds);
 
