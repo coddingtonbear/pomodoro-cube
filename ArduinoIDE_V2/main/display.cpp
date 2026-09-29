@@ -128,7 +128,12 @@ constexpr lv_coord_t kPanelCentre = 120;
 // the panel restated for each object, and has to be restated whenever one
 // changes size, which a label does with its text.
 void applyLean() {
-  lv_arc_set_rotation(ui_Arc1, (uint16_t)((lean + 360) % 360));
+  // Redraws the whole ring whether or not the angle moved, and refreshLean()
+  // comes through here every second while only a label has changed size.
+  const uint16_t arcRotation = (uint16_t)((lean + 360) % 360);
+  if (reinterpret_cast<lv_arc_t *>(ui_Arc1)->rotation != arcRotation) {
+    lv_arc_set_rotation(ui_Arc1, arcRotation);
+  }
 
   lv_obj_update_layout(ui_Screen1);
   lv_obj_t *const leaning[] = {ui_LowBattery, ui_LowBatteryTip, ui_Countdown, ui_UnitMarker,
@@ -247,6 +252,15 @@ void Display::setup() {
 }
 
 
+// Checked first for the same reason as the style setters below: showing an
+// object redraws the whole of it even when it was already showing, and the
+// arc's whole is most of the panel.
+static void show(lv_obj_t *obj, bool visible) {
+  if (visible == !lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
+  if (visible) lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+}
+
 void Display::updateBattery(float voltage) {
   // Printed with %d rather than %.2f: lv_snprintf only handles floats when
   // LV_SPRINTF_USE_FLOAT is set, which is off by default and lives in an
@@ -256,44 +270,57 @@ void Display::updateBattery(float voltage) {
 
   // Nothing on screen at all until the charge is actually worth acting on.
   const bool warn = Indicators::showLowBattery(voltage);
-  lv_obj_t *const parts[] = {ui_LowBattery, ui_LowBatteryTip};
-  for (lv_obj_t *part : parts) {
-    if (warn) lv_obj_clear_flag(part, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_add_flag(part, LV_OBJ_FLAG_HIDDEN);
-  }
+  show(ui_LowBattery, warn);
+  show(ui_LowBatteryTip, warn);
   refreshLean();
+}
+
+// Style setters that leave an object alone when it already has the value.
+//
+// LVGL redraws an object whenever one of its styles is set, whether or not the
+// value changed, and the face is repainted from scratch every second. Setting
+// the screen's background that way redrew all 240x240 pixels once a second, a
+// frame that takes long enough to cross the SPI bus that it could be seen
+// arriving in bands. Skipping the no-ops leaves the tick redrawing only the
+// digits and the part of the arc that moved.
+static void setColor(lv_obj_t *obj, lv_style_prop_t prop, uint32_t color, lv_part_t part) {
+  const lv_color_t c = lv_color_hex(color);
+  if (lv_obj_get_style_prop(obj, part, prop).color.full == c.full) return;
+  lv_style_value_t v;
+  v.color = c;
+  lv_obj_set_local_style_prop(obj, prop, v, part);
+}
+
+static void setOpa(lv_obj_t *obj, lv_style_prop_t prop, lv_opa_t opa, lv_part_t part) {
+  if (lv_obj_get_style_prop(obj, part, prop).num == opa) return;
+  lv_style_value_t v;
+  v.num = opa;
+  lv_obj_set_local_style_prop(obj, prop, v, part);
 }
 
 // Paint the arc and its knob in one colour, at one opacity.
 static void setArcAppearance(uint32_t color, lv_opa_t opa) {
-  const lv_color_t c = lv_color_hex(color);
-  lv_obj_set_style_arc_color(ui_Arc1, c, LV_PART_INDICATOR);
-  lv_obj_set_style_arc_opa(ui_Arc1, opa, LV_PART_INDICATOR);
-  lv_obj_set_style_bg_color(ui_Arc1, c, LV_PART_KNOB);
-  lv_obj_set_style_bg_opa(ui_Arc1, opa, LV_PART_KNOB);
+  setColor(ui_Arc1, LV_STYLE_ARC_COLOR, color, LV_PART_INDICATOR);
+  setOpa(ui_Arc1, LV_STYLE_ARC_OPA, opa, LV_PART_INDICATOR);
+  setColor(ui_Arc1, LV_STYLE_BG_COLOR, color, LV_PART_KNOB);
+  setOpa(ui_Arc1, LV_STYLE_BG_OPA, opa, LV_PART_KNOB);
 }
 
 // The low-battery outline is three objects with three different style
 // properties, which is why it needs its own pass rather than joining the labels.
 static void setBatteryColor(uint32_t color) {
-  const lv_color_t c = lv_color_hex(color);
-  lv_obj_set_style_border_color(ui_LowBattery, c, LV_PART_MAIN);
-  lv_obj_set_style_bg_color(ui_LowBatteryTip, c, LV_PART_MAIN);
-  lv_obj_set_style_text_color(ui_LowBatteryVoltage, c, LV_PART_MAIN);
-}
-
-static void show(lv_obj_t *obj, bool visible) {
-  if (visible) lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+  setColor(ui_LowBattery, LV_STYLE_BORDER_COLOR, color, LV_PART_MAIN);
+  setColor(ui_LowBatteryTip, LV_STYLE_BG_COLOR, color, LV_PART_MAIN);
+  setColor(ui_LowBatteryVoltage, LV_STYLE_TEXT_COLOR, color, LV_PART_MAIN);
 }
 
 // Paint every colour on the panel at once, so a swap can't half-apply.
 static void applyPalette(const Indicators::Palette &p) {
-  lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(p.background), LV_PART_MAIN);
-  lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(p.track), LV_PART_MAIN);
+  setColor(ui_Screen1, LV_STYLE_BG_COLOR, p.background, LV_PART_MAIN);
+  setColor(ui_Arc1, LV_STYLE_ARC_COLOR, p.track, LV_PART_MAIN);
   lv_obj_t *const labels[] = {ui_Countdown, ui_UnitMarker, ui_BankLabel};
   for (lv_obj_t *label : labels) {
-    lv_obj_set_style_text_color(label, lv_color_hex(p.text), LV_PART_MAIN);
+    setColor(label, LV_STYLE_TEXT_COLOR, p.text, LV_PART_MAIN);
   }
   setArcAppearance(p.arc, LV_OPA_COVER);
   setBatteryColor(p.battery);
