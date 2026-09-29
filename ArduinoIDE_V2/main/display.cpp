@@ -209,6 +209,29 @@ void Display::setBacklight(int percent) {
   }
 }
 
+// LVGL's own image drawing, which drawTransformedWithoutAa() stands in front of.
+static void (*drawImgDecoded)(lv_draw_ctx_t *, const lv_draw_img_dsc_t *, const lv_area_t *,
+                              const uint8_t *, lv_img_cf_t) = nullptr;
+
+// A leaning face is its labels drawn flat into a layer and then turned, and
+// the turn was the bulk of every frame drawn at an angle. Turned without
+// anti-aliasing it samples the nearest pixel rather than blending four, at the
+// cost of stepped edges on the digits while the cube is off square.
+//
+// Only transformed draws are touched: the display's own antialiasing flag
+// would have done the same for them, but it also rounds off every glyph and
+// arc on the panel, square or not.
+static void drawTransformedWithoutAa(lv_draw_ctx_t *ctx, const lv_draw_img_dsc_t *dsc,
+                                     const lv_area_t *coords, const uint8_t *map, lv_img_cf_t cf) {
+  if (dsc->angle == 0 && dsc->zoom == LV_IMG_ZOOM_NONE) {
+    drawImgDecoded(ctx, dsc, coords, map, cf);
+    return;
+  }
+  lv_draw_img_dsc_t hard = *dsc;
+  hard.antialias = 0;
+  drawImgDecoded(ctx, &hard, coords, map, cf);
+}
+
 // Whether setup() has run this boot. A switched-off cube brings the panel up to
 // ask for the double tap, and switching it on can then go on to draw a paused
 // frame, which asks again; LVGL cannot be initialised twice.
@@ -274,6 +297,8 @@ void Display::setup() {
   // should draw whenever a pass asks. Its own default of 30 ms skipped every
   // other pass once a frame at an angle came in under that.
   lv_timer_set_period(disp->refr_timer, LOOP_PASS_MS / 2);
+  drawImgDecoded = disp->driver->draw_ctx->draw_img_decoded;
+  disp->driver->draw_ctx->draw_img_decoded = drawTransformedWithoutAa;
 
   ui_init();
 
