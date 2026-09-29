@@ -10,10 +10,11 @@ Forked from [fly-robin-fly/coffee_timer](https://github.com/fly-robin-fly/coffee
 which does the same trick for coffee brew times.
 
 > [!NOTE]
-> This firmware has never run on real hardware — I haven't bought the parts
-> yet. Everything here was developed against the [simulator](#developing-without-the-hardware),
-> which runs the real firmware on a desktop. A handful of things can only be
-> settled with a board in hand; they're listed under [Unverified](#unverified).
+> The firmware runs on the board, but the cube isn't finished: the enclosure is
+> still being designed, and the vibration motor hasn't been felt yet. Most of
+> the logic was developed against the [simulator](#developing-without-the-hardware),
+> which runs the real firmware on a desktop. What is still waiting to be tried on
+> the hardware is listed under [Unverified](#unverified).
 
 ## Features
 
@@ -86,7 +87,9 @@ gravity in the plane of the screen on every pass of the loop, smooths it, and
 hands it to `Display::setAngle()`, so the picture turns as the cube does and a
 cube held at 45° shows a face at 45°. The nearest quarter turn is done by the
 GC9A01 itself, which costs nothing; only what is left over is drawn at an angle
-by LVGL, in software. Within 8° of a quarter turn the face is drawn exactly
+by LVGL, in software, and without anti-aliasing — the turn samples the nearest
+pixel rather than blending four, which is most of what lets a leaning face keep
+up with the hand. Within 8° of a quarter turn the face is drawn exactly
 square, and it takes 12° to pull it off again, so a cube at rest has nothing
 left over and draws as cheaply as it would if none of this existed. Laid on its
 back the cube has no angle to follow, and the face stays where it was.
@@ -428,8 +431,8 @@ ln -s "$PWD/ArduinoIDE_V2/lv_conf.h"    ~/Arduino/libraries/lv_conf.h
 ln -s "$PWD/ArduinoIDE_V2/User_Setup.h" ~/Arduino/libraries/TFT_eSPI/User_Setup.h
 ```
 
-`lv_conf.h` sets only the four options that differ from LVGL's defaults, and
-`sim/CMakeLists.txt` sets the same four, so the simulator and the board render
+`lv_conf.h` sets only the five options that differ from LVGL's defaults, and
+`sim/CMakeLists.txt` sets the same five, so the simulator and the board render
 from identical settings. LVGL looks for it one directory *above* itself, which
 is why it cannot live in the sketch folder.
 
@@ -449,7 +452,7 @@ Board settings, matching the ESP32-S3-WROOM-1 the Waveshare board carries:
 has none). USB CDC on boot stays **disabled** — the USB-C port is a CH343
 UART bridge rather than the S3's native USB, so `Serial` is UART0 either way
 and the port appears as `/dev/ttyACM0`. The default 4MB partition scheme is
-kept despite the 16MB flash: the sketch is 801 kB against that scheme's 1.3 MB
+kept despite the 16MB flash: the sketch is about 880 kB against that scheme's 1.3 MB
 app slot, and nothing here uses the filesystem.
 
 The IDE isn't needed to flash it, though — `tools/flash.sh` compiles and
@@ -482,10 +485,11 @@ overwrite it**, countdown font included.
 
 This compiles the real firmware for a Linux desktop and draws LVGL into an SDL
 window instead of a GC9A01 over SPI. It isn't a reimplementation: `main.ino`,
-`display.cpp`, `util.cpp`, `indicators.cpp`, `rtc_state.cpp`, `bthome.cpp`,
-`battery.cpp` and `haptic.cpp` all compile exactly as they ship, against fake
-`Arduino.h`, `TFT_eSPI`, `Wire` and `driver/rtc_io` headers. Only `qmi.cpp` is
-replaced, because it needs the vendor IMU driver.
+`display.cpp`, `util.cpp`, `indicators.cpp`, `rtc_state.cpp`, `tilt.cpp`,
+`bthome.cpp`, `battery.cpp`, `haptic.cpp` and `haptic_pattern.cpp` all compile
+exactly as they ship, against fake `Arduino.h`, `TFT_eSPI`, `Wire` and
+`driver/rtc_io` headers. Only `qmi.cpp` and `ble.cpp` are replaced, because they
+need the vendor IMU driver and NimBLE.
 
 RTC memory is modelled rather than faked — the block survives a simulated deep
 sleep, and a cold boot fills it with junk rather than zeroes, so the magic-word
@@ -497,7 +501,8 @@ environment variables, and what the simulator can't tell you.
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
 flow bank's arithmetic, the arc's fill and colour ramp, the lap indicator
 and what scores off it, the MM:SS to HH:MM switch, the low-battery threshold,
-the angle the face is drawn at, the RTC guard, the vibration patterns, and the BTHome encoder's exact output
+the angle the face is drawn at, the RTC guard, the vibration patterns, the
+order the sleep path shuts things down in, and the BTHome encoder's exact output
 bytes:
 
 ```bash
@@ -524,40 +529,31 @@ instance.
 
 ## Unverified
 
-Things that need a board, collected so they can be checked in one sitting:
+Things still to be checked on the hardware, collected so they can be done in
+one sitting:
 
 - **Which rotation direction is clockwise.** `DEG_0` → `DEG_90` → `DEG_180` →
   `DEG_270` is one consistent direction, but whether it's clockwise depends on
   the accelerometer's sign convention. If it runs backwards, swap two cases in
   `Util::getTimerSpec()`.
-- **Which sign of `az` is face up.** Same class of unknown; two lines in
-  `Util::calcOrientation()` exchange if it's the other way round.
 - **`BAT_FULL_VOLTAGE` was removed, but `BAT_EMPTY_VOLTAGE` and
   `LOW_BATTERY_VOLTAGE` are still guesses** inherited from upstream. They
   calibrate the whole measurement chain — divider, ADC, cell — not just the
   cell, so they should only be retuned against real readings.
-- **Whether the display stays powered in deep sleep**, which the lit-while-
-  paused behaviour depends on.
-- **How fast a turning face draws.** Every frame drawn at an angle redraws the
-  arc and turns each label through a layer, at 80 MHz and over SPI. The turn
-  is timed by the clock, so a slow panel gives a turn in fewer frames rather
-  than a longer one, but how few is not known. If it is too few, the first
-  thing to try is a taller draw buffer in `display.cpp`: each 20-row strip
-  that crosses the countdown redraws most of it.
-- **Whether 96 KB of LVGL heap is enough on the board.** The layer the
-  countdown is turned in runs to 42 KB and LVGL does not survive being refused
-  it. The simulator peaks well inside 96 KB, and its objects are the larger for
-  being 64-bit, but the board is where it matters.
+- **The vibration patterns.** The pulse lengths and `HAPTIC_SETTLE_MS`, the
+  allowance for the motor spinning down, were written with no motor on the
+  board.
 - **Whether the motor shakes the face.** The tilt tracker takes every reading
   that passes for gravity, including those taken while the motor runs. If an
   alarm makes the picture twitch, feed it `!Haptic::disturbing()` as well.
 - **Whether the tilt constants suit a hand.** `TILT_SENSE_SMOOTHING_MS` and
   `TILT_EASE_MS` were chosen in the simulator, where the cube turns in no time
   at all.
-- **Whether the tap thresholds suit the cube.** `QMI::enableTapDetection()`
-  carries the vendor's figures — a 0.8 g² peak and a 0.4 g² quiet floor — which
-  have not been tried against a printed enclosure sitting on a desk. Too deaf
-  and taps go unnoticed; too keen and the panel lights when the desk is knocked.
+- **Whether the tap and shake thresholds suit the finished cube.** The tap
+  peak was lowered to 0.15 g² on the bare board; the quiet floor is still the
+  datasheet's 0.4 g², and neither has been tried in a printed enclosure. Too
+  deaf and taps go unnoticed; too keen and the panel lights when the desk is
+  knocked. The shake (`SHAKE_*` in `consts.h`) hasn't been tuned in the hand.
 - **Whether the farewell advert really escapes.** Verified in the simulator, and
   the awake adverts are confirmed on hardware, but the farewell is the one that
   races the CPU stopping. Lay a running cube down and watch whether Home
@@ -574,7 +570,8 @@ ArduinoIDE_V2/User_Setup.h TFT_eSPI panel settings, linked into the library
 ArduinoIDE_V2/main/       the firmware, built with the Arduino IDE
 ArduinoIDE_V2/main/src/   the LVGL UI, originally SquareLine Studio output
 SquareLine/               the SquareLine Studio project the UI came from
+cad/                      the parametric enclosure; see cad/README.md
 fonts/                    source faces for the countdown label
 sim/                      desktop simulator and host tests
-tools/                    font conversion
+tools/                    flashing the board, and font conversion
 ```
