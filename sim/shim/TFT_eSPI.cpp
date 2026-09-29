@@ -12,10 +12,12 @@ constexpr uint8_t CMD_SLPOUT = 0x11;
 uint16_t swap16(uint16_t v) { return (uint16_t)((v >> 8) | (v << 8)); }
 }  // namespace
 
-void TFT_eSPI::begin() {
-  SimPanel::clear(0x0000);
-  SimPanel::wakeUp();
-}
+// Without wiping the framebuffer, as the panel does not: its frame memory
+// outlives both sleep-in and a reset, which is why the firmware has to clear
+// it before lighting it.
+void TFT_eSPI::begin() { SimPanel::wakeUp(); }
+
+void TFT_eSPI::fillScreen(uint32_t colour) { SimPanel::clear((uint16_t)colour); }
 
 void TFT_eSPI::setRotation(uint8_t rotation) { SimPanel::setRotation(rotation); }
 

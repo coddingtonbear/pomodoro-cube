@@ -14,6 +14,8 @@
 // configuration would have handed it.
 #define TFT_RST 14
 
+#define TFT_BLACK 0x0000
+
 class TFT_eSPI {
 public:
   void begin();
@@ -23,4 +25,5 @@ public:
   void setAddrWindow(int32_t x, int32_t y, int32_t w, int32_t h);
   void pushColors(uint16_t *data, uint32_t len, bool swapBytes = true);
   void writecommand(uint8_t command);
+  void fillScreen(uint32_t colour);
 };

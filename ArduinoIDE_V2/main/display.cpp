@@ -211,9 +211,14 @@ void Display::setup() {
   // reset the panel.
   releaseHeldPins();
   releaseBacklightPwm();
-  digitalWrite(TFT_BL_PIN, HIGH);
+  // Dark until the glass has been wiped. The GC9A01 keeps its frame memory
+  // through sleep-in, and through the reset begin() gives it, so bringing the
+  // panel up under a lit backlight showed whatever was last drawn before the
+  // cube slept -- for the moment it takes LVGL to draw over it.
+  digitalWrite(TFT_BL_PIN, LOW);
   // Initialize TFT
   beginPanelOnce();
+  tft.fillScreen(TFT_BLACK);
 
   // PWM only once TFT_eSPI has finished with the pin. It leaves TFT_BL alone
   // unless TFT_BACKLIGHT_ON is defined, which tft_setup.h does not define -- but
