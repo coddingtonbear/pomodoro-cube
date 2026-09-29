@@ -30,6 +30,8 @@
 // Required by LVGL / TFT_eSPI bridge
 #define LOAD_GLCD
 #define LOAD_FONT2
-#define SPI_FREQUENCY 27000000
+// The GC9A01's own ceiling. At 27 MHz a full frame took 41 ms to cross the
+// bus, as long as drawing it; at 80 MHz it takes under 18.
+#define SPI_FREQUENCY 80000000
 
 #define USE_HSPI_PORT
