@@ -263,7 +263,7 @@ bool heardSwitchOn() {
     // start to count. A wake in a bag never gets this far, and stays dark. The
     // panel then stays up until the cube sleeps or is switched on, even if it
     // is picked up again in between.
-    if (listener.armed()) Display::showMessage("Double-tap\nto start");
+    if (listener.armed()) Display::showMessage("Shake\nto start");
     if (verdict != Util::SwitchOnVerdict::Listening) {
       return verdict == Util::SwitchOnVerdict::On;
     }

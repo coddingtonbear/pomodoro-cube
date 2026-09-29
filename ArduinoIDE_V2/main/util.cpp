@@ -220,8 +220,23 @@ Util::SwitchOnVerdict Util::SwitchOnListener::update(bool haveReading, float ax,
   // taps. The debouncer only calls it face up once it has held still there.
   if (doubleTap && faceUp) return SwitchOnVerdict::On;
 
-  if (faceUp && !wasFaceUp_) deadline_ = nowMs + SWITCH_ON_WINDOW_MS;
+  if (faceUp && !wasFaceUp_) {
+    deadline_ = nowMs + SWITCH_ON_WINDOW_MS;
+    shaken_ = 0;
+  }
   wasFaceUp_ = faceUp;
+
+  // Or shaken, from the same moment and for the same reason. The cube need not
+  // stay on the desk for it: readings that are not gravity never move the
+  // debouncer off the face it last believed, so one picked up and shaken is
+  // still, as far as this is concerned, the cube that was lying face up.
+  if (faceUp && haveReading && !isGravityOnly(ax, ay, az)) {
+    if (shaken_ == 0 || nowMs - shakeStarted_ > SHAKE_WINDOW_MS) {
+      shaken_ = 0;
+      shakeStarted_ = nowMs;
+    }
+    if (++shaken_ >= SHAKE_READINGS) return SwitchOnVerdict::On;
+  }
 
   const bool resting = haveReading && isGravityOnly(ax, ay, az) &&
                        calcOrientation(ax, ay, az) == face;

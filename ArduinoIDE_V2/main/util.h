@@ -114,7 +114,7 @@ int flowBankPreview(int bankedSeconds, int elapsedSeconds);
 bool completesFlowLap(int elapsedSeconds);
 
 // Listens, on a wake of a switched-off cube, for the gesture that switches it
-// back on: turned face up and then double-tapped. Fed a pass at a time -- the
+// back on: turned face up and then shaken or double-tapped. Fed a pass at a time -- the
 // accelerometer reading and whether a double tap was taken since the last pass
 // -- and says when it has heard enough either way. Drives the orientation
 // debouncer below, which a wake starts fresh.
@@ -136,6 +136,10 @@ class SwitchOnListener {
   // The last reading that was not the cube resting on its current face.
   unsigned long lastDisturbed_;
   bool wasFaceUp_ = false;
+  // Readings that were not gravity alone since the cube came to rest face up,
+  // and when the first of the current run of them was.
+  int shaken_ = 0;
+  unsigned long shakeStarted_ = 0;
 };
 
 // Feed a raw accelerometer reading in and get back whether the debounced face

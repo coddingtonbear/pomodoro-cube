@@ -6,6 +6,7 @@
 
 #include <cmath>
 
+#include "Arduino.h"
 #include "sim_input.h"
 
 void QMI::setup() {}
@@ -33,6 +34,14 @@ bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
     case Orientation::DEG_180: ax = 1.0f;  break;
     case Orientation::DEG_270: ay = 1.0f;  break;
     case Orientation::UNDEFINED: return false;
+  }
+
+  // Shaken: the same direction, and too much of it to be gravity.
+  if (millis() < SimInput::shakeUntilMs) {
+    ax *= 1.6f;
+    ay *= 1.6f;
+    az *= 1.6f;
+    return true;
   }
 
   // Turned off square, gravity swings round in the plane of the screen. Left

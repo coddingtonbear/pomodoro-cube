@@ -10,6 +10,7 @@
 #include <vector>
 #include <unistd.h>
 
+#include "Arduino.h"
 #include "consts.h"
 #include "display.h"
 #include "util.h"
@@ -319,6 +320,7 @@ void handleKey(SDL_Keycode key) {
     case SDLK_v: g_userView = !g_userView; SimPanel::dirty = true; break;
     case SDLK_t: SimInput::pendingTap = QMI::Tap::Single; break;
     case SDLK_d: SimInput::pendingTap = QMI::Tap::Double; break;
+    case SDLK_k: SimInput::shakeUntilMs = millis() + 500; break;
     case SDLK_a: dumpAdvertisement(); break;
     case SDLK_r: reboot();
     case SDLK_q:
@@ -476,6 +478,7 @@ int main(int argc, char **argv) {
       "      z / x = lean the cube anticlockwise / clockwise,\n"
       "      b = force low battery warning on/off, [ / ] = battery voltage,\n"
       "      v = user/panel view, m = round mask, t / d = tap / double-tap,\n"
+      "      k = shake,\n"
       "      a = print BLE advertisement, r = reboot, q = quit\n");
 
   try {

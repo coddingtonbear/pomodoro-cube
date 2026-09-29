@@ -12,6 +12,7 @@ float lean = 0.0f;
 float batteryVoltage = 3.9f;
 BatteryOverride batteryOverride = BatteryOverride::None;
 QMI::Tap pendingTap = QMI::Tap::None;
+unsigned long shakeUntilMs = 0;
 bool motorActive = false;
 
 float attitudeDegrees() {

@@ -582,6 +582,43 @@ void testTapsBeforeItRestsFaceUpDoNotCount() {
   CHECK(doubleTap(listener, kUp, 1000) == V::On);
 }
 
+// Shaking a cube that is lying face up switches it on, picked up or not.
+void testAShakeSwitchesItOn() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kUp, 0, 1000) == V::Listening);
+  CHECK(hold(listener, kShaken, 1000, 1000 + (SHAKE_READINGS - 1) * kPass) == V::Listening);
+  CHECK(hold(listener, kShaken, 1000 + (SHAKE_READINGS - 1) * kPass, 2000) == V::On);
+}
+
+// A knock on the desk is a reading or two, and knocks far enough apart never
+// add up to a shake.
+void testAKnockIsNotAShake() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  unsigned long now = 1000;
+  CHECK(hold(listener, kUp, 0, now) == V::Listening);
+  for (int knock = 0; knock < 3; knock++) {
+    CHECK(hold(listener, kShaken, now, now + 2 * kPass) == V::Listening);
+    CHECK(hold(listener, kUp, now + 2 * kPass, now + SHAKE_WINDOW_MS + 2 * kPass) ==
+          V::Listening);
+    now += SHAKE_WINDOW_MS + 2 * kPass;
+  }
+}
+
+// Only once it has come to rest face up, as with the taps: being carried, or
+// the turn over itself, is not a shake.
+void testAShakeBeforeItRestsFaceUpDoesNotCount() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  using V = Util::SwitchOnVerdict;
+  CHECK(hold(listener, kDown, 0, 600) == V::Listening);
+  CHECK(hold(listener, kShaken, 600, 1600) == V::Listening);
+  CHECK(hold(listener, kUp, 1600, 2400) == V::Listening);
+}
+
 // Nor on a face that runs a timer: standing a switched-off cube up is not a
 // way of switching it on, however it is tapped.
 void testTapsOnAnyOtherFaceDoNotCount() {
@@ -649,6 +686,9 @@ void testTheWindowRestartsWhenItLiesFaceUp() {
 void testSwitchingOn() {
   testTheWholeGestureIsHeardFromTheWake();
   testTapsBeforeItRestsFaceUpDoNotCount();
+  testAShakeSwitchesItOn();
+  testAKnockIsNotAShake();
+  testAShakeBeforeItRestsFaceUpDoesNotCount();
   testTapsOnAnyOtherFaceDoNotCount();
   testLeftOnAnotherFaceItGivesUpEarly();
   testMovementPutsOffGivingUp();

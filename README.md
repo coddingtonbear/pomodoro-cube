@@ -41,7 +41,7 @@ which does the same trick for coffee brew times.
 - **Face down means off** — the panel blanks and the cube stays dark however
   much it is jostled, so it can go in a bag. Whatever was running is parked,
   exactly as face up parks it. To switch it back on, lay it face up and
-  double-tap the glass within five seconds. See [Switching off](#switching-off).
+  shake it within five seconds. See [Switching off](#switching-off).
 - **Tap it to read it** — the backlight runs at a fifth of full brightness
   between the moments worth lighting, and a tap on the glass buys ten seconds
   at full. The QMI8658 detects the tap itself, so it works on a face that never
@@ -157,11 +157,16 @@ spent waking the cube instead of switching it on.
 
 So from the moment it wakes, the cube waits for itself to come to rest face up.
 Standing it on a timer face does nothing. Once it is lying face up it shows
-**Double-tap to start** in white on black and gives you five seconds for a
-double tap on the glass. Taps only count from then on, so the flip and the
-landing can't be taken for them.
+**Shake to start** in white on black and gives you five seconds to shake it,
+picked up or where it lies. A double tap on the glass does as well. Either
+only counts from then on, so the flip and the landing can't be taken for them.
 
-A double tap in that window switches it on with a buzz. A parked timer comes up
+A shake is read off the accelerometer: five readings that are more or less
+than gravity within a second. The tap engine is no use for it, because what it
+listens for is one sharp jolt that dies away. The price is that a cube which
+comes to rest face up in a bag, and is then jostled, switches on.
+
+Either in that window switches it on with a buzz. A parked timer comes up
 paused on the glass. With nothing parked it shows **Let's go**, black on white,
 for three seconds and then goes dark, still on, so standing it on a face starts
 a timer as usual. Standing it on a face while the message is up starts that

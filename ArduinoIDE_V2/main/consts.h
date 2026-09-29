@@ -107,6 +107,17 @@ constexpr unsigned long WAKE_SETTLE_TIMEOUT_MS = 3000;
 // switching it on.
 constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
 
+// What counts as a shake, which switches on a cube lying face up as a double
+// tap does: this many readings that are not gravity alone, within this long of
+// each other. Read off the accelerometer rather than left to the tap engine,
+// which is listening for one sharp jolt that dies away and hears a shake as
+// neither. Readings come a pass apart, 20 ms, so this is about a tenth of a
+// second of being moved about in the space of a second -- more than a knock on
+// the desk, which is over in a reading or two. Not tuned against a cube in the
+// hand.
+constexpr int SHAKE_READINGS = 5;
+constexpr unsigned long SHAKE_WINDOW_MS = 1000;
+
 // How long a woken, switched-off cube will sit still on any face but face up
 // before giving up and going back to sleep. What cuts short the wakes a bag
 // causes, each of which would otherwise keep the CPU up for the whole window;
