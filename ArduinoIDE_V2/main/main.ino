@@ -316,25 +316,22 @@ void setup() {
     if (!switchOn) Util::deepSleep(Util::SleepMode::Off, false);
 
     // On, and lying face up, which is where the resting-face path below takes
-    // over: a parked timer comes up on the glass, and with none the cube sleeps
-    // dark, now waiting to be stood on a face like any other. The buzz is the
-    // only sign of having been switched on when there is nothing to show.
+    // over: a parked timer comes up paused on the glass.
     RtcState::data().switchedOff = false;
     Haptic::playBlocking(Haptic::Pattern::Wake);
     settled = Orientation::FACE_UP;
 
-    // A parked timer is what the resting-face path below puts up. With none,
-    // there is nothing to show, and a panel that went dark the moment it was
-    // switched on read as the switch-on having failed -- so answer the double
-    // tap, for a moment, inverted from the prompt so the change is plain from
-    // across a desk. Watching the faces while it does: a cube stood on one now
-    // has to start its timer rather than sleep through being set down, which
-    // would leave nothing to wake it.
-    if (!RtcState::hasPause(RtcState::data())) {
-      Display::showMessage("Let's go", true);
-      settled = watchFaces(SWITCHED_ON_MESSAGE_MS, Orientation::FACE_UP);
-    }
+    // Answer the gesture, for a moment, inverted from the prompt so the change
+    // is plain from across a desk. Watching the faces while it does: a cube
+    // stood on one now has to start its timer rather than wait out the message.
+    Display::showMessage("Let's go", true);
+    settled = watchFaces(SWITCHED_ON_MESSAGE_MS, Orientation::FACE_UP);
     Display::hideMessage();
+
+    // Still lying there with nothing parked: park a work timer that has not
+    // started, so there is a face to show. A panel that went dark after the
+    // message read as the cube having gone off again.
+    if (settled == Orientation::FACE_UP) Util::parkFreshTimer(RtcState::data());
   } else {
     // --------- go back to sleep mode ---------
     // Settled rather than sampled. The interrupt that woke us fired because the

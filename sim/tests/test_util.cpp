@@ -705,7 +705,26 @@ void testOrientationDebounce() {
   testAMotionlessCubeDoesNotChangeFace();
 }
 
+// Switched on with nothing to resume, there is still a face to show: the work
+// timer, unstarted. Whatever was really parked is left alone.
+void testAFreshTimerIsParkedOnlyWhenNothingIs() {
+  RtcState::Data data{};
+  RtcState::clearPause(data);
+  Util::parkFreshTimer(data);
+  int remaining = 0, selected = 0;
+  bool up = true;
+  CHECK(RtcState::hasPause(data));
+  CHECK(RtcState::takePause(data, Orientation::DEG_0, remaining, selected, up));
+  CHECK(remaining == TIMER_WORK_SECONDS && selected == TIMER_WORK_SECONDS && !up);
+
+  RtcState::storePause(data, Orientation::DEG_90, 120, 300, false);
+  Util::parkFreshTimer(data);
+  CHECK(RtcState::takePause(data, Orientation::DEG_90, remaining, selected, up));
+  CHECK(remaining == 120 && selected == 300);
+}
+
 void testRestingFaceParking() {
+  testAFreshTimerIsParkedOnlyWhenNothingIs();
   testOnlyFaceUpStaysLit();
   testOnlyFaceDownSwitchesOff();
   testBothRestingFacesKeepTheBank();

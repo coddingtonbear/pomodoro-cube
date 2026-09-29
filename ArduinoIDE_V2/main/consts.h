@@ -125,11 +125,9 @@ constexpr unsigned long SHAKE_WINDOW_MS = 1000;
 // turning it, is not taken for it having been left alone.
 constexpr unsigned long SWITCH_ON_GIVE_UP_MS = 1500;
 
-// How long a cube just switched on, with no paused timer to show, says so
-// before going dark. Not held: a frame is only held lit through sleep
-// when there is a timer in it, since holding one costs the backlight for as
-// long as the cube lies there.
-constexpr unsigned long SWITCHED_ON_MESSAGE_MS = 3000;
+// How long a cube just switched on says so before the paused face comes up:
+// the timer that was parked, or a work timer not yet started.
+constexpr unsigned long SWITCHED_ON_MESSAGE_MS = 1500;
 
 // Timer length for each face the cube can rest on, in seconds. DEG_0 is the
 // default orientation and each step from there is a quarter turn clockwise,

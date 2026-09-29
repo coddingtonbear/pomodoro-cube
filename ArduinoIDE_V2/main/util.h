@@ -51,6 +51,12 @@ struct RestPlan {
 RestPlan restOnFace(RtcState::Data &data, Orientation ori, Orientation timerFace,
                     int remaining, int selected, bool countingUp);
 
+// Park a work timer that has not started, if nothing is parked already: what a
+// cube switched on with nothing to resume shows, paused, until it is stood on a
+// face. Standing it on the work face takes it up, which is the timer that face
+// would have started anyway, and any other face abandons it at no cost.
+void parkFreshTimer(RtcState::Data &data);
+
 // What standing the cube on a face asks for. `seconds` is the length to count
 // down; it is 0 in CountUp, where there is no length to count, and on the flow
 // break face with an empty bank, where there is no break to take. `spendsBank`

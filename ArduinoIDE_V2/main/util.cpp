@@ -135,6 +135,11 @@ Util::RestPlan Util::restOnFace(RtcState::Data &data, Orientation ori, Orientati
   return {lit, lit ? SleepMode::Paused : SleepMode::Off};
 }
 
+void Util::parkFreshTimer(RtcState::Data &data) {
+  if (RtcState::hasPause(data)) return;
+  RtcState::storePause(data, Orientation::DEG_0, TIMER_WORK_SECONDS, TIMER_WORK_SECONDS, false);
+}
+
 int Util::backlightPercent(const BacklightView &view) {
   // Just set down. The face was chosen a moment ago, and what it came up with is
   // the answer to that choice.
