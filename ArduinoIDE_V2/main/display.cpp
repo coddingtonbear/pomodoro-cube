@@ -269,7 +269,11 @@ void Display::setup() {
   disp_drv.flush_cb = disp_flush;
   disp_drv.draw_buf = &draw_buf;
 
-  lv_disp_drv_register(&disp_drv);
+  lv_disp_t *const disp = lv_disp_drv_register(&disp_drv);
+  // loop() is what paces redraws, a pass at least LOOP_PASS_MS apart, so LVGL
+  // should draw whenever a pass asks. Its own default of 30 ms skipped every
+  // other pass once a frame at an angle came in under that.
+  lv_timer_set_period(disp->refr_timer, LOOP_PASS_MS / 2);
 
   ui_init();
 
