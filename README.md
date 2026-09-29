@@ -34,8 +34,9 @@ which does the same trick for coffee brew times.
   time goes, shading green through amber to red so you can read roughly how
   long is left from across the room without reading the digits.
 - **Pause by laying it face up** — the remaining time is kept and the panel is
-  left showing the frozen countdown in muted colours. Stand it back on the
-  same face to carry on. A *different* face is taken as choosing a different
+  left showing the frozen countdown in muted colours, dimmed. The cube stays
+  awake while it is paused, so standing it back on the same face carries on at
+  once, with nothing to wake. A *different* face is taken as choosing a different
   interval, so the pause is abandoned.
 - **Face down means off** — the panel blanks and the cube stays dark however
   much it is jostled, so it can go in a bag. Whatever was running is parked,
@@ -45,9 +46,10 @@ which does the same trick for coffee brew times.
   between the moments worth lighting, and a tap on the glass buys ten seconds
   at full. The QMI8658 detects the tap itself, so it works on a face that never
   brightens on its own, flow's especially. See [Brightness](#brightness).
-- **A pause costs the same power as being off.** The GC9A01 refreshes itself
-  from its own memory, so the frozen frame survives with the CPU stopped; only
-  the backlight draws current.
+- **A forgotten pause goes to sleep.** After half an hour the CPU stops and
+  the frame is left lit: the GC9A01 refreshes itself from its own memory, so
+  only the backlight draws current. Moving the cube wakes it, paused and awake
+  again if it is still face up.
 - **A battery indicator that stays out of the way** — nothing on screen at all
   above 3.6 V, and below it a red empty-battery outline with the measured pack
   voltage inside, so the divider and ADC can be checked against a multimeter.
@@ -317,10 +319,9 @@ picked up. Why it slept is inferable from the rest of the payload:
 `remaining == 0` is a normal finish, a low voltage is a flat pack, and anything
 else is the cube being put away.
 
-`running` has to go for a second reason: it is the only way a pause can be
-described at all. State 5 below needs `running` false, and the cube is always
-asleep while it is paused — so the farewell is the one advertisement that can
-say it.
+`running` has to go for a second reason: a pause that has gone to sleep is
+still a pause. State 5 below needs `running` false, which a cube paused awake
+advertises for itself, and the farewell goes on saying once it sleeps.
 
 ### How it reaches the air
 

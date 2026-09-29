@@ -168,6 +168,16 @@ constexpr int BACKLIGHT_ATTENTION_SECONDS = 5;
 // someone having just set it down and already looking at it.
 constexpr int BACKLIGHT_TAP_SECONDS = 10;
 
+// How long a cube paused face up stays awake before it goes to sleep holding
+// the frame. Awake is what makes leaving the pause seamless: the loop is
+// already watching the faces, where a sleeping cube has to be woken by the
+// movement, settle, and -- if it settles while still face up in the hand -- is
+// busy going back to sleep for the second in which it is stood on its face.
+// Awake and dimmed draws about as much as asleep with the backlight held at
+// full, which is the only level a sleeping cube can hold it at, so the limit
+// is there for the pause that was forgotten rather than for the pack.
+constexpr unsigned long PAUSE_AWAKE_MS = 30UL * 60UL * 1000UL;
+
 // The countdown arc runs full to empty, shading from ARC_COLOR_FULL through
 // ARC_COLOR_MID to ARC_COLOR_LOW as the remaining percentage falls past these
 // stops. Below ARC_LOW_PERCENT it stays at ARC_COLOR_LOW.

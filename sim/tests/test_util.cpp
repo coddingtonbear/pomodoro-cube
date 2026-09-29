@@ -355,6 +355,18 @@ void testATapLightsARunningFlowStint() {
   CHECK(Util::backlightPercent({kSettled, 0, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
 }
 
+// A paused countdown is not approaching anything, however little is left on
+// it. It lights for being set down and for a tap, and otherwise lies there dim.
+void testAPausedTimerLiesDim() {
+  CHECK(Util::backlightPercent({kSettled, 1, false, kNoTap, true}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, TIMER_WORK_SECONDS, false, kNoTap, true}) ==
+        BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kJustSetDown, 1, false, kNoTap, true}) ==
+        BACKLIGHT_FULL_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 1, false, kJustTapped, true}) ==
+        BACKLIGHT_FULL_PERCENT);
+}
+
 // The debouncer decides which face the cube is on, and a cube in a hand passes
 // through faces it is not being put down on. Timestamps are supplied rather than
 // read from millis(), so the whole of ORI_DEBOUNCE_DELAY can pass in no time.
@@ -478,6 +490,7 @@ void testBacklightPolicy() {
   testAFlowStintDimsAndStaysDim();
   testATapLightsThePanel();
   testATapLightsARunningFlowStint();
+  testAPausedTimerLiesDim();
 }
 
 // A cube poised between two faces has to be put on one of them. The margin

@@ -91,6 +91,9 @@ struct BacklightView {
   // past the window when there has been no tap at all: zero reads as "just
   // tapped" and would light the panel for the first ten seconds of every boot.
   unsigned long sinceTapMs;
+  // Parked face up with the cube still awake. The figures are standing still,
+  // so how few seconds are left is no reason to light them.
+  bool paused = false;
 };
 
 // How bright the backlight should be, as a percentage.

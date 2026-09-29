@@ -35,6 +35,12 @@ unsigned long lastFaceChange = 0;
 // When the cube was last tapped, or 0 for not since this boot. Only the
 // backlight reads this one too.
 unsigned long lastTap = 0;
+// Lying face up with a timer parked, and awake: nothing counts, the panel
+// shows the parked figures, and the loop goes on watching the faces so that
+// standing the cube back up is a face change like any other rather than a
+// wake. `pausedAt` is what the sleep that ends a forgotten pause is timed from.
+bool paused = false;
+unsigned long pausedAt = 0;
 
 // The angle the face is drawn at, followed from the accelerometer on every
 // pass. Nothing to do with which face the cube is on, which is debounced and
@@ -90,7 +96,7 @@ BTHome::State bthomeState() {
   state.awake = true;
   // A stint counting up is running from its first second, before remSeconds has
   // anything in it.
-  state.running = countingUp() || remSeconds > 0;
+  state.running = !paused && (countingUp() || remSeconds > 0);
   state.work = timerKind == TimerKind::Work;
   state.pomodoroCount = RtcState::data().pomodoroCount;
   state.remainingSeconds = remSeconds;
@@ -105,8 +111,10 @@ BTHome::State bthomeState() {
 // and from setup() for the face a wake settles onto -- that one has already
 // been through the debouncer, so nothing in loop() would announce it.
 void applyFace(Orientation ori) {
-  // Turning off the flow face ends the stint it was counting.
-  if (countingUp() && ori != lastTimerFace) bankFlowStint(remSeconds);
+  // Turning off the flow face ends the stint it was counting. Not out of a
+  // pause, where the stint is the parked one and is banked as that below.
+  if (!paused && countingUp() && ori != lastTimerFace) bankFlowStint(remSeconds);
+  paused = false;
 
   // So does standing the cube on a face that abandons a parked one. The
   // pause itself is consumed by takePause() below either way; this is only
@@ -188,6 +196,33 @@ Display::TimerView pausedView(const RtcState::Data &stored) {
   const bool up = stored.pausedCountingUp;
   return {(int)stored.pausedRemaining, (int)stored.pausedSelected, up, spec.flow,
           up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
+}
+
+// Hold the parked timer on the panel with the cube awake. The pause itself is
+// already in RTC memory, which is where standing the cube back up will take it
+// from; the live timer is set to match so that what is advertised, and what is
+// parked again if the cube is turned face down from here, are the same figures.
+void holdPause() {
+  const RtcState::Data &stored = RtcState::data();
+  const Util::TimerSpec spec =
+      Util::getTimerSpec(stored.pausedFace, RtcState::flowBank(stored));
+  lastTimerFace = stored.pausedFace;
+  remSeconds = (int)stored.pausedRemaining;
+  selSeconds = (int)stored.pausedSelected;
+  timerMode = stored.pausedCountingUp ? TimerMode::CountUp : TimerMode::Countdown;
+  timerKind = spec.kind;
+  spendingFlowBank = spec.spendsBank;
+  onFlowFace = spec.flow;
+
+  paused = true;
+  pausedAt = millis();
+
+  // Square on the face the timer was running on, which is how a wake that has
+  // to redraw this frame will draw it. A cube laid down part-way through a
+  // turn would otherwise be parked at whatever angle the turn had reached.
+  Display::rotateScreen(stored.pausedFace);
+  Display::updateTimer(pausedView(stored));
+  Display::showPaused();
 }
 
 // Follow the faces for up to `forMs`, and return the first face other than
@@ -274,6 +309,7 @@ void setup() {
   // carried. Anything short of that and it goes back to sleep still switched
   // off, to ask again the next time it moves.
   Orientation settled;
+  bool resumesPause = false;
   if (RtcState::data().switchedOff) {
     const bool switchOn = heardSwitchOn();
     Serial.printf("[trace] SWITCHED_OFF switchOn=%d\n", (int)switchOn);
@@ -322,34 +358,22 @@ void setup() {
     // while it slept face up, which is the commonest way to put it away and the
     // one that, before this, left it merely asleep.
     if (settled == Orientation::FACE_DOWN) RtcState::data().switchedOff = true;
-    const RtcState::Data &stored = RtcState::data();
-    const bool showPause =
-        settled == Orientation::FACE_UP && RtcState::hasPause(stored);
-    if (!showPause) Util::deepSleep(Util::SleepMode::Off, false);
+    resumesPause = settled == Orientation::FACE_UP && RtcState::hasPause(RtcState::data());
+    if (!resumesPause) Util::deepSleep(Util::SleepMode::Off, false);
 
-    // The frame is already on the glass, refreshing itself out of the panel's
-    // own memory. Hold it there rather than spending a second booting the
-    // display to draw what is already drawn.
-    if (stored.panelHoldingFrame) Util::deepSleep(Util::SleepMode::Paused, false);
-
-    // Otherwise the cube was parked face down, where the panel was blanked, and
-    // has since been turned over: there is a pause to show and nothing on the
-    // glass to show it with. Holding the backlight up over a sleeping panel is
-    // what this used to do, which lit a black screen and flattened the pack.
-    Display::setup();
-    Util::updateBattery();
-    Display::rotateScreen(stored.pausedFace);
-    Display::updateTimer(pausedView(stored));
-    Display::showPaused();
-    Util::deepSleep(Util::SleepMode::Paused, false);
+    // Face up with a timer parked: stay up and hold the pause awake, whether
+    // the frame was still on the glass or not. Going straight back to sleep is
+    // what this used to do, and it takes over a second in which the cube sees
+    // nothing -- so one picked up, held level for a moment and then stood on a
+    // face was set down during it, and sat there showing the paused frame
+    // until it was bumped.
   }
   // -----------------------------------------
 
   Display::setup();
-  // Only on this path, where the cube is staying up. A wake that finds the cube
-  // still resting goes back to sleep in silence: it has nothing to announce,
-  // and a buzz there is movement, which is the very thing that wakes it.
-  Haptic::play(Haptic::Pattern::Wake);
+  // Only for a cube that is going back to work. One that woke still lying
+  // where it was has nothing to announce, and may only have been jostled.
+  if (!resumesPause) Haptic::play(Haptic::Pattern::Wake);
   Util::updateBattery();
   QMI::enableTapDetection();
 
@@ -369,7 +393,10 @@ void setup() {
   // it was moved to. Skipped when
   // the cube never settled: there is no face to apply, and applying UNDEFINED
   // would take a pause that belongs to a real one and throw it away.
-  if (settled != Orientation::UNDEFINED) {
+  if (resumesPause) {
+    lastFaceChange = millis();
+    holdPause();
+  } else if (settled != Orientation::UNDEFINED) {
     lastFaceChange = millis();
     applyFace(settled);
   }
@@ -382,7 +409,9 @@ void loop() {
 
   float ax, ay, az;
   const bool haveReading = QMI::getAccelerometer(ax, ay, az);
-  if (senseTilt(haveReading, ax, ay, az)) Display::setAngle(tilt.angle());
+  // Followed throughout, drawn only while there is a face to turn: a paused
+  // frame stays square on the face it was parked from.
+  if (senseTilt(haveReading, ax, ay, az) && !paused) Display::setAngle(tilt.angle());
 
   if (haveReading) {
     if (Util::updateOriDebounce(ax, ay, az, millis())) {
@@ -398,11 +427,14 @@ void loop() {
         const Util::RestPlan plan =
             Util::restOnFace(RtcState::data(), ori, lastTimerFace, remSeconds, selSeconds,
                              countingUp());
+        if (plan.lit && RtcState::hasPause(RtcState::data())) {
+          // Paused, and staying awake for it, so that leaving the pause is a
+          // face change rather than a wake.
+          Haptic::play(Haptic::Pattern::FaceChange);
+          holdPause();
+          return;
+        }
         if (plan.lit) {
-          // Square on the face the timer was running on, which is how a wake
-          // that has to redraw this frame will draw it. A cube laid down
-          // part-way through a turn would otherwise be parked at whatever
-          // angle the turn had reached.
           if (lastTimerFace != Orientation::UNDEFINED) Display::rotateScreen(lastTimerFace);
           Display::showPaused();
         }
@@ -437,7 +469,14 @@ void loop() {
   // shaking itself.
   if (QMI::takeTap() != QMI::Tap::None && !Haptic::disturbing()) lastTap = millis();
 
-  if (countingUp() && millis() - lastTick >= 1000) {
+  if (paused) {
+    // Nothing counts and nothing alarms. Long enough forgotten, the cube goes
+    // to sleep holding the frame, as a pause always used to from the start.
+    if (millis() - pausedAt >= PAUSE_AWAKE_MS) {
+      Display::showPaused();
+      Util::deepSleep(Util::SleepMode::Paused, false);
+    }
+  } else if (countingUp() && millis() - lastTick >= 1000) {
     remSeconds++;
     lastTick = millis();
     // Every lap of the arc is a pomodoro, scored as the lap closes rather than
@@ -457,7 +496,7 @@ void loop() {
     Display::updateTimer(timerView());
   }
 
-  if (!countingUp() && remSeconds > 0 && millis() - lastTick >= 1000) {
+  if (!paused && !countingUp() && remSeconds > 0 && millis() - lastTick >= 1000) {
     remSeconds--;
     // Keep the balance in step as the break is spent, so whatever interrupts it
     // -- another face, a pause, a flat battery -- leaves the rest still banked.
@@ -472,7 +511,7 @@ void loop() {
     }
   }
 
-  if (!countingUp() && remSeconds == 0) {
+  if (!paused && !countingUp() && remSeconds == 0) {
     // Asked for on every pass and started once: a repeating pattern that is
     // already playing is left to carry on. Not before a face is established,
     // where the timer reads as finished only because there is not one yet, and
@@ -488,7 +527,7 @@ void loop() {
 
   // Last, so it sees the tick this pass produced rather than the one before it.
   Display::setBacklight(Util::backlightPercent(
-      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap()}));
+      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap(), paused}));
 
   Battery::cycleBatteryUpdate();
 

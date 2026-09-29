@@ -152,7 +152,12 @@ int Util::backlightPercent(const BacklightView &view) {
   // Running out, or run out. The same test covers both: a countdown at 0 has
   // finished and is buzzing, and stays lit until it is dealt with -- which is
   // bounded, because a finished timer sleeps the cube after thirty seconds.
-  if (!view.countingUp && view.remainingSeconds <= BACKLIGHT_ATTENTION_SECONDS) {
+  //
+  // Not while paused: a countdown parked with four seconds left is not about
+  // to do anything, and would otherwise hold the panel at full for as long as
+  // it lay there.
+  if (!view.paused && !view.countingUp &&
+      view.remainingSeconds <= BACKLIGHT_ATTENTION_SECONDS) {
     return BACKLIGHT_FULL_PERCENT;
   }
 

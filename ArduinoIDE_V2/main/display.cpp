@@ -105,6 +105,11 @@ bool dimScheme = false;
 // repaints stand aside rather than fighting the flash for the background.
 bool alerting = false;
 
+// The paused palette is up, and stays up through changes of brightness: a cube
+// paused awake dims like any other, and the repaint that goes with dimming
+// would otherwise put the running face's colours back on a stopped timer.
+bool pausedFrame = false;
+
 // Defined below, once there is an applyPalette() for it to call.
 void repaintPalette();
 
@@ -286,7 +291,7 @@ static void applyPalette(const Indicators::Palette &p) {
 namespace {
 
 void repaintPalette() {
-  if (alerting) return;
+  if (alerting || pausedFrame) return;
   applyPalette(Indicators::palette(lastRampAt, lastFlow, dimScheme));
 }
 
@@ -350,11 +355,11 @@ void Display::holdPausedFrame() {
 void Display::showPaused() {
   // Back to the dark palette whether the pause caught a countdown or a flow
   // stint, and whether the panel was dim or bright: paused has to look like one
-  // thing. A parked frame is always held at full brightness, so the dim scheme
-  // has no business here -- and neither does a half-finished flash, which would
-  // otherwise be the frame left lit on the panel for as long as the cube sits
-  // there.
+  // thing, awake and dimmed or asleep and held at full. Neither has any
+  // business with a half-finished flash, which would otherwise be the frame
+  // left lit on the panel for as long as the cube sits there.
   alerting = false;
+  pausedFrame = true;
   show(ui_Arc1, true);
   applyPalette({SCREEN_BG_COLOR, COUNTDOWN_COLOR_PAUSED, ARC_COLOR_PAUSED, ARC_TRACK_COLOR,
                 LOW_BATTERY_COLOR});
@@ -445,6 +450,7 @@ void Display::updateTimer(const TimerView &view) {
   // Whatever brought us here ended the alarm: a new face, or a timer with
   // seconds on it again. Take the ring back before anything is painted.
   alerting = false;
+  pausedFrame = false;
   show(ui_Arc1, true);
 
   setCountdownText(view.seconds);
