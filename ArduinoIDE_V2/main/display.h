@@ -4,6 +4,10 @@
 namespace Display {
 
 void setup();
+
+// Let LVGL draw whatever has changed, having first told it how much time has
+// really passed since it last ran.
+void render();
 void updateBattery(float voltage);
 
 // Drive the backlight at 0-100 percent. PWM, so the sleep paths take the pin

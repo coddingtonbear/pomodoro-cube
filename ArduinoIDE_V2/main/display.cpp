@@ -223,10 +223,22 @@ bool messageInverted = false;
 // to block or sleep rather than return to a loop() that would do it.
 void pumpLvgl() {
   for (int i = 0; i < 4; i++) {
-    lv_timer_handler();
-    lv_tick_inc(20);
+    Display::render();
     delay(20);
   }
+}
+
+void Display::render() {
+  // LVGL keeps time only by what it is told. It was told 20 ms a pass, which
+  // was true only while a pass was just the delay: once drawing a leaning face
+  // took 90 ms of its own, LVGL still saw 20 go by, found its 30 ms refresh
+  // period not yet up, and skipped every other pass -- so a frame came about
+  // once per two passes plus the drawing, rather than once per pass.
+  static uint32_t lastTick = millis();
+  const uint32_t now = millis();
+  lv_tick_inc(now - lastTick);
+  lastTick = now;
+  lv_timer_handler();
 }
 
 void Display::setup() {

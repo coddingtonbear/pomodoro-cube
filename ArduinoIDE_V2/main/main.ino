@@ -400,9 +400,8 @@ void setup() {
 }
 
 void loop() {
-  lv_timer_handler();
+  Display::render();
   delay(20);
-  lv_tick_inc(20);
 
   float ax, ay, az;
   const bool haveReading = QMI::getAccelerometer(ax, ay, az);
