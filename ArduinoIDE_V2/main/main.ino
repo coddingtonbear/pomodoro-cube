@@ -401,8 +401,18 @@ void setup() {
 }
 
 void loop() {
+  // Passes are paced to start LOOP_PASS_MS apart, the wait filling whatever
+  // the last pass left of that rather than being added to it. A fixed delay
+  // was free while a pass was nothing but the delay, and once drawing a
+  // leaning face took 37 ms it made every frame 20 ms later than it had to be.
+  // Never less than a millisecond, so a run of long passes still hands the
+  // core back to the scheduler between them.
+  static uint32_t passStart = 0;
+  const uint32_t spent = millis() - passStart;
+  delay(spent < LOOP_PASS_MS ? LOOP_PASS_MS - spent : 1);
+  passStart = millis();
+
   Display::render();
-  delay(20);
 
   float ax, ay, az;
   const bool haveReading = QMI::getAccelerometer(ax, ay, az);

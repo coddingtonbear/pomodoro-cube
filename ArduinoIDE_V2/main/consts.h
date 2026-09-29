@@ -107,14 +107,18 @@ constexpr unsigned long WAKE_SETTLE_TIMEOUT_MS = 3000;
 // switching it on.
 constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
 
+// The shortest time between the starts of two passes of loop(). Passes that
+// take longer -- drawing a face at an angle, mostly -- are not padded further.
+constexpr uint32_t LOOP_PASS_MS = 20;
+
 // What counts as a shake, which switches on a cube lying face up as a double
 // tap does: this many readings at least SHAKE_MIN_DEVIATION_G more or less
 // than one g, within this long of each other. Read off the accelerometer rather than left to the tap engine,
 // which is listening for one sharp jolt that dies away and hears a shake as
-// neither. Readings come a pass apart, 20 ms, so this is about a tenth of a
-// second of being moved about in the space of a second -- more than a knock on
-// the desk, which is over in a reading or two. Not tuned against a cube in the
-// hand.
+// neither. Readings come a pass apart, LOOP_PASS_MS at the least, so this is
+// about a tenth of a second of being moved about in the space of a second --
+// more than a knock on the desk, which is over in a reading or two. Not tuned
+// against a cube in the hand.
 //
 // The deviation is what makes it a shake rather than being picked up. Anything
 // outside the gravity band counted at first, which is 0.15 g and was met by
