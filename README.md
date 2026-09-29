@@ -454,7 +454,9 @@ app slot, and nothing here uses the filesystem.
 
 The IDE isn't needed to flash it, though — `tools/flash.sh` compiles and
 uploads in one go with the `arduino-cli` the IDE ships with, passing those board
-settings itself:
+settings itself. It also builds at `-O2` rather than the core's `-Os`, which
+draws the face about 14% faster; the IDE has no setting for that, so an IDE
+build works the same and just draws a little slower:
 
 ```bash
 tools/flash.sh              # compile, upload, reset

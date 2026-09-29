@@ -145,8 +145,14 @@ if [[ $CLEAN == 1 ]]; then
 fi
 mkdir -p "$BUILD_DIR"
 
+# -O2 rather than the ESP32 core's -Os. Drawing the face is CPU-bound, and on
+# the board a face redrawn at an angle took 36.5 ms at -Os and takes 32 at -O2,
+# 25 frames a second to 28, for about 60 kB more flash. Only settable on the
+# command line, so an Arduino IDE build is still -Os: slower, and otherwise the
+# same firmware.
 say "compiling $SKETCH"
-"$CLI" compile --fqbn "$FQBN" --build-path "$BUILD_DIR" "$SKETCH"
+"$CLI" compile --fqbn "$FQBN" --build-path "$BUILD_DIR" \
+  --build-property "compiler.optimization_flags=-O2" "$SKETCH"
 
 if [[ $BUILD_ONLY == 1 ]]; then
   say "built only, as asked; binary in $BUILD_DIR"
