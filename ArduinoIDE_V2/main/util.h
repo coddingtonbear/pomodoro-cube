@@ -92,8 +92,10 @@ struct BacklightView {
   // tapped" and would light the panel for the first ten seconds of every boot.
   unsigned long sinceTapMs;
   // Parked face up with the cube still awake. The figures are standing still,
-  // so how few seconds are left is no reason to light them.
-  bool paused = false;
+  // so how few seconds are left is no reason to light them. Last, and without
+  // a default: the device builds as C++11, where a default would stop this
+  // being an aggregate, and left off a braced list it is false anyway.
+  bool paused;
 };
 
 // How bright the backlight should be, as a percentage.
