@@ -20,16 +20,38 @@
 TFT_eSPI tft = TFT_eSPI();
 
 static lv_disp_draw_buf_t draw_buf;
-static lv_color_t buf[240 * 20];
+
+// Two bands, so LVGL draws the next one while DMA sends the last. Sixty rows
+// because that is where taller stopped paying on the board: a leaning face
+// redrawn in full took 124 ms in 20-row bands, 89 in 60 and 88 in 120. Each is
+// under the 32K pixels a single ESP32-S3 DMA transfer can carry.
+constexpr int kBandRows = 60;
+static lv_color_t bandA[240 * kBandRows];
+static lv_color_t bandB[240 * kBandRows];
 lv_disp_drv_t disp_drv;
 
+static bool frameOpen = false;
+
+// Hands each band to DMA and returns at once, which LVGL takes as leave to
+// start drawing into the other one. pushImageDMA() waits out the previous
+// transfer before it touches the bus, so the bands queue rather than collide.
+//
+// The transaction is held open from the first band of a frame to the last,
+// since closing it waits for DMA and would throw the overlap away. The last
+// band closes it, so between frames the bus is idle and the rest of this file
+// -- setRotation(), the sleep commands -- can use it without knowing about DMA.
 void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
-  uint32_t w = (area->x2 - area->x1 + 1);
-  uint32_t h = (area->y2 - area->y1 + 1);
-  tft.startWrite();
-  tft.setAddrWindow(area->x1, area->y1, w, h);
-  tft.pushColors((uint16_t *)&color_p->full, w * h, false);
-  tft.endWrite();
+  const int32_t w = area->x2 - area->x1 + 1;
+  const int32_t h = area->y2 - area->y1 + 1;
+  if (!frameOpen) {
+    tft.startWrite();
+    frameOpen = true;
+  }
+  tft.pushImageDMA(area->x1, area->y1, w, h, (uint16_t *)&color_p->full);
+  if (lv_disp_flush_is_last(disp)) {
+    tft.endWrite();
+    frameOpen = false;
+  }
   lv_disp_flush_ready(disp);
 }
 
@@ -224,10 +246,11 @@ void Display::setup() {
   // Initialize TFT
   beginPanelOnce();
   tft.fillScreen(TFT_BLACK);
+  tft.initDMA();
 
   // Initialize LVGL
   lv_init();
-  lv_disp_draw_buf_init(&draw_buf, buf, NULL, 240 * 20);
+  lv_disp_draw_buf_init(&draw_buf, bandA, bandB, 240 * kBandRows);
   lv_disp_drv_init(&disp_drv);
   disp_drv.hor_res = 240;
   disp_drv.ver_res = 240;

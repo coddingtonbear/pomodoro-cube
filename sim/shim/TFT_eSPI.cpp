@@ -54,3 +54,10 @@ void TFT_eSPI::writecommand(uint8_t command) {
       break;
   }
 }
+
+bool TFT_eSPI::initDMA(bool) { return true; }
+
+void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *data) {
+  setAddrWindow(x, y, w, h);
+  pushColors(data, (uint32_t)(w * h), false);
+}
