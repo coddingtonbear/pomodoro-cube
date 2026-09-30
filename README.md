@@ -110,11 +110,6 @@ a legacy advertisement allows:
 | Duration | `0x42` | uint24, ×0.001 s | Remaining, or elapsed while counting up |
 | Duration 2 | `0x42` | uint24, ×0.001 s | What the timer started at, or 0 while counting up |
 
-`Work` is a generic boolean because BTHome has no object that means "this
-interval is work". It exists because flow's two faces have no fixed length to be
-classified by, and it is the same value the firmware counts pomodoros from, so
-the two can't disagree about which faces are work.
-
 The device info byte sets the trigger-based flag, which tells Home Assistant
 the cube advertises irregularly — without it, every normal sleep would look
 like a fault.
