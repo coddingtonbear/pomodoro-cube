@@ -40,8 +40,12 @@ countdown faces show an arc that drains as the time runs out:
 
 When a countdown reaches zero, the vibration motor buzzes and the whole face
 flashes red until you turn the cube to another face; if you don't, it gives up
-and goes to sleep after thirty seconds. Work timers count towards a running
-pomodoro total (the one Home Assistant sees), and breaks don't.
+and goes to sleep after thirty seconds:
+
+![A finished timer flashing](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/finished.gif)
+
+Work timers count towards a running pomodoro total (the one Home Assistant
+sees), and breaks don't.
 
 Laying the cube face up pauses whatever's running, and leaves the frozen
 countdown on screen in muted colours:
