@@ -28,132 +28,47 @@ which does the same trick for coffee brew times.
 
 ## How it works
 
-Orientation is the whole interface. A QMI8658 accelerometer reports which way
-gravity points, `Util::calcOrientation()` turns that into one of six states —
-four upright faces plus face up and face down — and a 300 ms debounce keeps a
-cube mid-flip from starting a timer it doesn't mean.
+Which way up the cube is sitting is the whole interface. There's an
+accelerometer on the board, and the firmware turns what it reports into one of
+six states: the four timer faces, face up, or face down. A reading has to hold
+still for a moment before it's believed, so a cube that's mid-flip doesn't
+start a timer for whatever face it happened to tumble past.
 
-The debounce measures how long one reading has *held still*, not how long it is
-since the last one that agreed with the face being left. The difference matters
-because a cube in a hand passes through faces on its way to the one it is being
-put down on: picking it up off its face-up rest and standing it on a timer face
-reads face-up somewhere in the middle, and a debounce timed the other way would
-take that in passing as a decision to set the cube down again — leaving the
-paused frame on a panel that should have gone back to work.
-
-Waking runs the same debounce. The interrupt that wakes the cube fires because
-it moved, so the first readings after one are taken in mid-air as often as not;
-the firmware waits for one to settle, up to three seconds, before deciding
-whether it has been set down or stood up. Guessing wrong towards sleep is the
-expensive mistake — a cube that sleeps on a face it is no longer on has nothing
-left to wake it.
-
-Which way up the face is *drawn* is a separate question from which face the
-cube is on, and is answered separately. `Tilt::Tracker` follows the angle of
-gravity in the plane of the screen on every pass of the loop, smooths it, and
-hands it to `Display::setAngle()`, so the picture turns as the cube does and a
-cube held at 45° shows a face at 45°. The nearest quarter turn is done by the
-GC9A01 itself, which costs nothing; only what is left over is drawn at an angle
-by LVGL, in software, and without anti-aliasing — the turn samples the nearest
-pixel rather than blending four, which is most of what lets a leaning face keep
-up with the hand. Within 8° of a quarter turn the face is drawn exactly
-square, and it takes 12° to pull it off again, so a cube at rest has nothing
-left over and draws as cheaply as it would if none of this existed. Laid on its
-back the cube has no angle to follow, and the face stays where it was.
-
-Standing the cube on a face starts that face's timer, unless there's a paused
-one belonging to that same face, in which case it picks up where it left off.
-Three of the faces count down and the arc drains as they run; the fourth is
-[flow mode](#flow-mode), which counts up:
+Standing the cube on a timer face starts that face's timer — or, if you'd
+paused one on that same face, picks it back up where you left off. The
+countdown faces show an arc that drains as the time runs out:
 
 ![The arc draining over a five-minute timer](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/countdown.png)
 
-When the timer reaches zero the vibration motor buzzes on and off, the whole
-face flashes red, and both go on until the cube is turned to another face. Left
-alone, it puts itself to sleep after thirty seconds.
-Work counts towards a pomodoro total and breaks do not — the fixed work face
-when it reaches zero, and flow's a lap at a time as it runs.
+When a countdown reaches zero, the vibration motor buzzes and the whole face
+flashes red until you turn the cube to another face; if you don't, it gives up
+and goes to sleep after thirty seconds. Work timers count towards a running
+pomodoro total (the one Home Assistant sees), and breaks don't.
+
+Laying the cube face up pauses whatever's running, and leaves the frozen
+countdown on screen in muted colours:
 
 ![Paused, and the low battery warning](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/states.png)
 
-A paused timer and the pomodoro count live in RTC memory, which survives deep
-sleep but not a flat battery. Because a cold boot leaves arbitrary bits there,
-the block carries a magic word; anything that doesn't match it is discarded
-rather than resumed as a plausible-looking timer.
-
-### Brightness
-
-The backlight is the largest single draw while the cube is awake, of the same
-order as the whole rest of the board, so full brightness is rationed rather than
-held. It is spent on the moments worth looking at — the five seconds after the
-cube is set on a face, and the last five seconds of a countdown, which is also
-what keeps a finished timer lit while it buzzes. Everything between sits at 20%,
-which is legible across a desk for a fraction of the current, and swaps to a
-filled-colour scheme that reads at that brightness where a thin arc does not.
-
-A tap on the glass buys ten seconds at full brightness and nothing else: the
-faces are what choose a timer, and tapping never changes one. Longer than a face
-change is worth, because a tap is someone coming to the cube cold rather than
-someone already looking at it. The QMI8658 has a tap detector of its own, which
-is what makes this work — a tap is over in a couple of milliseconds, so the
-50 Hz polling loop would miss almost every one if it had to find them in the
-accelerometer stream itself. The sensor latches the event and the loop reads it
-out. Single and double taps both brighten it; `main.ino`'s loop is where to
-narrow that to `QMI::Tap::Double` if the cube turns out to brighten at things
-that were not taps.
-
-The one face this really matters for is flow's. A countdown brightens on its own
-as it runs out, but a stint has no end to approach, so before this the only way
-to read one that had settled was to pick the cube up — which ends the stint.
+The cube spends most of its life in deep sleep, and any movement wakes it back
+up. Waking up is a bit trickier than it sounds, though: the movement that wakes
+the cube is usually someone picking it up, so the firmware waits (up to three
+seconds) for it to settle before deciding which face it's actually on. The
+paused timer, the pomodoro count and the flow bank are all kept in memory that
+survives deep sleep — but not a flat battery.
 
 ### Switching off
 
-There are no buttons, so off has to be a way of setting the cube down, and it
-has to survive being carried. Every bump wakes a sleeping cube — that is how
-standing it on a face starts a timer — so off can't just be a sleep, or a cube
-in a bag would light up and start counting whenever it landed on an edge.
+Face down is off. Every bump wakes a sleeping cube, so "off" has to mean
+something a bit stronger than "asleep"; otherwise a cube in a bag would light
+up and start a timer whenever it landed on an edge. Once it's face down, the
+cube stays dark however much it's jostled, and whatever was running is parked
+just as if you'd paused it.
 
-Laying the cube face down switches it off, however it gets there: set down
-face down while it is running, or turned over while it sleeps face up. It parks
-whatever was running, as face up does, blanks the panel and notes in RTC memory
-that it is off.
-
-A wake that finds that note listens for the gesture that turns it back on
-instead of settling and deciding. It has to, because the first thing a hand
-reaching for a face-down cube does is lift it, which wakes it while it is still
-face down. Deciding then went back to sleep, and finished going to sleep while
-the cube was being turned over. The turn woke nothing, and the double tap was
-spent waking the cube instead of switching it on.
-
-So from the moment it wakes, the cube waits for itself to come to rest face up.
-Standing it on a timer face does nothing. Once it is lying face up it shows
-**Shake to start** in white on black and gives you five seconds to shake it,
-picked up or where it lies. A double tap on the glass does as well. Either
-only counts from then on, so the flip and the landing can't be taken for them.
-
-A shake is read off the accelerometer: five readings at least half a g more or
-less than gravity within a second, which handling the cube does not reach. The tap engine is no use for it, because what it
-listens for is one sharp jolt that dies away. The price is that a cube which
-comes to rest face up in a bag, and is then jostled, switches on.
-
-Either in that window switches it on with a buzz and shows **Let's go**, black
-on white, for a second and a half. Then the paused face comes up: the timer
-that was parked, or with nothing parked a full 25:00 that has not started.
-Standing it on a face starts a timer as usual, while the message is up or
-after.
-
-The taps are detected by the QMI8658's own tap engine, with its peak threshold
-lowered from the datasheet's example of 0.8 g² to 0.15 g². On a cube lying on a
-hard desk the example let through only about one tap in six, and never both
-taps of a double tap. The lower threshold also makes the tap that brightens the
-panel easier to trigger. If the cube is left still on
-any other face for a second and a half, or never settles within five seconds,
-it goes back to sleep still off. Those wakes, which are what a bag causes,
-never light the panel and never use the radio. A double tap that misses the
-window is movement, so it wakes the cube and opens a new window.
-
-The sleep that ends an unanswered alarm doesn't switch the cube off; only face
-down does.
+To switch it back on, lay it face up. It'll show **Shake to start**, and you
+have five seconds to shake it (a double tap on the glass works, too). It
+answers with a buzz and **Let's go**, then shows whatever you'd paused — or a
+fresh 25:00 if there wasn't anything.
 
 ## Flow mode
 
