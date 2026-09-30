@@ -110,10 +110,6 @@ a legacy advertisement allows:
 | Duration | `0x42` | uint24, ×0.001 s | Remaining, or elapsed while counting up |
 | Duration 2 | `0x42` | uint24, ×0.001 s | What the timer started at, or 0 while counting up |
 
-The device info byte sets the trigger-based flag, which tells Home Assistant
-the cube advertises irregularly — without it, every normal sleep would look
-like a fault.
-
 **There are deliberately no event objects.** A BTHome event carries an event
 id and no payload, so a "timer started" event couldn't say how long the
 interval was; you'd read that from the duration objects anyway, and then risk
