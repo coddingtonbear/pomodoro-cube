@@ -30,8 +30,12 @@ BTHome::Sequencer sequencer;
 BTHome::Scheduler scheduler;
 // setup() has been called: the cube is meant to be on the air.
 bool ready = false;
-// The controller is up. It is brought up for each burst and shut down again
-// after, so between bursts the radio draws nothing and holds nothing awake.
+// The controller and the NimBLE host are up. Brought up with the first burst
+// and left up until shutdown(): only advertising starts and stops with each
+// burst. Tearing the stack down after every burst crashed about one time in
+// thirty -- NimBLE-Arduino 1.4.3's deinit() races its own host task as that
+// task exits, and the board panicked in NimBLEDevice::host_task
+// (InstrFetchProhibited) roughly two seconds into a burst, as it ended.
 bool radioOn = false;
 // The advertisement last put on the air, which a heartbeat with nothing new in
 // it sends again. Under the same packet id, so a receiver deduping on it
@@ -95,7 +99,7 @@ static void radioDown() {
 }
 
 bool BLE::onAir() {
-  return radioOn;
+  return bursting || farewelling;
 }
 
 void BLE::setup() {
@@ -107,7 +111,6 @@ void BLE::publish(const BTHome::State &state) {
 
   if (bursting && millis() - burstStarted >= BURST_MS) {
     NimBLEDevice::getAdvertising()->stop();
-    radioDown();
     bursting = false;
   }
 

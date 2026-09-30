@@ -9,9 +9,10 @@
 // is a millisecond of radio at a time, sent in short bursts.
 namespace BLE {
 
-// Puts the cube on the air. The controller itself is only brought up for each
-// burst, by publish() and farewell(), and shut down again after; bringing it
-// up blocks while the NimBLE host syncs, which the trace reports.
+// Puts the cube on the air. The controller itself is brought up by the first
+// burst and stays up until shutdown(); only advertising starts and stops with
+// each burst. Bringing it up blocks while the NimBLE host syncs, which the
+// trace reports.
 void setup();
 
 // Offer the current state. Cheap enough to call on every pass of the loop: the
@@ -43,9 +44,9 @@ void farewell();
 // Safe to call when BLE was never brought up.
 void shutdown();
 
-// Whether the controller is up: a burst or the farewell is on the air. The CPU
-// must not light-sleep under it -- the controller is built without the sleep
-// support that would let the two coexist.
+// Whether a burst or the farewell is on the air. The CPU does not light-sleep
+// under one -- the controller is built without the sleep support that would
+// let advertising and light sleep coexist.
 bool onAir();
 
 // The least time a farewell is on the air before shutdown() lets the radio go.
