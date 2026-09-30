@@ -9,13 +9,6 @@ no buttons — the only control is which way up it is.
 Forked from [fly-robin-fly/coffee_timer](https://github.com/fly-robin-fly/coffee_timer),
 which does the same trick for coffee brew times.
 
-> [!NOTE]
-> The firmware runs on the board, but the cube isn't finished: the enclosure is
-> still being designed, and the vibration motor hasn't been felt yet. Most of
-> the logic was developed against the [simulator](#developing-without-the-hardware),
-> which runs the real firmware on a desktop. What is still waiting to be tried on
-> the hardware is listed under [Unverified](#unverified).
-
 ## Features
 
 - **Four intervals, chosen by rotation** — 25 minutes on the default face and
