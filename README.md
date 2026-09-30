@@ -313,41 +313,6 @@ arc eating the edges, height is the scarce resource. See
 [fonts/README.md](fonts/README.md) for why the weight is pinned to a static
 instance.
 
-## Unverified
-
-Things still to be checked on the hardware, collected so they can be done in
-one sitting:
-
-- **Which rotation direction is clockwise.** `DEG_0` → `DEG_90` → `DEG_180` →
-  `DEG_270` is one consistent direction, but whether it's clockwise depends on
-  the accelerometer's sign convention. If it runs backwards, swap two cases in
-  `Util::getTimerSpec()`.
-- **`BAT_FULL_VOLTAGE` was removed, but `BAT_EMPTY_VOLTAGE` and
-  `LOW_BATTERY_VOLTAGE` are still guesses** inherited from upstream. They
-  calibrate the whole measurement chain — divider, ADC, cell — not just the
-  cell, so they should only be retuned against real readings.
-- **The vibration patterns.** The pulse lengths and `HAPTIC_SETTLE_MS`, the
-  allowance for the motor spinning down, were written with no motor on the
-  board.
-- **Whether the motor shakes the face.** The tilt tracker takes every reading
-  that passes for gravity, including those taken while the motor runs. If an
-  alarm makes the picture twitch, feed it `!Haptic::disturbing()` as well.
-- **Whether the tilt constants suit a hand.** `TILT_SENSE_SMOOTHING_MS` and
-  `TILT_EASE_MS` were chosen in the simulator, where the cube turns in no time
-  at all.
-- **Whether the tap and shake thresholds suit the finished cube.** The tap
-  peak was lowered to 0.15 g² on the bare board; the quiet floor is still the
-  datasheet's 0.4 g², and neither has been tried in a printed enclosure. Too
-  deaf and taps go unnoticed; too keen and the panel lights when the desk is
-  knocked. The shake (`SHAKE_*` in `consts.h`) hasn't been tuned in the hand.
-- **Whether the farewell advert really escapes.** Verified in the simulator, and
-  the awake adverts are confirmed on hardware, but the farewell is the one that
-  races the CPU stopping. Lay a running cube down and watch whether Home
-  Assistant's `running` goes false rather than going stale.
-- **Whether the BLE MAC survives a reflash and a flat battery.** It is derived
-  from the eFused base MAC, so it should, but Home Assistant keys the device on
-  it and a change would silently orphan the entities.
-
 ## Layout
 
 ```
