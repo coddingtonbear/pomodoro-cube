@@ -35,6 +35,9 @@ unsigned long lastFaceChange = 0;
 // When the cube was last tapped, or 0 for not since this boot. Only the
 // backlight reads this one too.
 unsigned long lastTap = 0;
+// When a reading last showed the cube being moved, which keeps the loop fast
+// for a moment after it stops.
+unsigned long lastMoved = 0;
 // Lying face up with a timer parked, and awake: nothing counts, the panel
 // shows the parked figures, and the loop goes on watching the faces so that
 // standing the cube back up is a face change like any other rather than a
@@ -407,9 +410,13 @@ void loop() {
   // leaning face took 37 ms it made every frame 20 ms later than it had to be.
   // Never less than a millisecond, so a run of long passes still hands the
   // core back to the scheduler between them.
+  //
+  // How far apart is decided at the end of the pass before, by Util::loopPassMs:
+  // fast while anything needs it, slower while the cube just sits dimmed.
   static uint32_t passStart = 0;
+  static uint32_t passMs = LOOP_PASS_MS;
   const uint32_t spent = millis() - passStart;
-  delay(spent < LOOP_PASS_MS ? LOOP_PASS_MS - spent : 1);
+  delay(spent < passMs ? passMs - spent : 1);
   passStart = millis();
 
   Display::render();
@@ -418,7 +425,15 @@ void loop() {
   const bool haveReading = QMI::getAccelerometer(ax, ay, az);
   // Followed throughout, drawn only while there is a face to turn: a paused
   // frame stays square on the face it was parked from.
-  if (senseTilt(haveReading, ax, ay, az) && !paused) Display::setAngle(tilt.angle());
+  const bool turned = senseTilt(haveReading, ax, ay, az);
+  if (turned && !paused) Display::setAngle(tilt.angle());
+  // Moving is anything but resting still on the face it is believed to be on:
+  // being handled, on its way to another face, or a face still easing round.
+  if (turned || (haveReading && (!Util::isGravityOnly(ax, ay, az) ||
+                                 Util::calcOrientation(ax, ay, az) !=
+                                     Util::getDebouncedOriState()))) {
+    lastMoved = millis();
+  }
 
   if (haveReading) {
     if (Util::updateOriDebounce(ax, ay, az, millis())) {
@@ -485,7 +500,9 @@ void loop() {
     }
   } else if (countingUp() && millis() - lastTick >= 1000) {
     remSeconds++;
-    lastTick = millis();
+    // Stepped on from the tick it was due, not from the pass that noticed it,
+    // or every second would run long by however late that pass was.
+    lastTick += 1000;
     // Every lap of the arc is a pomodoro, scored as the lap closes rather than
     // when the stint ends: two hours of flow is four pomodoros, and the count
     // reaches Home Assistant while the stint is still running.
@@ -509,7 +526,7 @@ void loop() {
     // -- another face, a pause, a flat battery -- leaves the rest still banked.
     if (spendingFlowBank) RtcState::setFlowBank(RtcState::data(), remSeconds);
     Display::updateTimer(timerView());
-    lastTick = millis();
+    lastTick += 1000;
     if (remSeconds == 0) {
       startedAlarm = millis();
       // Only work timers count as pomodoros; breaks do not. Flow stints are
@@ -556,4 +573,17 @@ void loop() {
   // stint at zero seconds -- a state the cube is not in, and one it would
   // otherwise broadcast for the first 300 ms of every wake.
   if (lastTimerFace != Orientation::UNDEFINED) BLE::publish(bthomeState());
+
+  const bool finishing = !paused && !countingUp() && remSeconds == 0;
+  const bool ticking = !paused && (countingUp() || remSeconds > 0);
+  const unsigned long sinceTick = millis() - lastTick;
+  const uint32_t nextPassMs = Util::loopPassMs(
+      {backlight, Haptic::playing() != Haptic::Pattern::None || finishing,
+       millis() - lastMoved,
+       ticking ? (sinceTick >= 1000 ? 0UL : 1000UL - sinceTick) : ~0UL});
+  // Traced only between fast and slow, not for every landing on a tick.
+  if ((nextPassMs == LOOP_PASS_MS) != (passMs == LOOP_PASS_MS)) {
+    Serial.printf("[trace] PACE t=%lu ms=%u\n", millis(), (unsigned)nextPassMs);
+  }
+  passMs = nextPassMs;
 }

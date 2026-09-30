@@ -108,6 +108,22 @@ constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
 // take longer -- drawing a face at an angle, mostly -- are not padded further.
 constexpr uint32_t LOOP_PASS_MS = 20;
 
+// The shortest time between passes while nothing on the cube needs a fast
+// loop: the panel dimmed, the motor quiet, no alarm, and the cube still on the
+// face it is believed to be on. That is nearly all of a running timer, where
+// the only thing that happens is the seconds going down, and every pass is the
+// accelerometer read over I2C and the rest of the loop run for nothing. A face
+// change is still seen within the debounce plus one of these, and the first
+// reading that shows the cube moving puts the loop back at LOOP_PASS_MS. The
+// wait is also cut short to land on the next tick, so the seconds step evenly
+// however long a pass is allowed to be.
+constexpr uint32_t LOOP_IDLE_PASS_MS = 200;
+
+// How long the loop stays fast after the last reading that showed the cube
+// moving, so that the ease of a tilt and the debounce of a face both finish at
+// the rate they were tuned at rather than being cut to a few samples.
+constexpr unsigned long LOOP_STILL_HOLD_MS = 1000;
+
 // What counts as a shake, which switches on a cube lying face up as a double
 // tap does: this many readings at least SHAKE_MIN_DEVIATION_G more or less
 // than one g, within this long of each other. Read off the accelerometer rather than left to the tap engine,
@@ -171,7 +187,10 @@ constexpr int FLOW_MAX_SECONDS = 4 * 60 * 60;
 // BACKLIGHT_IDLE_PERCENT, which is legible across a desk for a fraction of the
 // current.
 constexpr int BACKLIGHT_FULL_PERCENT = 100;
-constexpr int BACKLIGHT_IDLE_PERCENT = 20;
+//
+// Chosen by eye on the cube from 20, 10, 5 and 2: 2 was more than enough to
+// read a dimmed face, and it was 20 before that.
+constexpr int BACKLIGHT_IDLE_PERCENT = 2;
 
 // The CPU clock to run at while the panel is lit at full, and otherwise. Idle
 // at 80 MHz is a saving worth keeping, but at 80 MHz a face drawn at an angle

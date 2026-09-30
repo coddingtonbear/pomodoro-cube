@@ -114,6 +114,19 @@ int backlightPercent(const BacklightView &view);
 // The CPU clock to run at while the backlight is at this percentage.
 uint32_t cpuMhz(int backlightPercent);
 
+struct PaceView {
+  int backlightPercent;
+  // The motor is running a pattern, or a finished timer is flashing.
+  bool busy;
+  unsigned long sinceMovedMs;
+  // Until the next second is due to tick, or past any pass when nothing is
+  // counting.
+  unsigned long untilTickMs;
+};
+
+// How long from the start of this pass to the start of the next.
+uint32_t loopPassMs(const PaceView &view);
+
 // What a flow stint of this length adds to the bank: a fifth of it.
 int flowBreakCredit(int workedSeconds);
 

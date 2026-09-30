@@ -490,6 +490,31 @@ void testTheCpuRunsFastOnlyWhileThePanelIsLit() {
   CHECK(Util::cpuMhz(0) == CPU_MHZ_IDLE);
 }
 
+// The loop slows down only once nothing on the cube needs it fast.
+constexpr unsigned long kLongStill = LOOP_STILL_HOLD_MS;
+constexpr unsigned long kNoTick = ~0UL;
+
+void testTheLoopSlowsOnlyWhenNothingNeedsIt() {
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, kNoTick}) ==
+        LOOP_IDLE_PASS_MS);
+
+  CHECK(Util::loopPassMs({BACKLIGHT_FULL_PERCENT, false, kLongStill, kNoTick}) == LOOP_PASS_MS);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, true, kLongStill, kNoTick}) == LOOP_PASS_MS);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, 0, kNoTick}) == LOOP_PASS_MS);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, LOOP_STILL_HOLD_MS - 1, kNoTick}) ==
+        LOOP_PASS_MS);
+}
+
+// A slow pass lands on the next tick rather than overshooting it, so the
+// seconds on the panel step evenly.
+void testASlowPassLandsOnTheTick() {
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 1000}) == LOOP_IDLE_PASS_MS);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 130}) == 130);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, LOOP_PASS_MS}) ==
+        LOOP_PASS_MS);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 0}) == LOOP_PASS_MS);
+}
+
 }  // namespace
 
 void testBacklightPolicy() {
@@ -501,6 +526,8 @@ void testBacklightPolicy() {
   testATapLightsARunningFlowStint();
   testAPausedTimerLiesDim();
   testTheCpuRunsFastOnlyWhileThePanelIsLit();
+  testTheLoopSlowsOnlyWhenNothingNeedsIt();
+  testASlowPassLandsOnTheTick();
 }
 
 // A cube poised between two faces has to be put on one of them. The margin
