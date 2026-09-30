@@ -10,17 +10,22 @@ It's published on Printables as
 | file | what it is |
 |---|---|
 | [`pomodoro-cube.f3d`](pomodoro-cube.f3d) | the Fusion 360 design itself, for opening and remixing |
-| [`pomodoro-cube.step`](pomodoro-cube.step) | all four parts in their assembled positions, without the board |
+| [`pomodoro-cube.step`](pomodoro-cube.step) | the assembly: one component per part, in their assembled positions, without the board |
+| [`pomodoro-cube.3mf`](pomodoro-cube.3mf) | all four parts laid out on one plate, ready to slice |
+| [`step/`](step/) | one STEP per part, oriented for printing like the STLs |
 | [`stl/`](stl/) | one STL per printed part, already oriented for printing |
+
+To print, open the 3MF, or the per-part STEPs or STLs. The assembly STEP is for
+CAD; a slicer would load its parts nested inside each other.
 
 ## The parts
 
-| part | size (mm) | print |
-|---|---|---|
-| [center](stl/pomodoro-cube-center.stl) | 44.9 × 44.9 × 38.9 | upright, as designed |
-| [face](stl/pomodoro-cube-face.stl) | 44.9 × 44.9 × 11.4 | outer face down |
-| [back](stl/pomodoro-cube-back.stl) | 44.9 × 44.9 × 3.0 | outer face down |
-| [barrier](stl/pomodoro-cube-barrier.stl) | 38.5 × 38.5 × 1.0 | flat |
+| part | size (mm) | print | files |
+|---|---|---|---|
+| center | 44.9 × 44.9 × 38.9 | upright, as designed | [STL](stl/pomodoro-cube-center.stl), [STEP](step/pomodoro-cube-center.step) |
+| face | 44.9 × 44.9 × 11.4 | outer face down | [STL](stl/pomodoro-cube-face.stl), [STEP](step/pomodoro-cube-face.step) |
+| back | 44.9 × 44.9 × 3.0 | outer face down | [STL](stl/pomodoro-cube-back.stl), [STEP](step/pomodoro-cube-back.step) |
+| barrier | 38.5 × 38.5 × 1.0 | flat | [STL](stl/pomodoro-cube-barrier.stl), [STEP](step/pomodoro-cube-barrier.step) |
 
 **Center** is the shell, with the display pocket, the internal ledges and the
 openings in its side walls. **Face** is the display's front and
@@ -39,9 +44,19 @@ has some, from the display bevel and the edge rounds on the bed.
 ## Updating
 
 Fusion runs on another machine, so exports are made there and copied in. When
-the design changes, export every body as STL, the root component as STEP, and
-the design as a Fusion archive, then replace the files here. Keep the file names
-so links to them survive.
+the design changes, replace every file here, keeping the names so links to them
+survive:
+
+- **Fusion archive**: the design as-is.
+- **STL**: every body, in its print orientation.
+- **STEP**: the design keeps all four parts as bodies of one component, so
+  exporting the root gives a single part that slicers load as one lump. Instead,
+  copy the bodies into a scratch design with one component each: one set in
+  place, exported together as the assembly, and one set rotated to print
+  orientation (face and back turn 180° about X), each exported alone.
+- **3MF**: all four parts, in print orientation, as separate objects on one
+  plate. The current one was built from the STLs, in a 2 × 2 grid with 10 mm
+  gaps centred at (100, 100) so it fits a 180 mm bed.
 
 ## History
 
