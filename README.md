@@ -53,11 +53,8 @@ countdown on screen in muted colours:
 ![Paused, and the low battery warning](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/states.png)
 
 The cube spends most of its life in deep sleep, and any movement wakes it back
-up. Waking up is a bit trickier than it sounds, though: the movement that wakes
-the cube is usually someone picking it up, so the firmware waits (up to three
-seconds) for it to settle before deciding which face it's actually on. The
-paused timer, the pomodoro count and the flow bank are all kept in memory that
-survives deep sleep — but not a flat battery.
+up. The paused timer, the pomodoro count and the flow bank are all kept in
+memory that survives deep sleep — but not a flat battery.
 
 ### Switching off
 
@@ -69,8 +66,7 @@ just as if you'd paused it.
 
 To switch it back on, lay it face up. It'll show **Shake to start**, and you
 have five seconds to shake it (a double tap on the glass works, too). It
-answers with a buzz and **Let's go**, then shows whatever you'd paused — or a
-fresh 25:00 if there wasn't anything.
+answers with a buzz and **Let's go**.
 
 ## Flow mode
 
