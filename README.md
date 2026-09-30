@@ -11,6 +11,10 @@ no buttons — the only control is which way up it is.
 Forked from [fly-robin-fly/coffee_timer](https://github.com/fly-robin-fly/coffee_timer),
 which does the same trick for coffee brew times.
 
+The enclosure is on Printables as
+[Pomodoro Cube](https://www.printables.com/model/1860676-pomodoro-cube); its
+source is in [cad/](cad/README.md).
+
 ## Features
 
 - **The faces are the interface** — each face of the cube means something

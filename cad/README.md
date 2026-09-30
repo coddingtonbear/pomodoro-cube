@@ -4,6 +4,9 @@ A 44.9 mm cube, designed in Fusion 360. The design is the Fusion document
 **Pomodoro Box**; the files here are exports of it, and are replaced wholesale
 whenever it changes rather than edited.
 
+It's published on Printables as
+[Pomodoro Cube](https://www.printables.com/model/1860676-pomodoro-cube).
+
 | file | what it is |
 |---|---|
 | [`pomodoro-cube.f3d`](pomodoro-cube.f3d) | the Fusion 360 design itself, for opening and remixing |
