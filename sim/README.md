@@ -46,10 +46,8 @@ sudo apt install cmake build-essential libsdl2-dev
 
 `b` exists because nudging the voltage is a slow way to see the warning: the
 firmware averages ten readings taken five seconds apart, so a change takes most
-of a minute to land — and the window between `LOW_BATTERY_VOLTAGE` (3.6 V) and
-`BAT_EMPTY_VOLTAGE` (3.5 V, where the firmware deep-sleeps) is narrow enough to
-overshoot. The forced states still go through the firmware's own threshold,
-just with the voltage model skipped. `[` or `]` hands control back.
+of a minute to land. The forced states still go through the firmware's own
+threshold, just with the voltage model skipped. `[` or `]` hands control back.
 
 By default the window shows the panel as someone looking at the cube sees it:
 turned to the angle the cube is held at, which is the face it is on plus any

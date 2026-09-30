@@ -18,7 +18,6 @@ void called(const char *what) { Stubs::calls.push_back(what); }
 }  // namespace
 
 float Battery::getVoltage() { return 3.9f; }
-void Battery::sleepIfEmpty() {}
 void Battery::cycleBatteryUpdate() {}
 
 void Display::setup() {}

@@ -12,11 +12,6 @@ float Battery::getVoltage() {
   return (adc_mV * 3.0f) / 1000.0f;
 }
 
-void Battery::sleepIfEmpty() {
-  float batVoltage = Battery::getVoltage();
-  if (batVoltage <= BAT_EMPTY_VOLTAGE) Util::deepSleep(Util::SleepMode::Off, false);
-}
-
 
 unsigned long lastBatteryUpdate = 0;
 
@@ -24,6 +19,5 @@ void Battery::cycleBatteryUpdate() {
   if (millis() - lastBatteryUpdate >= 5000) {
     Util::updateBattery();
     lastBatteryUpdate = millis();
-    sleepIfEmpty();
   }
 }

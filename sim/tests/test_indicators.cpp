@@ -67,10 +67,6 @@ void testLowBatteryThreshold() {
   CHECK(Indicators::showLowBattery(3.0f));
   CHECK(!Indicators::showLowBattery(LOW_BATTERY_VOLTAGE));
   CHECK(!Indicators::showLowBattery(4.2f));
-
-  // The warning has to arrive before the firmware gives up and deep-sleeps,
-  // or it would never be seen.
-  CHECK(LOW_BATTERY_VOLTAGE > BAT_EMPTY_VOLTAGE);
 }
 
 void testLapPercent() {

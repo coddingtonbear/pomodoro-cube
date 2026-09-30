@@ -15,9 +15,6 @@
 // how the board boots.
 #define HAPTIC_PIN 15
 
-// Below this the firmware deep-sleeps rather than running the pack flat.
-#define BAT_EMPTY_VOLTAGE 3.5
-
 #define ORI_DEBOUNCE_DELAY 300
 
 // A reading only says which way is down when it is gravity and very little
