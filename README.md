@@ -6,7 +6,7 @@ A desk cube that runs a pomodoro timer. Stand it on a face to pick the
 interval, lay it face up to pause, lay it face down to switch it off. There are
 no buttons — the only control is which way up it is.
 
-![The four timer faces](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/faces.png)
+![The four timer faces](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/faces.png?v=2)
 
 Forked from [fly-robin-fly/coffee_timer](https://github.com/fly-robin-fly/coffee_timer),
 which does the same trick for coffee brew times.
@@ -42,7 +42,7 @@ Standing the cube on a timer face starts that face's timer — or, if you'd
 paused one on that same face, picks it back up where you left off. The
 countdown faces show an arc that drains as the time runs out:
 
-![The arc draining over a five-minute timer](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/countdown.png)
+![The arc draining over a five-minute timer](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/countdown.png?v=2)
 
 When a countdown reaches zero, the vibration motor buzzes and the whole face
 flashes red until you turn the cube to another face; if you don't, it gives up
@@ -56,7 +56,7 @@ sees), and breaks don't.
 Laying the cube face up pauses whatever's running, and leaves the frozen
 countdown on screen in muted colours:
 
-![Paused, and the low battery warning](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/states.png)
+![Paused, and the low battery warning](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/states.png?v=2)
 
 The cube spends most of its life in deep sleep, and any movement wakes it back
 up. The paused timer, the pomodoro count and the flow bank are all kept in
