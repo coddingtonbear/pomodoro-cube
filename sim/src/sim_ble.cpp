@@ -71,6 +71,10 @@ void BLE::farewell() {
   if (!traced && length > 0) dump("farewell advertisement");
 }
 
+bool BLE::onAir() {
+  return false;
+}
+
 void BLE::shutdown() {
   ready = false;
 }

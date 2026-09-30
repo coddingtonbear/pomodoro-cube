@@ -15,6 +15,10 @@ void updateBattery(float voltage);
 // instant it catches, which on a PWM signal is a coin toss.
 void setBacklight(int percent);
 
+// Returns once the last band handed to DMA has reached the panel, for a caller
+// about to stop the clocks that transfer runs on.
+void finishDrawing();
+
 void deepSleep();
 
 // Leave the last frame on screen through deep sleep: the GC9A01 refreshes

@@ -124,6 +124,10 @@ constexpr uint32_t LOOP_IDLE_PASS_MS = 200;
 // the rate they were tuned at rather than being cut to a few samples.
 constexpr unsigned long LOOP_STILL_HOLD_MS = 1000;
 
+// The shortest wait worth light-sleeping through rather than spinning in
+// delay(): going in and coming out again costs about a millisecond each way.
+constexpr uint32_t NAP_MIN_MS = 5;
+
 // What counts as a shake, which switches on a cube lying face up as a double
 // tap does: this many readings at least SHAKE_MIN_DEVIATION_G more or less
 // than one g, within this long of each other. Read off the accelerometer rather than left to the tap engine,

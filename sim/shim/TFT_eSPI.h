@@ -27,6 +27,7 @@ public:
   // No DMA on the desktop: the "transfer" is finished before it returns.
   bool initDMA(bool ctrlCs = false);
   void pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t *data);
+  void dmaWait() {}
   void writecommand(uint8_t command);
   void fillScreen(uint32_t colour);
 };

@@ -1,4 +1,5 @@
 #include "display.h"
+#include "nap.h"
 #include "consts.h"
 #include "indicators.h"
 #include "tilt.h"
@@ -75,6 +76,7 @@ void attachBacklightPwm() {
   ledcAttach(TFT_BL_PIN, kBacklightFrequency, kBacklightBits);
 #else
   ledcSetup(kBacklightChannel, kBacklightFrequency, kBacklightBits);
+  Nap::keepPwmThroughSleep(kBacklightChannel, kBacklightFrequency, kBacklightBits);
   ledcAttachPin(TFT_BL_PIN, kBacklightChannel);
 #endif
   backlightIsPwm = true;
@@ -184,6 +186,10 @@ void refreshLean() {
 }
 
 }  // namespace
+
+void Display::finishDrawing() {
+  tft.dmaWait();
+}
 
 void Display::setBacklight(int percent) {
   if (percent < 0) percent = 0;

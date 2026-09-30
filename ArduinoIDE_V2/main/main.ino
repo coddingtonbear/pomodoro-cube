@@ -10,6 +10,7 @@
 #include "rtc_state.h"
 #include "ble.h"
 #include "tilt.h"
+#include "nap.h"
 
 
 // Counting down, this is the time left. Counting up, it is the time elapsed.
@@ -413,10 +414,33 @@ void loop() {
   //
   // How far apart is decided at the end of the pass before, by Util::loopPassMs:
   // fast while anything needs it, slower while the cube just sits dimmed.
+  //
+  // An idle wait is light-slept rather than spun through, unless the radio is
+  // on the air: see Nap and BLE::onAir().
   static uint32_t passStart = 0;
   static uint32_t passMs = LOOP_PASS_MS;
+  static bool idle = false;
   const uint32_t spent = millis() - passStart;
-  delay(spent < passMs ? passMs - spent : 1);
+  const uint32_t wait = spent < passMs ? passMs - spent : 1;
+  // What a soak run reads: how much of each minute went to naps, and whether
+  // the heap is holding steady through the radio's bring-ups and teardowns.
+  static unsigned long lastSoak = 0;
+  static uint32_t napMs = 0, naps = 0;
+  if (millis() - lastSoak >= 60000UL) {
+    Serial.printf("[trace] SOAK t=%lu naps=%u napMs=%u heap=%u largest=%u\n", millis(),
+                  (unsigned)naps, (unsigned)napMs, (unsigned)ESP.getFreeHeap(),
+                  (unsigned)ESP.getMaxAllocHeap());
+    lastSoak = millis();
+    naps = napMs = 0;
+  }
+  if (idle && wait >= NAP_MIN_MS && !BLE::onAir()) {
+    Display::finishDrawing();
+    Nap::sleepFor(wait);
+    naps++;
+    napMs += wait;
+  } else {
+    delay(wait);
+  }
   passStart = millis();
 
   Display::render();
@@ -472,7 +496,9 @@ void loop() {
 
   {
     static unsigned long lastTrace = 0;
-    if (millis() - lastTrace >= 200) {
+    // Not while idle, where it would be most of what a pass does and the UART
+    // would have to be flushed out ahead of every nap.
+    if (!idle && millis() - lastTrace >= 200) {
       lastTrace = millis();
       Serial.printf("[trace] awake t=%lu ori=%d ok=%d dec=%d a=%.3f,%.3f,%.3f\n", millis(),
                     (int)Util::calcOrientation(ax, ay, az), (int)Util::isGravityOnly(ax, ay, az),
@@ -583,7 +609,6 @@ void loop() {
       ticking ? (sinceTick >= 1000 ? 0UL : 1000UL - sinceTick) : ~0UL};
   passMs = Util::loopPassMs(pace);
   // Traced only between fast and slow, not for every landing on a tick.
-  static bool idle = false;
   if (Util::loopIsIdle(pace) != idle) {
     idle = !idle;
     Serial.printf("[trace] PACE t=%lu idle=%d\n", millis(), (int)idle);

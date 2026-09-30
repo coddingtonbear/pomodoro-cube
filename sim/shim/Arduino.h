@@ -52,6 +52,14 @@ bool ledcDetach(uint8_t pin);
 // ---- ESP32 power management ----------------------------------------------
 bool setCpuFrequencyMhz(uint32_t mhz);
 uint32_t getCpuFrequencyMhz();
+
+// The heap figures the soak trace prints. The host has no heap worth
+// reporting, so they read as zero.
+struct EspClass {
+  uint32_t getFreeHeap() { return 0; }
+  uint32_t getMaxAllocHeap() { return 0; }
+};
+static EspClass ESP;
 void gpio_hold_en(gpio_num_t pin);
 void gpio_hold_dis(gpio_num_t pin);
 void gpio_deep_sleep_hold_en();

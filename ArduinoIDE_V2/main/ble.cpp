@@ -28,7 +28,11 @@ constexpr unsigned long BURST_MS = 2000;
 
 BTHome::Sequencer sequencer;
 BTHome::Scheduler scheduler;
+// setup() has been called: the cube is meant to be on the air.
 bool ready = false;
+// The controller is up. It is brought up for each burst and shut down again
+// after, so between bursts the radio draws nothing and holds nothing awake.
+bool radioOn = false;
 // The advertisement last put on the air, which a heartbeat with nothing new in
 // it sends again. Under the same packet id, so a receiver deduping on it
 // hears the cube is still there without taking it for a new reading.
@@ -58,14 +62,18 @@ void broadcast(const uint8_t *payload, size_t length) {
 
 }  // namespace
 
-void BLE::setup() {
-  if (ready) return;
+static void radioUp() {
+  if (radioOn) return;
+  const unsigned long started = millis();
 
   // No name: the payload already uses 30 of the 31 bytes a legacy
   // advertisement holds, so there is nowhere to put one. Home Assistant names
   // the device after its MAC instead, which is renameable there.
   NimBLEDevice::init("");
 
+  // Set again on every bring-up rather than trusted to survive the last
+  // deinit, which keeps the advertising object but is not promised to keep
+  // what was set on it.
   NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
   // A beacon, not a peripheral. Without the scan response this also drops the
   // advertisement to ADV_NONCONN_IND, so the radio never listens for scan
@@ -75,6 +83,22 @@ void BLE::setup() {
   advertising->setMinInterval(intervalUnits(ADVERT_INTERVAL_MS));
   advertising->setMaxInterval(intervalUnits(ADVERT_INTERVAL_MS));
 
+  radioOn = true;
+  Serial.printf("[trace] BLE t=%lu up ms=%lu heap=%u largest=%u\n", millis(), millis() - started,
+                (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+}
+
+static void radioDown() {
+  if (!radioOn) return;
+  NimBLEDevice::deinit(false);
+  radioOn = false;
+}
+
+bool BLE::onAir() {
+  return radioOn;
+}
+
+void BLE::setup() {
   ready = true;
 }
 
@@ -83,6 +107,7 @@ void BLE::publish(const BTHome::State &state) {
 
   if (bursting && millis() - burstStarted >= BURST_MS) {
     NimBLEDevice::getAdvertising()->stop();
+    radioDown();
     bursting = false;
   }
 
@@ -99,6 +124,7 @@ void BLE::publish(const BTHome::State &state) {
 
   Serial.printf("[trace] BLE t=%lu burst=%s new=%d\n", millis(),
                 burst == BTHome::Burst::Change ? "change" : "heartbeat", length > 0 ? 1 : 0);
+  radioUp();
   broadcast(lastPayload, lastLength);
   burstStarted = millis();
   bursting = true;
@@ -111,6 +137,7 @@ void BLE::farewell() {
   const size_t length = sequencer.farewell(payload, sizeof(payload));
   if (length == 0) return;  // already said, or nothing to say it from
 
+  radioUp();
   broadcast(payload, length);
   farewellStarted = millis();
   farewelling = true;
@@ -127,6 +154,6 @@ void BLE::shutdown() {
     farewelling = false;
   }
 
-  NimBLEDevice::deinit(false);
+  radioDown();
   ready = false;
 }
