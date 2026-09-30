@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <thread>
 
 #include "Wire.h"
@@ -21,16 +22,38 @@ void (*delayHook)(unsigned long ms) = nullptr;
 
 namespace {
 const std::chrono::steady_clock::time_point kBoot = std::chrono::steady_clock::now();
+
+// SIM_TIME_SCALE, read once: how many times faster than the wall clock the
+// firmware's time runs. Anything missing, unparseable or not positive is 1.
+double readTimeScale() {
+  const char *value = std::getenv("SIM_TIME_SCALE");
+  if (!value) return 1.0;
+  const double scale = std::atof(value);
+  return scale > 0.0 ? scale : 1.0;
+}
+
+// Wall-clock time since boot, sped up by the time scale.
+std::chrono::duration<double, std::micro> scaledSinceBoot() {
+  using namespace std::chrono;
+  return duration<double, std::micro>(steady_clock::now() - kBoot) * SimHost::timeScale();
+}
+}  // namespace
+
+double SimHost::timeScale() {
+  static const double scale = readTimeScale();
+  return scale;
+}
+
+unsigned long SimHost::wallMs(unsigned long simMs) {
+  return (unsigned long)((double)simMs / timeScale());
 }
 
 unsigned long millis() {
-  using namespace std::chrono;
-  return (unsigned long)duration_cast<milliseconds>(steady_clock::now() - kBoot).count();
+  return (unsigned long)(scaledSinceBoot().count() / 1000.0);
 }
 
 unsigned long micros() {
-  using namespace std::chrono;
-  return (unsigned long)duration_cast<microseconds>(steady_clock::now() - kBoot).count();
+  return (unsigned long)scaledSinceBoot().count();
 }
 
 void delay(unsigned long ms) {
@@ -38,11 +61,11 @@ void delay(unsigned long ms) {
     SimHost::delayHook(ms);
     return;
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+  std::this_thread::sleep_for(std::chrono::milliseconds(SimHost::wallMs(ms)));
 }
 
 void delayMicroseconds(unsigned int us) {
-  std::this_thread::sleep_for(std::chrono::microseconds(us));
+  std::this_thread::sleep_for(std::chrono::microseconds(us) / SimHost::timeScale());
 }
 
 void pinMode(uint8_t pin, uint8_t mode) { (void)pin; (void)mode; }

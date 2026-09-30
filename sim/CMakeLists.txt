@@ -141,3 +141,11 @@ target_include_directories(firmware_tests PRIVATE
 )
 
 add_test(NAME firmware_tests COMMAND firmware_tests)
+
+# SIM_TIME_SCALE is what makes a long stint screenshot-able without waiting it
+# out: half an hour of flow at 600x is three seconds. Past the timeout, time
+# is not being sped up.
+add_test(NAME sim_time_scale COMMAND sim)
+set_tests_properties(sim_time_scale PROPERTIES
+  TIMEOUT 20
+  ENVIRONMENT "SDL_VIDEODRIVER=dummy;SIM_TIME_SCALE=600;SIM_ORIENTATION=180;SIM_SCREENSHOT=${CMAKE_CURRENT_BINARY_DIR}/time_scale.bmp;SIM_SCREENSHOT_MS=1800000")

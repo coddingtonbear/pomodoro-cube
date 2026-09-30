@@ -272,7 +272,7 @@ void render() {
   SimPanel::dirty = false;
 
   while (g_screenshotPath && g_screenshotIndex < g_screenshotTimes.size() &&
-         SDL_GetTicks() >= g_screenshotTimes[g_screenshotIndex]) {
+         millis() >= g_screenshotTimes[g_screenshotIndex]) {
     saveScreenshot(scratch, screenshotPathFor(g_screenshotIndex));
     g_screenshotIndex++;
   }
@@ -366,7 +366,7 @@ void applyKeysFromEnv() {
 
 void fireScheduledKeys() {
   while (g_scheduledIndex < g_scheduledKeys.size() &&
-         SDL_GetTicks() >= g_scheduledKeys[g_scheduledIndex].atMs) {
+         millis() >= g_scheduledKeys[g_scheduledIndex].atMs) {
     handleKey(g_scheduledKeys[g_scheduledIndex].key);
     g_scheduledIndex++;
   }
@@ -385,7 +385,7 @@ void onDelay(unsigned long ms) {
   fireScheduledKeys();
   render();
   updateTitle();
-  SDL_Delay((Uint32)ms);
+  SDL_Delay((Uint32)SimHost::wallMs(ms));
 }
 
 // Parked after a deep sleep: the panel is dark and only a keypress gets us out.

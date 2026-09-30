@@ -86,6 +86,7 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=180 \
 | `SIM_SCREENSHOT_MS` | When to grab it, in ms since boot |
 | `SIM_KEYS` | Keys to press, e.g. `b`, `mv`, or `u@12000` for 12s in |
 | `SIM_BLE_TRACE` | Print every BLE advertisement as it goes out |
+| `SIM_TIME_SCALE` | Run the firmware's clock this many times faster than real time, e.g. `600` |
 
 `SIM_KEYS` entries are comma-separated, and `key@ms` presses one part-way
 through a run — which is how pausing gets exercised, since it needs a face
@@ -107,6 +108,20 @@ appended to the name. The sim exits after the last capture.
 SDL_VIDEODRIVER=dummy SIM_ORIENTATION=90 SIM_SCREENSHOT=/tmp/arc.bmp \
   SIM_SCREENSHOT_MS=1000,76000,151000,226000 ./build/sim
 ```
+
+`SIM_TIME_SCALE` speeds up `millis()`, `delay()`, and with them the times in
+`SIM_KEYS` and `SIM_SCREENSHOT_MS`, which are all in simulated milliseconds. A
+state that takes an hour to reach — a flow stint past its first hour, say — is
+six seconds away at `600`:
+
+```bash
+SDL_VIDEODRIVER=dummy SIM_TIME_SCALE=600 SIM_ORIENTATION=180 \
+  SIM_SCREENSHOT=/tmp/hour.bmp SIM_SCREENSHOT_MS=3720000 ./build/sim
+```
+
+A pass still takes as long on the wall clock as its drawing does, and at `600`
+every real millisecond is 0.6 s of simulated time. Put a tap or face change a
+good ten simulated seconds before the screenshot meant to show it.
 
 ## Tests
 
