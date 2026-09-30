@@ -21,26 +21,6 @@ which does the same trick for coffee brew times.
   buys ten of break, which is the fixed pair flow mode replaced; an hour and a
   half buys eighteen. Every 25 minutes it counts scores a pomodoro, which is
   what the arc's lap is showing. See [Flow mode](#flow-mode).
-- **Pause by laying it face up** — the remaining time is kept and the panel is
-  left showing the frozen countdown in muted colours, dimmed. The cube stays
-  awake while it is paused, so standing it back on the same face carries on at
-  once, with nothing to wake. A *different* face is taken as choosing a different
-  interval, so the pause is abandoned.
-- **Face down means off** — the panel blanks and the cube stays dark however
-  much it is jostled, so it can go in a bag. Whatever was running is parked,
-  exactly as face up parks it. To switch it back on, lay it face up and
-  shake it within five seconds. See [Switching off](#switching-off).
-- **Tap it to read it** — the backlight runs at a fifth of full brightness
-  between the moments worth lighting, and a tap on the glass buys ten seconds
-  at full. The QMI8658 detects the tap itself, so it works on a face that never
-  brightens on its own, flow's especially. See [Brightness](#brightness).
-- **A forgotten pause goes to sleep.** After half an hour the CPU stops and
-  the frame is left lit: the GC9A01 refreshes itself from its own memory, so
-  only the backlight draws current. Moving the cube wakes it, paused and awake
-  again if it is still face up.
-- **A battery indicator that stays out of the way** — nothing on screen at all
-  above 3.6 V, and below it a red empty-battery outline with the measured pack
-  voltage inside, so the divider and ADC can be checked against a multimeter.
 - **Home Assistant over BLE** — the cube broadcasts its state as a
   [BTHome v2](https://bthome.io/format/) advertisement, which Home Assistant
   discovers natively: no custom component, no MQTT, no ESPHome. See
