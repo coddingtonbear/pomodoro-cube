@@ -11,18 +11,16 @@ which does the same trick for coffee brew times.
 
 ## Features
 
-- **Four intervals, chosen by rotation** — 25 minutes on the default face and
-  5 on the next, then flow mode's pair. Nothing to configure and nothing to
-  press: the accelerometer reads which face is down and the timer starts.
-- **Flow mode, on the third and fourth faces** — the work face counts *up* for
-  as long as the cube stands on it, banking a fifth of what it counts as break
-  time. The break face spends that bank. Fifty minutes of work buys ten of
-  break, which is the fixed pair flow mode replaced; an hour and a half buys
-  eighteen. Every 25 minutes it counts scores a pomodoro, which is what the
-  arc's lap is showing. See [Flow mode](#flow-mode).
-- **An arc that drains rather than fills** — it starts full and empties as the
-  time goes, shading green through amber to red so you can read roughly how
-  long is left from across the room without reading the digits.
+- **The faces are the interface** — each face of the cube means something
+  different: a 25-minute work timer, a 5-minute break, flow mode's work and its
+  break, pause, and off. Nothing to configure and nothing to press: the
+  accelerometer reads which face is down, and that is the whole API.
+- **Flow mode, for work that doesn't fit a fixed interval** — its work face
+  counts *up* for as long as the cube stands on it, banking a fifth of what it
+  counts as break time. The break face spends that bank. Fifty minutes of work
+  buys ten of break, which is the fixed pair flow mode replaced; an hour and a
+  half buys eighteen. Every 25 minutes it counts scores a pomodoro, which is
+  what the arc's lap is showing. See [Flow mode](#flow-mode).
 - **Pause by laying it face up** — the remaining time is kept and the panel is
   left showing the frozen countdown in muted colours, dimmed. The cube stays
   awake while it is paused, so standing it back on the same face carries on at
