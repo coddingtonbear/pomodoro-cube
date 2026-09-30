@@ -14,10 +14,6 @@ which does the same trick for coffee brew times.
 - **Four intervals, chosen by rotation** — 25 minutes on the default face and
   5 on the next, then flow mode's pair. Nothing to configure and nothing to
   press: the accelerometer reads which face is down and the timer starts.
-- **A face that stays upright** — the picture is drawn against gravity at
-  whatever angle the cube is held, so turning the cube turns the face with it
-  rather than swapping it a quarter turn at a time. See
-  [How it works](#how-it-works).
 - **Flow mode, on the third and fourth faces** — the work face counts *up* for
   as long as the cube stands on it, banking a fifth of what it counts as break
   time. The break face spends that bank. Fifty minutes of work buys ten of
