@@ -72,76 +72,26 @@ fresh 25:00 if there wasn't anything.
 
 ## Flow mode
 
-The third face counts up instead of down, for a stretch of work that doesn't
-fit a fixed interval. A fifth of what it counts goes into a **bank** of break
-time, and the fourth face spends that bank.
+Sometimes 25 minutes just isn't the right length for a stretch of work. Flow
+mode's work face counts _up_ instead of down, for however long you leave the
+cube on it, and every five minutes you work banks a minute of break. The flow
+break face then counts that bank back down: fifty minutes of work buys you a
+ten-minute break, and an hour and a half buys eighteen.
 
-The bank is a balance rather than a handoff, which is what makes several spells
-of work add up and an interrupted break keep its remainder:
+The bank is a running balance rather than a one-time handoff, so several
+stretches of work add up, and if you're interrupted partway through a break,
+whatever's left stays banked for next time.
 
-| | Bank |
-| --- | --- |
-| 25 minutes of flow work | **5:00** — a fifth of 25 credited |
-| Turn to the break face | 5:00 on the clock, counting down |
-| A minute of it taken, then back to flow work | **4:00** — what was left stays banked |
-| Another 25 minutes of flow work | **9:00** — 4 left over plus 5 newly earned |
-
-A running break writes the new balance back every second, so whatever
-interrupts it — another face, a pause, a flat battery — leaves the rest still
-banked. Working on the 25-minute face doesn't cost you the bank either: only
-the break face spends it, and only a flat battery clears it.
-
-Turn to the break face with nothing banked and you get a break of no length:
-`00:00`, the finish pattern, and the usual half minute before the cube sleeps.
-There is nothing to fall back on, because any fallback would be break time
-nobody worked for. For the same reason there is no minimum on a break either —
-the bank is an account, and what it says you have is what you get, down to
-twelve seconds.
-
-**Both flow faces wear an inverted panel** — black on white — because a number
-going up looks exactly like one going down, and because the break face is
-spending the bank just as much as the work face is filling it. The two flow
-faces belong together and the two fixed ones belong together:
+Both flow faces are drawn black on white so you can tell at a glance that
+you're not on a fixed timer, and the work face shows what your bank would be
+if you stopped right now:
 
 ![Flow mode counting up with its bank, and the break it earned](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/flow.png)
 
-The work face carries the bank above the counter in small type — `BANK 4:40`.
-It shows what the bank would be worth **if the stint ended now**, so it climbs a
-second for every five worked rather than sitting at the last committed figure:
-the question you are asking when you glance at it is what turning the cube over
-would give you. The break face has no such label, because there the big number
-*is* the bank, counting down.
-
-Counting up has no total for the arc to drain against, so the arc becomes a lap
-indicator instead: it fills over 25 minutes, shading green to red as the lap
-ages, then starts again. Flow's arc runs a step darker at every stop than the
-fixed faces' — those colours were picked against black, and amber on white is
-all but invisible. **Each lap that closes scores a pomodoro** — the arc
-coming back round is the cube saying so — which is why the lap is 25 minutes and
-not some other number. Two hours of flow is four pomodoros, counted as they
-happen rather than totted up when the stint ends, so the count reaches Home
-Assistant while you are still working.
-
-A stint's last partial lap scores nothing, the same way abandoning a 25-minute
-timer at 24:00 scores nothing. It still credits the bank, though: a fifth of the
-whole stint goes in, partial lap included. How much break you have banked and
-how many pomodoros you did are different questions.
-
-Past an hour the label runs out of digits for MM:SS and switches to HH:MM, with
-a small `h:m` marker underneath saying so — the two are otherwise
-indistinguishable.
-
-The rest of the rules:
-
-| Situation | What happens |
-| --- | --- |
-| Flow work → face up | Parked, not ended: standing the cube back on that face carries on counting up, and nothing is credited until it does end |
-| Flow work → any other timer face | The stint ends and credits the bank. Laps already scored are kept |
-| Flow break → face up | Parked. The bank already holds the remainder, so abandoning the pause loses nothing |
-| A stint reaching four hours | Ends itself and buzzes, nine laps scored and 48 minutes credited. Left standing, the cube would otherwise hold the backlight on until the pack went flat |
-| The bank reaching four hours | Capped there, for the same reason a stint is |
-| Flow break with an empty bank | Finishes on the spot: `00:00` and the finish pattern |
-| Face down | Off, with the stint parked and the bank kept, as face up keeps them |
+The arc on the work face fills over 25 minutes and then starts over, counting a
+pomodoro each time it comes back around. Past an hour, the counter switches
+from minutes and seconds to hours and minutes (with a small `h:m` underneath so
+you can tell which is which).
 
 ## Bluetooth
 
