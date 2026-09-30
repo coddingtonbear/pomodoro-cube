@@ -113,18 +113,6 @@ a legacy advertisement allows:
 `Duration 2 == 0` means the timer is counting up, and `Duration` is then the
 elapsed time.
 
-Five states come out of four fields, with one extra byte pair on the wire.
-**First match wins**, and the order matters: a stint at nought seconds would
-otherwise read as armed, and an empty-bank break as both armed and finished.
-
-| | State | Condition |
-| --- | --- | --- |
-| 1 | Counting up | `started == 0` and `work` |
-| 2 | Finished | `remaining == 0` |
-| 3 | Running | `running` |
-| 4 | Armed | `not running`, `remaining == started` |
-| 5 | Paused | `not running`, `0 < remaining < started` |
-
 Before it goes to sleep, the cube sends one last advertisement with `running`
 off, so Home Assistant doesn't go on thinking a timer is running while the cube
 is asleep.
