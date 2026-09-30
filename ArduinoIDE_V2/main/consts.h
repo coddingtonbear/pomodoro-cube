@@ -188,9 +188,9 @@ constexpr int FLOW_MAX_SECONDS = 4 * 60 * 60;
 // current.
 constexpr int BACKLIGHT_FULL_PERCENT = 100;
 //
-// Chosen by eye on the cube from 20, 10, 5 and 2: 2 was more than enough to
-// read a dimmed face, and it was 20 before that.
-constexpr int BACKLIGHT_IDLE_PERCENT = 2;
+// Chosen by eye on the cube: 20 at first, then 2 from a trial of 20, 10, 5
+// and 2, which turned out a little too dark in use.
+constexpr int BACKLIGHT_IDLE_PERCENT = 4;
 
 // The CPU clock to run at while the panel is lit at full, and otherwise. Idle
 // at 80 MHz is a saving worth keeping, but at 80 MHz a face drawn at an angle
