@@ -323,7 +323,7 @@ ArduinoIDE_V2/User_Setup.h TFT_eSPI panel settings, linked into the library
 ArduinoIDE_V2/main/       the firmware, built with the Arduino IDE
 ArduinoIDE_V2/main/src/   the LVGL UI, originally SquareLine Studio output
 SquareLine/               the SquareLine Studio project the UI came from
-cad/                      the parametric enclosure; see cad/README.md
+cad/                      the enclosure, exported from Fusion 360; see cad/README.md
 fonts/                    source faces for the countdown label
 sim/                      desktop simulator and host tests
 tools/                    flashing the board, and font conversion
