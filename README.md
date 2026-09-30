@@ -130,16 +130,9 @@ otherwise read as armed, and an empty-bank break as both armed and finished.
 | 4 | Armed | `not running`, `remaining == started` |
 | 5 | Paused | `not running`, `0 < remaining < started` |
 
-**A farewell advert goes out before every sleep**, with `connectivity` *and*
-`running` dropped to 0, because Home Assistant holds the last state it heard —
-otherwise a busy light keyed on `running` would stay lit until the cube was next
-picked up. Why it slept is inferable from the rest of the payload:
-`remaining == 0` is a normal finish, a low voltage is a flat pack, and anything
-else is the cube being put away.
-
-`running` has to go for a second reason: a pause that has gone to sleep is
-still a pause. State 5 below needs `running` false, which a cube paused awake
-advertises for itself, and the farewell goes on saying once it sleeps.
+Before it goes to sleep, the cube sends one last advertisement with `running`
+off, so Home Assistant doesn't go on thinking a timer is running while the cube
+is asleep.
 
 ### How it reaches the air
 
