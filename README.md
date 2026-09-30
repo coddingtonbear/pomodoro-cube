@@ -110,13 +110,9 @@ a legacy advertisement allows:
 | Duration | `0x42` | uint24, ×0.001 s | Remaining, or elapsed while counting up |
 | Duration 2 | `0x42` | uint24, ×0.001 s | What the timer started at, or 0 while counting up |
 
-**`Duration 2 == 0` together with `work` means the timer is counting up**, and
-`Duration` is then the elapsed time rather than the remaining. The `work` half
-of that matters: a *break* of zero length is a real state too — it is what the
-flow break face shows when the bank is empty — and the work flag is the only
-thing telling the two apart, since flow's work face is the one face that ever
-counts up. The sentinel is free either way: it needs no object of its own, and
-no timer with a length ever advertises a zero one.
+`Duration 2 == 0` means the timer is counting up, and `Duration` is then the
+elapsed time. (A flow break with nothing banked also advertises 0, but with
+`work` off.)
 
 Five states come out of four fields, with one extra byte pair on the wire.
 **First match wins**, and the order matters: a stint at nought seconds would
