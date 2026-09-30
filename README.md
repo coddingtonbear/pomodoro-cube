@@ -1,3 +1,5 @@
+https://github.com/user-attachments/assets/7382e785-1dbb-4c98-959f-1ba87e019f36
+
 # pomodoro-cube
 
 A desk cube that runs a pomodoro timer. Stand it on a face to pick the
