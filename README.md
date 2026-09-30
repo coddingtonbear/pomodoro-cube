@@ -30,9 +30,7 @@ which does the same trick for coffee brew times.
 
 Which way up the cube is sitting is the whole interface. There's an
 accelerometer on the board, and the firmware turns what it reports into one of
-six states: the four timer faces, face up, or face down. A reading has to hold
-still for a moment before it's believed, so a cube that's mid-flip doesn't
-start a timer for whatever face it happened to tumble past.
+six states: the four timer faces, face up, or face down.
 
 Standing the cube on a timer face starts that face's timer — or, if you'd
 paused one on that same face, picks it back up where you left off. The
