@@ -82,4 +82,28 @@ class Sequencer {
   bool published_ = false;
 };
 
+// Decides when the radio goes on the air at all. The cube advertises in short
+// bursts rather than continuously: one as soon as anything a receiver should
+// hear promptly has changed, and a heartbeat every HEARTBEAT_MS otherwise,
+// carrying whatever the countdown and the pack have reached by then. Between
+// bursts the radio is quiet, which is what leaves room for the CPU to sleep.
+//
+// What counts as prompt is everything but the seconds remaining and the pack
+// voltage, which change all the time and are fine a heartbeat late.
+enum class Burst { None, Change, Heartbeat };
+
+class Scheduler {
+ public:
+  // Whether `state` should go out now, and why. Anything but Burst::None is
+  // taken as sent: the next heartbeat is counted from it.
+  Burst due(const State &state, unsigned long nowMs);
+
+  static constexpr unsigned long HEARTBEAT_MS = 30UL * 1000UL;
+
+ private:
+  State last_;
+  unsigned long lastMs_ = 0;
+  bool sent_ = false;
+};
+
 }  // namespace BTHome

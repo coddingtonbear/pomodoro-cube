@@ -185,3 +185,27 @@ size_t BTHome::Sequencer::farewell(uint8_t *out, size_t capacity) {
   // right answer rather than a special case.
   return update(state, out, capacity);
 }
+
+namespace {
+
+bool promptFieldsDiffer(const BTHome::State &a, const BTHome::State &b) {
+  return a.awake != b.awake || a.running != b.running || a.work != b.work ||
+         a.pomodoroCount != b.pomodoroCount || a.selectedSeconds != b.selectedSeconds;
+}
+
+}  // namespace
+
+BTHome::Burst BTHome::Scheduler::due(const State &state, unsigned long nowMs) {
+  Burst burst = Burst::None;
+  if (!sent_ || promptFieldsDiffer(state, last_)) {
+    burst = Burst::Change;
+  } else if (nowMs - lastMs_ >= HEARTBEAT_MS) {
+    burst = Burst::Heartbeat;
+  }
+  if (burst == Burst::None) return burst;
+
+  last_ = state;
+  lastMs_ = nowMs;
+  sent_ = true;
+  return burst;
+}

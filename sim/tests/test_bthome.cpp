@@ -362,3 +362,59 @@ void testFarewellIsNumberedLikeAnyOtherChange() {
   // Said twice, it is only news once.
   CHECK(sequencer.farewell(advert, sizeof(advert)) == 0);
 }
+
+// --- Scheduler -------------------------------------------------------------
+// When the radio goes on the air: at once for anything a receiver should hear
+// promptly, and otherwise on a heartbeat.
+
+void testTheFirstStateGoesOutAtOnce() {
+  BTHome::Scheduler scheduler;
+  CHECK(scheduler.due(workTimerRunning(), 5000) == BTHome::Burst::Change);
+}
+
+// The seconds and the pack voltage change all the time. They wait for the
+// heartbeat, and are sent with whatever they have reached by then.
+void testTheCountdownAndVoltageWaitForTheHeartbeat() {
+  BTHome::Scheduler scheduler;
+  BTHome::State state = workTimerRunning();
+  CHECK(scheduler.due(state, 0) == BTHome::Burst::Change);
+
+  state.remainingSeconds -= 10;
+  state.batteryVolts -= 0.05f;
+  CHECK(scheduler.due(state, 10000) == BTHome::Burst::None);
+  CHECK(scheduler.due(state, BTHome::Scheduler::HEARTBEAT_MS - 1) == BTHome::Burst::None);
+  CHECK(scheduler.due(state, BTHome::Scheduler::HEARTBEAT_MS) == BTHome::Burst::Heartbeat);
+
+  // Counted from the heartbeat just sent, not from the start.
+  CHECK(scheduler.due(state, BTHome::Scheduler::HEARTBEAT_MS + 1) == BTHome::Burst::None);
+  CHECK(scheduler.due(state, 2 * BTHome::Scheduler::HEARTBEAT_MS) == BTHome::Burst::Heartbeat);
+}
+
+// An unchanged cube still says so on the heartbeat, which is what keeps a
+// receiver from deciding it has gone away.
+void testAnUnchangedCubeStillHasAHeartbeat() {
+  BTHome::Scheduler scheduler;
+  CHECK(scheduler.due(workTimerRunning(), 0) == BTHome::Burst::Change);
+  CHECK(scheduler.due(workTimerRunning(), BTHome::Scheduler::HEARTBEAT_MS) ==
+        BTHome::Burst::Heartbeat);
+}
+
+void testEveryPromptFieldSendsAtOnce() {
+  const BTHome::State base = workTimerRunning();
+  for (int field = 0; field < 5; field++) {
+    BTHome::Scheduler scheduler;
+    CHECK(scheduler.due(base, 0) == BTHome::Burst::Change);
+    BTHome::State changed = base;
+    switch (field) {
+      case 0: changed.awake = false; break;
+      case 1: changed.running = false; break;
+      case 2: changed.work = false; break;
+      case 3: changed.pomodoroCount++; break;
+      case 4: changed.selectedSeconds = 300; break;
+    }
+    CHECK(scheduler.due(changed, 1) == BTHome::Burst::Change);
+    // And a change resets the heartbeat.
+    CHECK(scheduler.due(changed, BTHome::Scheduler::HEARTBEAT_MS) == BTHome::Burst::None);
+  }
+}
+

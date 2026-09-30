@@ -178,17 +178,19 @@ uint32_t Util::cpuMhz(int backlightPercent) {
   return backlightPercent >= BACKLIGHT_FULL_PERCENT ? CPU_MHZ_LIT : CPU_MHZ_IDLE;
 }
 
-uint32_t Util::loopPassMs(const PaceView &view) {
+bool Util::loopIsIdle(const PaceView &view) {
   // Lit is when someone is looking, and the angle is being followed at the
   // rate it was tuned for; busy is timing that is finer than an idle pass.
-  if (view.backlightPercent >= BACKLIGHT_FULL_PERCENT || view.busy ||
-      view.sinceMovedMs < LOOP_STILL_HOLD_MS) {
-    return LOOP_PASS_MS;
-  }
-  // Early for the tick rather than late for it. Never quicker than a fast
-  // pass, though: a tick that is due now is one this pass has just taken.
+  return view.backlightPercent < BACKLIGHT_FULL_PERCENT && !view.busy &&
+         view.sinceMovedMs >= LOOP_STILL_HOLD_MS;
+}
+
+uint32_t Util::loopPassMs(const PaceView &view) {
+  if (!loopIsIdle(view)) return LOOP_PASS_MS;
+  // On the tick rather than late for it. At least a millisecond, so a tick
+  // that is due now is taken by the very next pass.
   if (view.untilTickMs < LOOP_IDLE_PASS_MS) {
-    return view.untilTickMs < LOOP_PASS_MS ? LOOP_PASS_MS : (uint32_t)view.untilTickMs;
+    return view.untilTickMs == 0 ? 1 : (uint32_t)view.untilTickMs;
   }
   return LOOP_IDLE_PASS_MS;
 }

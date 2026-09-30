@@ -577,13 +577,15 @@ void loop() {
   const bool finishing = !paused && !countingUp() && remSeconds == 0;
   const bool ticking = !paused && (countingUp() || remSeconds > 0);
   const unsigned long sinceTick = millis() - lastTick;
-  const uint32_t nextPassMs = Util::loopPassMs(
-      {backlight, Haptic::playing() != Haptic::Pattern::None || finishing,
-       millis() - lastMoved,
-       ticking ? (sinceTick >= 1000 ? 0UL : 1000UL - sinceTick) : ~0UL});
+  const Util::PaceView pace = {
+      backlight, Haptic::playing() != Haptic::Pattern::None || finishing,
+      millis() - lastMoved,
+      ticking ? (sinceTick >= 1000 ? 0UL : 1000UL - sinceTick) : ~0UL};
+  passMs = Util::loopPassMs(pace);
   // Traced only between fast and slow, not for every landing on a tick.
-  if ((nextPassMs == LOOP_PASS_MS) != (passMs == LOOP_PASS_MS)) {
-    Serial.printf("[trace] PACE t=%lu ms=%u\n", millis(), (unsigned)nextPassMs);
+  static bool idle = false;
+  if (Util::loopIsIdle(pace) != idle) {
+    idle = !idle;
+    Serial.printf("[trace] PACE t=%lu idle=%d\n", millis(), (int)idle);
   }
-  passMs = nextPassMs;
 }

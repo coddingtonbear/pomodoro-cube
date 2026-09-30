@@ -6,8 +6,7 @@
 //
 // Advertising only -- there is no GATT server, no scanning and nothing to
 // connect to. A BTHome device is a beacon, and a non-connectable advertisement
-// is about a millisecond of radio every few hundred, which is nothing beside
-// the backlight.
+// is a millisecond of radio at a time, sent in short bursts.
 namespace BLE {
 
 // Brings up the controller and starts advertising. Blocks for a few hundred
@@ -16,8 +15,9 @@ namespace BLE {
 void setup();
 
 // Offer the current state. Cheap enough to call on every pass of the loop: the
-// payload only reaches the radio when the bytes a receiver would see have
-// changed. Does nothing before setup().
+// radio only goes on the air when BTHome::Scheduler says a burst is due, and
+// this is also what takes it off again once the burst has run. Does nothing
+// before setup().
 void publish(const BTHome::State &state);
 
 // Puts the advertisement that goes out as the cube falls asleep on the air,

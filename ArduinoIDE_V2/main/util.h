@@ -124,6 +124,9 @@ struct PaceView {
   unsigned long untilTickMs;
 };
 
+// Whether nothing on the cube needs the loop fast.
+bool loopIsIdle(const PaceView &view);
+
 // How long from the start of this pass to the start of the next.
 uint32_t loopPassMs(const PaceView &view);
 

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 
+#include <string.h>
 #include <string>
 
 namespace {
@@ -12,23 +13,30 @@ constexpr uint16_t intervalUnits(uint32_t ms) {
   return (uint16_t)(ms * 1000UL / 625UL);
 }
 
-// While awake. Short enough that turning the cube over shows up in Home
-// Assistant while the hand is still moving, and long enough to be irrelevant
-// next to the panel: three adverts a second is well under a tenth of a
-// milliamp, against twenty-odd for the backlight at its dimmest.
-constexpr uint32_t AWAKE_INTERVAL_MS = 300;
-
-// The farewell is the one advertisement that cannot be repeated later, so it
-// goes out at the fastest interval a legacy non-connectable advertisement is
-// allowed, and stays on the air through the whole of the shutdown sequence
-// rather than for a fixed spell of its own. That sequence is over a second
-// long, which at this interval is a dozen-odd copies -- against the four that
-// used to go out in a 400 ms delay before the radio was shut down, of which a
-// receiver scanning at a low duty cycle could easily miss every one.
-constexpr uint32_t FAREWELL_INTERVAL_MS = 100;
+// Every advertisement goes out in a burst at the fastest interval a legacy
+// non-connectable advertisement is allowed, and the radio is quiet between
+// bursts -- see BTHome::Scheduler for when one is due. BURST_MS at this
+// interval is about twenty copies, which a receiver scanning at a low duty
+// cycle (an ESPHome Bluetooth proxy listens for 30 ms in every 320 by default)
+// should catch at least one of, and the next heartbeat covers one it does not.
+//
+// The farewell goes out the same way, but stays on the air through the whole
+// of the shutdown sequence rather than for a burst of its own: it is the one
+// advertisement that cannot be repeated later.
+constexpr uint32_t ADVERT_INTERVAL_MS = 100;
+constexpr unsigned long BURST_MS = 2000;
 
 BTHome::Sequencer sequencer;
+BTHome::Scheduler scheduler;
 bool ready = false;
+// The advertisement last put on the air, which a heartbeat with nothing new in
+// it sends again. Under the same packet id, so a receiver deduping on it
+// hears the cube is still there without taking it for a new reading.
+uint8_t lastPayload[BTHome::MAX_ADVERTISEMENT];
+size_t lastLength = 0;
+// millis() when the burst on the air started; meaningful while `bursting`.
+unsigned long burstStarted = 0;
+bool bursting = false;
 // millis() when the farewell went on the air; meaningful while `farewelling`.
 unsigned long farewellStarted = 0;
 bool farewelling = false;
@@ -64,8 +72,8 @@ void BLE::setup() {
   // requests and nothing can try to connect.
   advertising->setAdvertisementType(BLE_GAP_CONN_MODE_NON);
   advertising->setScanResponse(false);
-  advertising->setMinInterval(intervalUnits(AWAKE_INTERVAL_MS));
-  advertising->setMaxInterval(intervalUnits(AWAKE_INTERVAL_MS));
+  advertising->setMinInterval(intervalUnits(ADVERT_INTERVAL_MS));
+  advertising->setMaxInterval(intervalUnits(ADVERT_INTERVAL_MS));
 
   ready = true;
 }
@@ -73,11 +81,27 @@ void BLE::setup() {
 void BLE::publish(const BTHome::State &state) {
   if (!ready) return;
 
+  if (bursting && millis() - burstStarted >= BURST_MS) {
+    NimBLEDevice::getAdvertising()->stop();
+    bursting = false;
+  }
+
+  const BTHome::Burst burst = scheduler.due(state, millis());
+  if (burst == BTHome::Burst::None) return;
+
   uint8_t payload[BTHome::MAX_ADVERTISEMENT];
   const size_t length = sequencer.update(state, payload, sizeof(payload));
-  if (length == 0) return;  // nothing new to say
+  if (length > 0) {
+    memcpy(lastPayload, payload, length);
+    lastLength = length;
+  }
+  if (lastLength == 0) return;
 
-  broadcast(payload, length);
+  Serial.printf("[trace] BLE t=%lu burst=%s new=%d\n", millis(),
+                burst == BTHome::Burst::Change ? "change" : "heartbeat", length > 0 ? 1 : 0);
+  broadcast(lastPayload, lastLength);
+  burstStarted = millis();
+  bursting = true;
 }
 
 void BLE::farewell() {
@@ -87,17 +111,11 @@ void BLE::farewell() {
   const size_t length = sequencer.farewell(payload, sizeof(payload));
   if (length == 0) return;  // already said, or nothing to say it from
 
-  NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
-  // Stopped first because the interval is a start-time parameter: set while
-  // advertising, it would not take effect until the next start, which for
-  // this advertisement never comes.
-  advertising->stop();
-  advertising->setMinInterval(intervalUnits(FAREWELL_INTERVAL_MS));
-  advertising->setMaxInterval(intervalUnits(FAREWELL_INTERVAL_MS));
-
   broadcast(payload, length);
   farewellStarted = millis();
   farewelling = true;
+  // On the air until shutdown(), not for a burst: nothing is to stop it.
+  bursting = false;
 }
 
 void BLE::shutdown() {

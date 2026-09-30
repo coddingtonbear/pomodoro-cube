@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "Arduino.h"
 #include "sim_ble.h"
 
 uint8_t SimBLE::lastPayload[31] = {0};
@@ -18,6 +19,7 @@ bool SimBLE::lastWasFarewell = false;
 namespace {
 
 BTHome::Sequencer sequencer;
+BTHome::Scheduler scheduler;
 bool ready = false;
 
 // SIM_BLE_TRACE prints every advertisement as it goes out. `a` covers reading
@@ -50,6 +52,12 @@ void BLE::setup() {
 
 void BLE::publish(const BTHome::State &state) {
   if (!ready) return;
+  const BTHome::Burst burst = scheduler.due(state, millis());
+  if (burst == BTHome::Burst::None) return;
+  if (tracing()) {
+    std::printf("[sim] burst t=%lu %s\n", millis(),
+                burst == BTHome::Burst::Change ? "change" : "heartbeat");
+  }
   record(sequencer.update(state, SimBLE::lastPayload, sizeof(SimBLE::lastPayload)), false);
 }
 

@@ -510,9 +510,11 @@ void testTheLoopSlowsOnlyWhenNothingNeedsIt() {
 void testASlowPassLandsOnTheTick() {
   CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 1000}) == LOOP_IDLE_PASS_MS);
   CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 130}) == 130);
-  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, LOOP_PASS_MS}) ==
-        LOOP_PASS_MS);
-  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 0}) == LOOP_PASS_MS);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 3}) == 3);
+  CHECK(Util::loopPassMs({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 0}) == 1);
+  // Landing on a tick is still an idle pass.
+  CHECK(Util::loopIsIdle({BACKLIGHT_IDLE_PERCENT, false, kLongStill, 3}));
+  CHECK(!Util::loopIsIdle({BACKLIGHT_FULL_PERCENT, false, kLongStill, kNoTick}));
 }
 
 }  // namespace

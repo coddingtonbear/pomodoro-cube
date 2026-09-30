@@ -137,10 +137,14 @@ of them can be tested without a radio:
   millivolt doesn't churn it, since the comparison is on encoded bytes rather
   than the float behind them.
 - `ble.cpp` hands the result to NimBLE. Non-connectable, no scan response, no
-  GATT server and nothing to connect to: a BTHome device is a beacon. Adverts go
-  out every 300 ms while the cube is awake, which is under a tenth of a milliamp
-  against twenty-odd for the backlight at its dimmest. The farewell goes out at
-  100 ms and stays on the air for the whole of the shutdown sequence — the panel
+  GATT server and nothing to connect to: a BTHome device is a beacon. The radio
+  goes on the air in two-second bursts at 100 ms, and is quiet in between.
+  `BTHome::Scheduler` decides when a burst is due: at once when anything but the
+  seconds remaining or the pack voltage has changed, and otherwise every 30
+  seconds as a heartbeat, carrying wherever the countdown and the pack have got
+  to. Home Assistant's countdown is therefore up to 30 seconds stale, and face
+  changes, pauses, finishes and pomodoros arrive at once. The farewell goes out
+  at the same 100 ms and stays on the air for the whole of the shutdown sequence — the panel
   being put away, the parting buzz, a second's pause — with the controller
   shut down last, immediately before the CPU stops, and never after less than a
   second on the air. That is a dozen-odd copies of the one advertisement that
