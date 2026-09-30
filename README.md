@@ -110,15 +110,6 @@ a legacy advertisement allows:
 | Duration | `0x42` | uint24, ×0.001 s | Remaining, or elapsed while counting up |
 | Duration 2 | `0x42` | uint24, ×0.001 s | What the timer started at, or 0 while counting up |
 
-**There are deliberately no event objects.** A BTHome event carries an event
-id and no payload, so a "timer started" event couldn't say how long the
-interval was; you'd read that from the duration objects anyway, and then risk
-acting on the previous value if the sensors hadn't settled first. Automations
-should key off `running` changing state instead, and read `work` for what kind
-of interval it is. State also self-heals where an event can't: an advertisement
-is an unacknowledged broadcast, so a missed event is gone for good while a
-missed state is re-advertised a second later.
-
 **`Duration 2 == 0` together with `work` means the timer is counting up**, and
 `Duration` is then the elapsed time rather than the remaining. The `work` half
 of that matters: a *break* of zero length is a real state too — it is what the
