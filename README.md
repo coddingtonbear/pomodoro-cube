@@ -167,6 +167,17 @@ and `SIM_BLE_TRACE=1` prints every one as it goes out:
 
 ## Hardware
 
+### Parts
+
+- **Board**: [Waveshare ESP32-S3-Touch-LCD-1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28)
+- **Battery**: a 102535 Li-Po cell ([the one used here](https://www.amazon.com/dp/B0GQB1DCTW))
+- **Vibration motor**: [the one used here](https://www.amazon.com/dp/B0FQTHK9LH)
+- **Screws**: 2× M2.6 × 6 mm self-tapping, to hold the enclosure together
+- **Enclosure**: four printed parts; see [cad/](cad/README.md) or
+  [Printables](https://www.printables.com/model/1860676-pomodoro-cube)
+
+### The board
+
 A [Waveshare ESP32-S3-Touch-LCD-1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28),
 which carries everything except the vibration motor: the 240×240 round GC9A01 over SPI,
 a QMI8658 accelerometer over I²C, a LiPo connector with an ETA6096 charger and

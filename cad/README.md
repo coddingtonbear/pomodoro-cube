@@ -27,6 +27,10 @@ openings in its side walls. **Face** is the display's front and
 plugs into the top of it; **back** closes the bottom. **Barrier** is a thin
 plate that sits inside the shell about 10 mm behind the display.
 
+Besides the board, it holds a 102535 Li-Po battery and a vibration motor, and
+two M2.6 × 6 mm self-tapping screws hold it together; see
+[Parts](../README.md#parts) for links.
+
 Each STL was checked watertight on export, and each part lies in whichever
 axis-aligned orientation leaves the least overhang steeper than 45°. Face still
 has some, from the display bevel and the edge rounds on the bed.
