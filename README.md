@@ -87,9 +87,7 @@ if you stopped right now:
 ![Flow mode counting up with its bank, and the break it earned](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/flow.png)
 
 The arc on the work face fills over 25 minutes and then starts over, counting a
-pomodoro each time it comes back around. Past an hour, the counter switches
-from minutes and seconds to hours and minutes (with a small `h:m` underneath so
-you can tell which is which).
+pomodoro each time it comes back around.
 
 ## Bluetooth
 
