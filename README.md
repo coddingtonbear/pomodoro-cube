@@ -111,8 +111,7 @@ a legacy advertisement allows:
 | Duration 2 | `0x42` | uint24, ×0.001 s | What the timer started at, or 0 while counting up |
 
 `Duration 2 == 0` means the timer is counting up, and `Duration` is then the
-elapsed time. (A flow break with nothing banked also advertises 0, but with
-`work` off.)
+elapsed time.
 
 Five states come out of four fields, with one extra byte pair on the wire.
 **First match wins**, and the order matters: a stint at nought seconds would
