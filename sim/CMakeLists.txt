@@ -143,8 +143,8 @@ target_include_directories(firmware_tests PRIVATE
 add_test(NAME firmware_tests COMMAND firmware_tests)
 
 # SIM_TIME_SCALE is what makes a long stint screenshot-able without waiting it
-# out: half an hour of flow at 600x is three seconds. Past the timeout, time
-# is not being sped up.
+# out: half an hour of simulated time at 600x is three seconds on the wall
+# clock. Past the timeout, time is not being sped up.
 add_test(NAME sim_time_scale COMMAND sim)
 set_tests_properties(sim_time_scale PROPERTIES
   TIMEOUT 20

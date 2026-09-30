@@ -110,18 +110,22 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=90 SIM_SCREENSHOT=/tmp/arc.bmp \
 ```
 
 `SIM_TIME_SCALE` speeds up `millis()`, `delay()`, and with them the times in
-`SIM_KEYS` and `SIM_SCREENSHOT_MS`, which are all in simulated milliseconds. A
-state that takes an hour to reach — a flow stint past its first hour, say — is
-six seconds away at `600`:
+`SIM_KEYS` and `SIM_SCREENSHOT_MS`, which are all in simulated milliseconds.
+A flow stint past its first hour is a minute away at `100`:
 
 ```bash
-SDL_VIDEODRIVER=dummy SIM_TIME_SCALE=600 SIM_ORIENTATION=180 \
-  SIM_SCREENSHOT=/tmp/hour.bmp SIM_SCREENSHOT_MS=3720000 ./build/sim
+SDL_VIDEODRIVER=dummy SIM_TIME_SCALE=100 SIM_ORIENTATION=180 \
+  SIM_KEYS=t@5995000 SIM_SCREENSHOT=/tmp/hour.bmp SIM_SCREENSHOT_MS=6000000 ./build/sim
 ```
 
-A pass still takes as long on the wall clock as its drawing does, and at `600`
-every real millisecond is 0.6 s of simulated time. Put a tap or face change a
-good ten simulated seconds before the screenshot meant to show it.
+The timer on screen falls behind the clock, though. The firmware advances it
+by at most one second per pass of `loop()`, and a pass still takes as long on
+the wall clock as its drawing does — a few milliseconds, which at `100` is
+most of a simulated second. The run above shows about 1:18, not 1:40, and at
+`600` a pass is several seconds and an hour's run shows about fifteen minutes.
+Aim a screenshot by what is on screen rather than by the arithmetic, and keep a
+tap no more than a few simulated seconds before the capture it is meant to
+brighten.
 
 ## Tests
 
