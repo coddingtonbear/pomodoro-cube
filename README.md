@@ -176,7 +176,8 @@ and `SIM_BLE_TRACE=1` prints every one as it goes out:
 - **Board**: [Waveshare ESP32-S3-Touch-LCD-1.28](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.28)
 - **Battery**: a 102535 Li-Po cell ([the one used here](https://www.amazon.com/dp/B0GQB1DCTW))
 - **Vibration motor**: [the one used here](https://www.amazon.com/dp/B0FQTHK9LH)
-- **Screws**: 2× M2.6 × 6 mm self-tapping, to hold the enclosure together
+- **Screws**: 4× M2.6 × 6 mm self-tapping: two inside hold the display to the
+  center, two outside hold the back on
 - **Enclosure**: four printed parts; see [cad/](cad/README.md) or
   [Printables](https://www.printables.com/model/1860676-pomodoro-cube)
 
