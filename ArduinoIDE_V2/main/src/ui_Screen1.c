@@ -106,22 +106,20 @@ void ui_Screen1_screen_init(void)
 
     // Which two fields the countdown is showing. Past an hour MM:SS runs out of
     // digits and the label switches to HH:MM, which is indistinguishable from
-    // the other without something saying so. In montserrat rather than the
-    // countdown face, which is subset to digits and a colon.
+    // the other without something saying so: a small trailing colon after the
+    // minutes, hinting at the seconds that would follow. In the countdown's own
+    // face, cut down to just the colon; placed beside the countdown at runtime.
     ui_UnitMarker = lv_label_create(ui_Screen1);
     lv_obj_set_width(ui_UnitMarker, LV_SIZE_CONTENT);
     lv_obj_set_height(ui_UnitMarker, LV_SIZE_CONTENT);
-    lv_obj_set_align(ui_UnitMarker, LV_ALIGN_CENTER);
-    lv_obj_set_y(ui_UnitMarker, 40);
-    lv_label_set_text(ui_UnitMarker, "h:m");
+    lv_label_set_text(ui_UnitMarker, ":");
     lv_obj_add_flag(ui_UnitMarker, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_text_color(ui_UnitMarker, lv_color_hex(COUNTDOWN_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_UnitMarker, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_UnitMarker, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_UnitMarker, &ui_font_SecondsColon, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     // How much break the bank holds, shown above the flow work counter while a
-    // stint runs. Above rather than below because the unit marker already owns
-    // the space underneath.
+    // stint runs.
     ui_BankLabel = lv_label_create(ui_Screen1);
     lv_obj_set_width(ui_BankLabel, LV_SIZE_CONTENT);
     lv_obj_set_height(ui_BankLabel, LV_SIZE_CONTENT);
