@@ -37,10 +37,6 @@ extern BatteryOverride batteryOverride;
 // QMI::takeTap() that sees it, standing in for the QMI8658's latched tap event.
 extern QMI::Tap pendingTap;
 
-// Set by the `k` key: the cube is being shaken until this many ms since boot,
-// and reads as more than gravity until then.
-extern unsigned long shakeUntilMs;
-
 // Follows the level on HAPTIC_PIN so the renderer can show when the vibration
 // motor is running.
 extern bool motorActive;

@@ -23,10 +23,6 @@ Orientation calcOrientation(float ax, float ay, float az);
 // while it comes up after being configured.
 bool isGravityOnly(float ax, float ay, float az);
 
-// True when a reading is far enough from one g to be the cube being shaken,
-// which is a good deal further than it takes not to be gravity alone.
-bool isShaken(float ax, float ay, float az);
-
 // True when the dominant axis leads the runner-up by enough to name a face
 // outright, rather than the cube sitting between two of them.
 bool isDecisive(float ax, float ay, float az);
@@ -145,32 +141,36 @@ int flowBankPreview(int bankedSeconds, int elapsedSeconds);
 bool completesFlowLap(int elapsedSeconds);
 
 // Listens, on a wake of a switched-off cube, for the gesture that switches it
-// back on: turned face up and then shaken or double-tapped. Fed a pass at a time -- the
-// accelerometer reading and whether a double tap was taken since the last pass
-// -- and says when it has heard enough either way. Drives the orientation
-// debouncer below, which a wake starts fresh.
+// back on: flipped SWITCH_ON_FLIPS times, each flip ending face up, with no
+// more than SWITCH_ON_FLIP_WINDOW_MS for each. Fed a pass at a time, and says
+// when it has heard enough either way. Also drives the orientation debouncer
+// below, which a wake starts fresh, for what it says about a cube left alone.
 enum class SwitchOnVerdict { Listening, On, StayOff };
 
 class SwitchOnListener {
  public:
   explicit SwitchOnListener(unsigned long nowMs);
-  SwitchOnVerdict update(bool haveReading, float ax, float ay, float az, bool doubleTap,
-                         unsigned long nowMs);
+  SwitchOnVerdict update(bool haveReading, float ax, float ay, float az, unsigned long nowMs);
 
-  // Resting face up, and so listening for the taps rather than for the turn.
-  bool armed() const { return wasFaceUp_; }
+  // Flips still to make: SWITCH_ON_FLIPS until the first one lands.
+  int flipsToGo() const { return SWITCH_ON_FLIPS - flips_; }
 
  private:
-  // When the listening ends. Pushed back once when the cube comes to rest face
-  // up, so the time spent turning it over is not taken from the time to tap.
+  enum class Side { Up, Down, Neither };
+  static Side sideOf(float ax, float ay, float az);
+
+  // When the listening ends: the wake, then each flip, plus the window.
   unsigned long deadline_;
   // The last reading that was not the cube resting on its current face.
   unsigned long lastDisturbed_;
-  bool wasFaceUp_ = false;
-  // Readings that were not gravity alone since the cube came to rest face up,
-  // and when the first of the current run of them was.
-  int shaken_ = 0;
-  unsigned long shakeStarted_ = 0;
+  int flips_ = 0;
+  // The side the cube was last held on for FLIP_HOLD_MS. Starts face down,
+  // which is where every switched-off cube was put to sleep -- and so a turn
+  // face up that is already over by the first reading still counts.
+  Side side_ = Side::Down;
+  // What the readings currently say, and since when.
+  Side candidate_ = Side::Neither;
+  unsigned long candidateSince_ = 0;
 };
 
 // Feed a raw accelerometer reading in and get back whether the debounced face

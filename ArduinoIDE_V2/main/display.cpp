@@ -4,6 +4,7 @@
 #include "indicators.h"
 #include "tilt.h"
 #include <lvgl.h>
+#include <stdio.h>
 #include <string.h>
 #include <Wire.h>
 #include <TFT_eSPI.h>  // By Bodmer V2.5.43
@@ -16,6 +17,10 @@
 #error "TFT_eSPI is not configured for the GC9A01 -- symlink ArduinoIDE_V2/User_Setup.h into ~/Arduino/libraries/TFT_eSPI/"
 #endif
 #include "src/ui.h"    // SquareLine Studio generated header
+
+// The switch-on prompt's count: Oswald at 150px, the digits 1 and 2 alone. See
+// fonts/README.md.
+LV_FONT_DECLARE(ui_font_FlipCount);
 
 
 TFT_eSPI tft = TFT_eSPI();
@@ -239,13 +244,16 @@ static void drawTransformedWithoutAa(lv_draw_ctx_t *ctx, const lv_draw_img_dsc_t
 }
 
 // Whether setup() has run this boot. A switched-off cube brings the panel up to
-// ask for the double tap, and switching it on can then go on to draw a paused
+// count the flips down, and switching it on can then go on to draw a paused
 // frame, which asks again; LVGL cannot be initialised twice.
 bool displayUp = false;
 
-// The screen showMessage() puts up, and its one label, while it is up.
+// The screen showMessage() and showFlipsToGo() put up, while it is up: the text
+// of a message or the caption under the count, and the count itself, which is
+// hidden for a message.
 lv_obj_t *messageScreen = nullptr;
 lv_obj_t *messageLabel = nullptr;
+lv_obj_t *figureLabel = nullptr;
 bool messageInverted = false;
 
 // Push whatever LVGL has pending to the panel now, for the paths that are about
@@ -477,34 +485,73 @@ void Display::showPaused() {
   pumpLvgl();
 }
 
-void Display::showMessage(const char *text, bool inverted) {
+// Puts the message screen up if it is not already. A screen of its own rather
+// than labels over the face: nothing of the timer belongs on it, and dropping it
+// afterwards leaves the face as it was.
+void ensureMessageScreen() {
   Display::setup();
-  if (!messageScreen) {
-    // A screen of its own rather than a label over the face: nothing of the
-    // timer belongs on it, and dropping it afterwards leaves the face as it was.
-    messageScreen = lv_obj_create(NULL);
-    lv_obj_set_style_bg_opa(messageScreen, LV_OPA_COVER, LV_PART_MAIN);
+  if (messageScreen) return;
+  messageScreen = lv_obj_create(NULL);
+  lv_obj_set_style_bg_opa(messageScreen, LV_OPA_COVER, LV_PART_MAIN);
 
-    messageLabel = lv_label_create(messageScreen);
-    lv_obj_set_style_text_font(messageLabel, &lv_font_montserrat_20, LV_PART_MAIN);
-    lv_obj_set_style_text_align(messageLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_scr_load(messageScreen);
-  } else if (strcmp(lv_label_get_text(messageLabel), text) == 0 &&
-             messageInverted == inverted) {
+  messageLabel = lv_label_create(messageScreen);
+  lv_obj_set_style_text_font(messageLabel, &lv_font_montserrat_20, LV_PART_MAIN);
+  lv_obj_set_style_text_align(messageLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_label_set_text(messageLabel, "");
+
+  figureLabel = lv_label_create(messageScreen);
+  lv_obj_set_style_text_font(figureLabel, &ui_font_FlipCount, LV_PART_MAIN);
+  lv_label_set_text(figureLabel, "");
+  lv_obj_add_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
+
+  lv_scr_load(messageScreen);
+}
+
+// Colours the message screen and pushes it out. Nothing is running loop()
+// while one of these is up, so the frame has to be pushed out here or it never
+// reaches the glass.
+void presentMessageScreen(bool inverted) {
+  messageInverted = inverted;
+  const lv_color_t bg = inverted ? lv_color_white() : lv_color_black();
+  const lv_color_t fg = inverted ? lv_color_black() : lv_color_white();
+  lv_obj_set_style_bg_color(messageScreen, bg, LV_PART_MAIN);
+  lv_obj_set_style_text_color(messageLabel, fg, LV_PART_MAIN);
+  lv_obj_set_style_text_color(figureLabel, fg, LV_PART_MAIN);
+  pumpLvgl();
+  Display::setBacklight(BACKLIGHT_FULL_PERCENT);
+}
+
+void Display::showMessage(const char *text, bool inverted) {
+  ensureMessageScreen();
+  const bool figureShown = !lv_obj_has_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
+  if (!figureShown && strcmp(lv_label_get_text(messageLabel), text) == 0 &&
+      messageInverted == inverted) {
     return;
   }
 
-  messageInverted = inverted;
-  lv_obj_set_style_bg_color(messageScreen, inverted ? lv_color_white() : lv_color_black(),
-                            LV_PART_MAIN);
-  lv_obj_set_style_text_color(messageLabel, inverted ? lv_color_black() : lv_color_white(),
-                              LV_PART_MAIN);
+  lv_obj_add_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(messageLabel, text);
   lv_obj_center(messageLabel);
-  // Nothing is running loop() while one of these is up, so the frame has to be
-  // pushed out here or it never reaches the glass.
-  pumpLvgl();
-  Display::setBacklight(BACKLIGHT_FULL_PERCENT);
+  presentMessageScreen(inverted);
+}
+
+void Display::showFlipsToGo(int flips) {
+  ensureMessageScreen();
+  char figure[12];
+  snprintf(figure, sizeof figure, "%d", flips);
+  const bool figureShown = !lv_obj_has_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
+  if (figureShown && strcmp(lv_label_get_text(figureLabel), figure) == 0 && !messageInverted) {
+    return;
+  }
+
+  // The figure a little above centre and the caption under it, so the pair sits
+  // centred on the round panel together rather than the figure alone.
+  lv_obj_clear_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_label_set_text(figureLabel, figure);
+  lv_obj_align(figureLabel, LV_ALIGN_CENTER, 0, -22);
+  lv_label_set_text(messageLabel, "to go");
+  lv_obj_align_to(messageLabel, figureLabel, LV_ALIGN_OUT_BOTTOM_MID, 0, 8);
+  presentMessageScreen(false);
 }
 
 void Display::hideMessage() {
@@ -513,6 +560,7 @@ void Display::hideMessage() {
   lv_obj_del(messageScreen);
   messageScreen = nullptr;
   messageLabel = nullptr;
+  figureLabel = nullptr;
 }
 
 void Display::setAngle(float degrees) {

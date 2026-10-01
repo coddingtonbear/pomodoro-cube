@@ -35,6 +35,7 @@ set(UI_SOURCES
   ${FIRMWARE_DIR}/src/ui_helpers.c
   ${FIRMWARE_DIR}/src/ui_comp_hook.c
   ${FIRMWARE_DIR}/src/ui_font_Countdown_54.c
+  ${FIRMWARE_DIR}/src/ui_font_FlipCount.c
 )
 
 # Firmware sources that are portable enough to host-compile. qmi.cpp, ble.cpp

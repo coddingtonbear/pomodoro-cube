@@ -246,31 +246,26 @@ Orientation watchFaces(unsigned long forMs, Orientation current) {
 }
 
 // A switched-off cube has been woken: listen for the gesture that switches it
-// back on. Dark and silent throughout -- no panel, no radio, no buzz -- because
-// most wakes of a switched-off cube are a bag being carried, and the only thing
-// worth spending on one of those is getting back to sleep.
+// back on. Dark and silent until the first flip -- no panel, no radio, no buzz
+// -- because most wakes of a switched-off cube are a bag being carried, and the
+// only thing worth spending on one of those is getting back to sleep.
 bool heardSwitchOn() {
-  QMI::enableTapDetection();
   Util::SwitchOnListener listener(millis());
   for (;;) {
     feedLoopWDT();
-    const QMI::Tap tap = QMI::takeTap();
-    if (tap != QMI::Tap::None) {
-      Serial.printf("[trace] SWITCH_ON_TAP t=%lu tap=%d ori=%d\n", millis(), (int)tap,
-                    (int)Util::getDebouncedOriState());
-    }
     float ax, ay, az;
     const bool haveReading = QMI::getAccelerometer(ax, ay, az);
-    const Util::SwitchOnVerdict verdict =
-        listener.update(haveReading, ax, ay, az, tap == QMI::Tap::Double, millis());
-    // Lit only once the cube is lying face up, which is the moment the taps
-    // start to count. A wake in a bag never gets this far, and stays dark. The
-    // panel then stays up until the cube sleeps or is switched on, even if it
-    // is picked up again in between.
-    if (listener.armed()) Display::showMessage("Shake\nto start");
+    const Util::SwitchOnVerdict verdict = listener.update(haveReading, ax, ay, az, millis());
     if (verdict != Util::SwitchOnVerdict::Listening) {
+      Serial.printf("[trace] SWITCH_ON verdict=%d flipsToGo=%d\n", (int)verdict,
+                    listener.flipsToGo());
       return verdict == Util::SwitchOnVerdict::On;
     }
+    // Lit from the first flip, which lands face up and so is the first moment
+    // there is anyone to read it. A wake in a bag never gets this far, and
+    // stays dark. The panel then stays up until the cube sleeps or is switched
+    // on, face down between flips included.
+    if (listener.flipsToGo() < SWITCH_ON_FLIPS) Display::showFlipsToGo(listener.flipsToGo());
 
     delay(20);
   }
@@ -309,9 +304,9 @@ void setup() {
                 (int)RtcState::data().panelHoldingFrame,
                 (int)RtcState::data().switchedOff);
 
-  // Switched off by being set down face down. Nothing wakes it but being turned
-  // face up and double-tapped: not standing it on a timer face, and not being
-  // carried. Anything short of that and it goes back to sleep still switched
+  // Switched off by being set down face down. Nothing wakes it but being
+  // flipped SWITCH_ON_FLIPS times: not standing it on a timer face, and not
+  // being carried. Anything short of that and it goes back to sleep still switched
   // off, to ask again the next time it moves.
   Orientation settled;
   bool resumesPause = false;

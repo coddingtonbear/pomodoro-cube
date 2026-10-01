@@ -576,111 +576,138 @@ namespace {
 // gravity alone -- a cube in a hand, or in a bag.
 constexpr Vector kShaken = {0.9f, 0.9f, 0.9f};
 constexpr unsigned long kPass = 20;
+using V = Util::SwitchOnVerdict;
 
-// Feeds `v` from `fromMs` until `untilMs` with no taps, and returns the first
-// verdict that is not Listening, or Listening if there was none.
-Util::SwitchOnVerdict hold(Util::SwitchOnListener &listener, const Vector &v,
-                           unsigned long fromMs, unsigned long untilMs) {
+// Feeds `v` from `fromMs` until `untilMs`, and returns the first verdict that
+// is not Listening, or Listening if there was none.
+V hold(Util::SwitchOnListener &listener, const Vector &v, unsigned long fromMs,
+       unsigned long untilMs) {
   for (unsigned long t = fromMs; t < untilMs; t += kPass) {
-    const Util::SwitchOnVerdict verdict = listener.update(true, v.x, v.y, v.z, false, t);
-    if (verdict != Util::SwitchOnVerdict::Listening) return verdict;
+    const V verdict = listener.update(true, v.x, v.y, v.z, t);
+    if (verdict != V::Listening) return verdict;
   }
-  return Util::SwitchOnVerdict::Listening;
+  return V::Listening;
 }
 
-Util::SwitchOnVerdict doubleTap(Util::SwitchOnListener &listener, const Vector &v,
-                                unsigned long nowMs) {
-  return listener.update(true, v.x, v.y, v.z, true, nowMs);
+// One flip after the first: over onto its face for long enough to count, and
+// back. Half a second a side, which is an unhurried flip in the hand.
+V flip(Util::SwitchOnListener &listener, unsigned long &now) {
+  V verdict = hold(listener, kDown, now, now + 500);
+  if (verdict == V::Listening) verdict = hold(listener, kUp, now + 500, now + 1000);
+  now += 1000;
+  return verdict;
 }
 
-// What went wrong on the board the first time: the hand lifts the cube, which
-// wakes it still face down, holds it a moment, then turns it over and taps. All
-// of that has to be one listening, not a wake that decides "still face down"
-// and goes back to sleep before the turn.
-void testTheWholeGestureIsHeardFromTheWake() {
+// What went wrong on the board the first time a gesture was asked for: the
+// hand lifts the cube, which wakes it still face down, holds it a moment, then
+// turns it over. All of that has to be one listening, not a wake that decides
+// "still face down" and goes back to sleep before the turn.
+void testThreeFlipsSwitchItOn() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
+  CHECK(listener.flipsToGo() == 3);
   CHECK(hold(listener, kDown, 0, 1000) == V::Listening);
   CHECK(hold(listener, kShaken, 1000, 1400) == V::Listening);
-  CHECK(hold(listener, kUp, 1400, 2200) == V::Listening);
-  CHECK(doubleTap(listener, kUp, 2200) == V::On);
+  CHECK(hold(listener, kUp, 1400, 2000) == V::Listening);
+  CHECK(listener.flipsToGo() == 2);
+  unsigned long now = 2000;
+  CHECK(flip(listener, now) == V::Listening);
+  CHECK(listener.flipsToGo() == 1);
+  CHECK(flip(listener, now) == V::On);
 }
 
-// A double tap is only a switch-on once the cube is lying face up. The turn and
-// the landing at the end of it are the likeliest things to look like one.
-void testTapsBeforeItRestsFaceUpDoNotCount() {
+// The cube went to sleep face down, so a turn face up that is over before the
+// first reading -- a quick hand, and a wake that takes a moment to boot -- is
+// still the first flip.
+void testAFlipOverBeforeTheFirstReadingCounts() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  CHECK(hold(listener, kShaken, 0, 400) == V::Listening);
-  CHECK(doubleTap(listener, kShaken, 400) == V::Listening);
-  // Face up, but not yet for long enough to be believed.
-  CHECK(doubleTap(listener, kUp, 420) == V::Listening);
-  CHECK(hold(listener, kUp, 440, 1000) == V::Listening);
-  CHECK(doubleTap(listener, kUp, 1000) == V::On);
+  CHECK(hold(listener, kUp, 0, 500) == V::Listening);
+  CHECK(listener.flipsToGo() == 2);
 }
 
-// Shaking a cube that is lying face up switches it on, picked up or not.
-void testAShakeSwitchesItOn() {
+// Face up again without having been face down in between is the same flip:
+// picking the cube up and setting it back down, or standing it on a timer face
+// and back, adds nothing.
+void testOnlyFaceDownAndBackIsAFlip() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  CHECK(hold(listener, kUp, 0, 1000) == V::Listening);
-  CHECK(hold(listener, kShaken, 1000, 1000 + (SHAKE_READINGS - 1) * kPass) == V::Listening);
-  CHECK(hold(listener, kShaken, 1000 + (SHAKE_READINGS - 1) * kPass, 2000) == V::On);
+  CHECK(hold(listener, kUp, 0, 500) == V::Listening);
+  CHECK(hold(listener, kShaken, 500, 800) == V::Listening);
+  CHECK(hold(listener, kUp, 800, 1300) == V::Listening);
+  CHECK(hold(listener, kDeg90, 1300, 1800) == V::Listening);
+  CHECK(hold(listener, kUp, 1800, 2300) == V::Listening);
+  CHECK(listener.flipsToGo() == 2);
 }
 
-// Being picked up and handled is not gravity alone, and is not a shake either.
-void testHandlingIsNotAShake() {
+// A side has to be held for FLIP_HOLD_MS. A swing through face down on the way
+// to somewhere else is shorter than that.
+void testASwingThroughFaceDownIsNotAFlip() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  const Vector handled = {0.0f, 0.0f, -1.3f};
-  CHECK(!Util::isGravityOnly(handled.x, handled.y, handled.z));
-  CHECK(!Util::isShaken(handled.x, handled.y, handled.z));
-  CHECK(Util::isShaken(kShaken.x, kShaken.y, kShaken.z));
-  // Freefall counts as much as a jolt: it is the distance from one g.
-  CHECK(Util::isShaken(0.0f, 0.0f, -0.4f));
-  CHECK(hold(listener, kUp, 0, 1000) == V::Listening);
-  CHECK(hold(listener, handled, 1000, 2000) == V::Listening);
+  CHECK(hold(listener, kUp, 0, 500) == V::Listening);
+  CHECK(hold(listener, kDown, 500, 500 + FLIP_HOLD_MS - kPass) == V::Listening);
+  CHECK(hold(listener, kUp, 500 + FLIP_HOLD_MS - kPass, 1500) == V::Listening);
+  CHECK(listener.flipsToGo() == 2);
 }
 
-// A knock on the desk is a reading or two, and knocks far enough apart never
-// add up to a shake.
-void testAKnockIsNotAShake() {
+// Flipped in the hand, the cube is never level and never still. Readings that
+// lean and are a little off one g still say which side is up.
+void testAFlipInTheHandCounts() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  unsigned long now = 1000;
-  CHECK(hold(listener, kUp, 0, now) == V::Listening);
-  for (int knock = 0; knock < 3; knock++) {
-    CHECK(hold(listener, kShaken, now, now + 2 * kPass) == V::Listening);
-    CHECK(hold(listener, kUp, now + 2 * kPass, now + SHAKE_WINDOW_MS + 2 * kPass) ==
-          V::Listening);
-    now += SHAKE_WINDOW_MS + 2 * kPass;
+  const Vector tiltedUp = {0.3f, 0.25f, -0.75f};
+  const Vector tiltedDown = {-0.35f, 0.2f, 0.9f};
+  CHECK(!Util::isGravityOnly(tiltedUp.x, tiltedUp.y, tiltedUp.z));
+  CHECK(hold(listener, tiltedUp, 0, 300) == V::Listening);
+  CHECK(hold(listener, tiltedDown, 300, 600) == V::Listening);
+  CHECK(hold(listener, tiltedUp, 600, 900) == V::Listening);
+  CHECK(listener.flipsToGo() == 1);
+}
+
+// A shake is not a flip. Shaking a face-up cube along Z hard enough to throw
+// the reading past face down is far outside one g, however long it goes on.
+void testAShakeIsNotAFlip() {
+  Util::resetOriDebounce();
+  Util::SwitchOnListener listener(0);
+  CHECK(hold(listener, kUp, 0, 500) == V::Listening);
+  const Vector jolted = {0.0f, 0.0f, 1.8f};
+  for (unsigned long t = 500; t < 2500; t += 4 * kPass) {
+    CHECK(hold(listener, jolted, t, t + 2 * kPass) == V::Listening);
+    CHECK(hold(listener, kUp, t + 2 * kPass, t + 4 * kPass) == V::Listening);
   }
+  CHECK(listener.flipsToGo() == 2);
 }
 
-// Only once it has come to rest face up, as with the taps: being carried, or
-// the turn over itself, is not a shake.
-void testAShakeBeforeItRestsFaceUpDoesNotCount() {
+// Each flip has SWITCH_ON_FLIP_WINDOW_MS, timed from the one before; a cube
+// left alone partway through goes back to sleep.
+void testEachFlipHasItsOwnWindow() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  CHECK(hold(listener, kDown, 0, 600) == V::Listening);
-  CHECK(hold(listener, kShaken, 600, 1600) == V::Listening);
-  CHECK(hold(listener, kUp, 1600, 2400) == V::Listening);
+  // Landed face up at FLIP_HOLD_MS, which is where the next window starts.
+  CHECK(hold(listener, kUp, 0, 1000) == V::Listening);
+  const unsigned long firstFlip = FLIP_HOLD_MS;
+  // Most of a window face down is fine: lying face down between flips is not
+  // a cube put away, as it is before the first.
+  CHECK(hold(listener, kDown, 1000, firstFlip + SWITCH_ON_FLIP_WINDOW_MS - 600) ==
+        V::Listening);
+  const unsigned long backUp = firstFlip + SWITCH_ON_FLIP_WINDOW_MS - 600;
+  CHECK(hold(listener, kUp, backUp, backUp + 500) == V::Listening);
+  CHECK(listener.flipsToGo() == 1);
+  const unsigned long secondFlip = backUp + FLIP_HOLD_MS;
+  CHECK(hold(listener, kUp, backUp + 500, secondFlip + SWITCH_ON_FLIP_WINDOW_MS - kPass) ==
+        V::Listening);
+  CHECK(hold(listener, kUp, secondFlip + SWITCH_ON_FLIP_WINDOW_MS - kPass,
+             secondFlip + SWITCH_ON_FLIP_WINDOW_MS + kPass) == V::StayOff);
 }
 
-// Nor on a face that runs a timer: standing a switched-off cube up is not a
-// way of switching it on, however it is tapped.
-void testTapsOnAnyOtherFaceDoNotCount() {
+// Woken and never turned over: the first flip has a window too.
+void testTheFirstFlipIsTimedFromTheWake() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  CHECK(hold(listener, kDeg90, 0, 500) == V::Listening);
-  CHECK(doubleTap(listener, kDeg90, 500) == V::Listening);
+  CHECK(hold(listener, kShaken, 0, SWITCH_ON_FLIP_WINDOW_MS - kPass) == V::Listening);
+  CHECK(hold(listener, kShaken, SWITCH_ON_FLIP_WINDOW_MS - kPass,
+             SWITCH_ON_FLIP_WINDOW_MS + kPass) == V::StayOff);
 }
 
 // A bag's wake: the cube comes to rest on some face other than face up and is
@@ -692,10 +719,9 @@ void testLeftOnAnotherFaceItGivesUpEarly() {
     Util::SwitchOnListener listener(0);
     // The debounce's 300 ms to accept the face, then the give-up's stillness
     // counted from the first reading of it.
-    CHECK(hold(listener, v, 0, SWITCH_ON_GIVE_UP_MS - kPass) ==
-          Util::SwitchOnVerdict::Listening);
+    CHECK(hold(listener, v, 0, SWITCH_ON_GIVE_UP_MS - kPass) == V::Listening);
     CHECK(hold(listener, v, SWITCH_ON_GIVE_UP_MS - kPass, SWITCH_ON_GIVE_UP_MS + 400) ==
-          Util::SwitchOnVerdict::StayOff);
+          V::StayOff);
   }
 }
 
@@ -704,51 +730,24 @@ void testLeftOnAnotherFaceItGivesUpEarly() {
 void testMovementPutsOffGivingUp() {
   Util::resetOriDebounce();
   Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
   CHECK(hold(listener, kDown, 0, 1000) == V::Listening);
   CHECK(hold(listener, kShaken, 1000, 1100) == V::Listening);
   CHECK(hold(listener, kDown, 1100, 2400) == V::Listening);
 }
 
-// A bag in motion never settles on anything, and is let go at the window.
-void testConstantMotionEndsAtTheWindow() {
-  Util::resetOriDebounce();
-  Util::SwitchOnListener listener(0);
-  CHECK(hold(listener, kShaken, 0, SWITCH_ON_WINDOW_MS - kPass) ==
-        Util::SwitchOnVerdict::Listening);
-  CHECK(hold(listener, kShaken, SWITCH_ON_WINDOW_MS - kPass, SWITCH_ON_WINDOW_MS + kPass) ==
-        Util::SwitchOnVerdict::StayOff);
-}
-
-// The window starts again once the cube is resting face up, so a slow turn over
-// does not eat into the time to tap -- and once it has run out, it has.
-void testTheWindowRestartsWhenItLiesFaceUp() {
-  Util::resetOriDebounce();
-  Util::SwitchOnListener listener(0);
-  using V = Util::SwitchOnVerdict;
-  CHECK(hold(listener, kShaken, 0, 3000) == V::Listening);
-  // Accepted as face up 300 ms after it lands, which is where the window
-  // starts again from.
-  const unsigned long faceUp = 3000 + ORI_DEBOUNCE_DELAY;
-  CHECK(hold(listener, kUp, 3000, faceUp + SWITCH_ON_WINDOW_MS - kPass) == V::Listening);
-  CHECK(hold(listener, kUp, faceUp + SWITCH_ON_WINDOW_MS - kPass,
-             faceUp + SWITCH_ON_WINDOW_MS + kPass) == V::StayOff);
-}
-
 }  // namespace
 
 void testSwitchingOn() {
-  testTheWholeGestureIsHeardFromTheWake();
-  testTapsBeforeItRestsFaceUpDoNotCount();
-  testAShakeSwitchesItOn();
-  testAKnockIsNotAShake();
-  testHandlingIsNotAShake();
-  testAShakeBeforeItRestsFaceUpDoesNotCount();
-  testTapsOnAnyOtherFaceDoNotCount();
+  testThreeFlipsSwitchItOn();
+  testAFlipOverBeforeTheFirstReadingCounts();
+  testOnlyFaceDownAndBackIsAFlip();
+  testASwingThroughFaceDownIsNotAFlip();
+  testAFlipInTheHandCounts();
+  testAShakeIsNotAFlip();
+  testEachFlipHasItsOwnWindow();
+  testTheFirstFlipIsTimedFromTheWake();
   testLeftOnAnotherFaceItGivesUpEarly();
   testMovementPutsOffGivingUp();
-  testConstantMotionEndsAtTheWindow();
-  testTheWindowRestartsWhenItLiesFaceUp();
 }
 
 void testOrientationDebounce() {

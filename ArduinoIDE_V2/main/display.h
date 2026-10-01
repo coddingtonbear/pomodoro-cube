@@ -35,6 +35,11 @@ void showPaused();
 // already up does nothing.
 void showMessage(const char *text, bool inverted = false);
 
+// The switch-on prompt: how many flips are still to make, as one large figure
+// over "to go", white on black. Otherwise as showMessage(), whose screen it
+// shares.
+void showFlipsToGo(int flips);
+
 // Back to the face. Does nothing if no message is up.
 void hideMessage();
 

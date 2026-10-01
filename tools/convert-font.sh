@@ -12,11 +12,13 @@
 # ui_font_Countdown_54. The slot is named for its role rather than for the
 # typeface in it, so changing fonts needs no source edits -- just rerun this.
 #
-# Override RANGE or BPP in the environment to reach beyond the digits.
+# Override RANGE or BPP in the environment to reach beyond the digits, and OUT
+# to write a different slot: lv_font_conv names the font after the file, so
+# OUT=.../ui_font_FlipCount.c defines ui_font_FlipCount.
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  sed -n '2,15p' "$0" | sed 's/^# \?//'
+  sed -n '2,17p' "$0" | sed 's/^# \?//'
   exit 1
 fi
 
@@ -26,7 +28,7 @@ RANGE=${RANGE:-0x30-0x3A}
 BPP=${BPP:-4}
 
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-OUT="$REPO_ROOT/ArduinoIDE_V2/main/src/ui_font_Countdown_54.c"
+OUT=${OUT:-"$REPO_ROOT/ArduinoIDE_V2/main/src/ui_font_Countdown_54.c"}
 
 if [[ ! -f "$FONT_PATH" ]]; then
   echo "no such font file: $FONT_PATH" >&2

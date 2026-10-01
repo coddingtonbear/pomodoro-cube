@@ -320,7 +320,6 @@ void handleKey(SDL_Keycode key) {
     case SDLK_v: g_userView = !g_userView; SimPanel::dirty = true; break;
     case SDLK_t: SimInput::pendingTap = QMI::Tap::Single; break;
     case SDLK_d: SimInput::pendingTap = QMI::Tap::Double; break;
-    case SDLK_k: SimInput::shakeUntilMs = millis() + 500; break;
     case SDLK_a: dumpAdvertisement(); break;
     case SDLK_r: reboot();
     case SDLK_q:
@@ -403,7 +402,7 @@ void onDelay(unsigned long ms) {
       if (event.type == SDL_KEYDOWN) {
         if (event.key.keysym.sym == SDLK_q || event.key.keysym.sym == SDLK_ESCAPE) quit();
         // A face key wakes onto that face -- `u` is how a switched-off cube is
-        // turned over to be switched back on. Any other key wakes on a face
+        // turned over for the first of the flips that switch it back on. Any other key wakes on a face
         // that runs a timer, the way picking the cube up would.
         const Orientation before = SimInput::orientation;
         handleKey(event.key.keysym.sym);
@@ -478,7 +477,6 @@ int main(int argc, char **argv) {
       "      z / x = lean the cube anticlockwise / clockwise,\n"
       "      b = force low battery warning on/off, [ / ] = battery voltage,\n"
       "      v = user/panel view, m = round mask, t / d = tap / double-tap,\n"
-      "      k = shake,\n"
       "      a = print BLE advertisement, r = reboot, q = quit\n");
 
   try {

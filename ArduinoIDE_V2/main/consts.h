@@ -86,23 +86,42 @@ constexpr uint8_t WAKE_ON_MOTION_THRESHOLD_MG = 64;
 // screen until something moves it again.
 constexpr unsigned long WAKE_SETTLE_TIMEOUT_MS = 3000;
 
-// How long a woken, switched-off cube listens for the gesture that switches it
-// back on: turned face up, then double-tapped on the glass. Face down is off,
-// and off has to survive a bag -- every bump wakes the cube, so the wake alone
-// cannot be what switches it on. The window runs from waking, for the turn
-// over, and starts again from the moment the cube comes to rest face up, for
-// the taps. A double tap that misses it still wakes the cube -- it is movement
-// -- which opens a fresh one, so the second attempt works however long the cube
-// has been lying there.
+// What switches a switched-off cube back on: flipped over this many times,
+// each flip ending face up. Face down is off, and off has to survive a bag --
+// every bump wakes the cube, so the wake alone cannot be what switches it on,
+// and neither can anything a bag might do once or twice by chance. A face-up
+// rest followed by a shake or a double tap was the gesture before this, and
+// was too easy to make by accident.
+//
+// The cube was put to sleep face down, so the first flip is only the turn face
+// up; each one after it is over and back. The screen faces the desk for half
+// of every flip but the first, which is why only the arrivals face up count:
+// they are the only moments the count on the glass can be read.
+constexpr int SWITCH_ON_FLIPS = 3;
+
+// How long each flip may take. The first is timed from the wake and each after
+// it from the flip before, so a cube left alone partway through goes back to
+// sleep -- still off, and starting from three again the next time it moves.
 //
 // The listening has to start at the wake rather than once the cube has settled:
 // the first thing a hand reaching for a face-down cube does is lift it, which
 // wakes it while it is still face down. Settling first, as on the hardware the
 // first time round, read that as "still face down", went back to sleep, and
-// finished going to sleep while the cube was being turned over -- so the turn
-// woke nothing, and the double tap was spent waking the cube rather than
-// switching it on.
-constexpr unsigned long SWITCH_ON_WINDOW_MS = 5000;
+// finished going to sleep while the cube was being turned over.
+constexpr unsigned long SWITCH_ON_FLIP_WINDOW_MS = 5000;
+
+// What counts as the cube being on one side or the other of a flip: Z carrying
+// at least this much of a reading whose size is within the band below of one
+// g, for at least FLIP_HOLD_MS. Deliberately looser than the orientation
+// debouncer, which wants a face held dead still for ORI_DEBOUNCE_DELAY: a cube
+// flipped in the hand is never quite level or quite still, and making it pause
+// on every face would make the gesture a chore. The band and the hold are what
+// keep a shake from passing for a flip -- shaking a face-up cube hard enough to
+// throw Z past +0.7 g is well outside the band, and over in a reading or two.
+constexpr float FLIP_SIDE_MIN_G = 0.7f;
+constexpr float FLIP_MAGNITUDE_MIN_G = 0.6f;
+constexpr float FLIP_MAGNITUDE_MAX_G = 1.4f;
+constexpr unsigned long FLIP_HOLD_MS = 100;
 
 // The shortest time between the starts of two passes of loop(). Passes that
 // take longer -- drawing a face at an angle, mostly -- are not padded further.
@@ -128,27 +147,13 @@ constexpr unsigned long LOOP_STILL_HOLD_MS = 1000;
 // delay(): going in and coming out again costs about a millisecond each way.
 constexpr uint32_t NAP_MIN_MS = 5;
 
-// What counts as a shake, which switches on a cube lying face up as a double
-// tap does: this many readings at least SHAKE_MIN_DEVIATION_G more or less
-// than one g, within this long of each other. Read off the accelerometer rather than left to the tap engine,
-// which is listening for one sharp jolt that dies away and hears a shake as
-// neither. Readings come a pass apart, LOOP_PASS_MS at the least, so this is
-// about a tenth of a second of being moved about in the space of a second --
-// more than a knock on the desk, which is over in a reading or two. Not tuned
-// against a cube in the hand.
-//
-// The deviation is what makes it a shake rather than being picked up. Anything
-// outside the gravity band counted at first, which is 0.15 g and was met by
-// handling the cube at all. Half a g takes a deliberate shake.
-constexpr float SHAKE_MIN_DEVIATION_G = 0.5f;
-constexpr int SHAKE_READINGS = 5;
-constexpr unsigned long SHAKE_WINDOW_MS = 1000;
-
-// How long a woken, switched-off cube will sit still on any face but face up
-// before giving up and going back to sleep. What cuts short the wakes a bag
-// causes, each of which would otherwise keep the CPU up for the whole window;
-// long enough that the pause as a hand takes hold of a face-down cube, before
-// turning it, is not taken for it having been left alone.
+// How long a woken, switched-off cube will sit still on any face but face up,
+// before its first flip, before giving up and going back to sleep. What cuts
+// short the wakes a bag causes, each of which would otherwise keep the CPU up
+// for the whole window; long enough that the pause as a hand takes hold of a
+// face-down cube, before turning it, is not taken for it having been left
+// alone. Once a flip has been made the cube is plainly in a hand, and lies face
+// down between the rest of them, so from there only the flip window applies.
 constexpr unsigned long SWITCH_ON_GIVE_UP_MS = 1500;
 
 // How long a cube just switched on says so before the paused face comes up:

@@ -32,12 +32,11 @@ sudo apt install cmake build-essential libsdl2-dev
 | | `3` is flow's work face, which counts up, and `4` spends the break it banks |
 | `z` `x` | Lean it 5° anticlockwise / clockwise off that face, up to 40° |
 | `0` or `s` | Lay it face down |
-| `u` | Lay it face up |
+| `u` | Lay it face up. On a switched-off cube, `u` `0` `u` `0` `u` is the three flips that switch it on |
 | `b` | Cycle the low-battery warning: forced on, forced off, voltage-driven |
 | `[` `]` | Lower / raise the simulated pack voltage |
 | `t` | Tap the cube, which brightens the panel for ten seconds |
-| `d` | Double-tap it, which also switches on a switched-off cube lying face up |
-| `k` | Shake it for half a second, which switches on a switched-off cube lying face up |
+| `d` | Double-tap it |
 | `v` | Toggle between the viewer's view and the raw panel |
 | `m` | Toggle the round-panel mask |
 | `a` | Print the BLE advertisement the firmware last published |

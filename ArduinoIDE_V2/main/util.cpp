@@ -51,11 +51,6 @@ bool Util::isGravityOnly(float ax, float ay, float az) {
   return magnitude >= ORI_GRAVITY_MIN_G && magnitude <= ORI_GRAVITY_MAX_G;
 }
 
-bool Util::isShaken(float ax, float ay, float az) {
-  const float magnitude = sqrtf(ax * ax + ay * ay + az * az);
-  return fabsf(magnitude - 1.0f) >= SHAKE_MIN_DEVIATION_G;
-}
-
 bool Util::isDecisive(float ax, float ay, float az) {
   float mx = fabsf(ax);
   float my = fabsf(ay);
@@ -237,45 +232,48 @@ bool Util::completesFlowLap(int elapsedSeconds) {
 }
 
 Util::SwitchOnListener::SwitchOnListener(unsigned long nowMs)
-    : deadline_(nowMs + SWITCH_ON_WINDOW_MS), lastDisturbed_(nowMs) {}
+    : deadline_(nowMs + SWITCH_ON_FLIP_WINDOW_MS), lastDisturbed_(nowMs) {}
+
+Util::SwitchOnListener::Side Util::SwitchOnListener::sideOf(float ax, float ay, float az) {
+  const float magnitude = sqrtf(ax * ax + ay * ay + az * az);
+  if (magnitude < FLIP_MAGNITUDE_MIN_G || magnitude > FLIP_MAGNITUDE_MAX_G) return Side::Neither;
+  // +Z points into the back of the cube; see calcOrientation().
+  if (az <= -FLIP_SIDE_MIN_G) return Side::Up;
+  if (az >= FLIP_SIDE_MIN_G) return Side::Down;
+  return Side::Neither;
+}
 
 Util::SwitchOnVerdict Util::SwitchOnListener::update(bool haveReading, float ax, float ay,
-                                                     float az, bool doubleTap,
-                                                     unsigned long nowMs) {
-  if (haveReading) updateOriDebounce(ax, ay, az, nowMs);
-  const Orientation face = getDebouncedOriState();
-  const bool faceUp = face == Orientation::FACE_UP;
+                                                     float az, unsigned long nowMs) {
+  if (haveReading) {
+    updateOriDebounce(ax, ay, az, nowMs);
 
-  // Only once it is resting face up, which is what keeps the turn itself --
-  // and setting the cube down at the end of it -- from being taken for the
-  // taps. The debouncer only calls it face up once it has held still there.
-  if (doubleTap && faceUp) return SwitchOnVerdict::On;
-
-  if (faceUp && !wasFaceUp_) {
-    deadline_ = nowMs + SWITCH_ON_WINDOW_MS;
-    shaken_ = 0;
-  }
-  wasFaceUp_ = faceUp;
-
-  // Or shaken, from the same moment and for the same reason. The cube need not
-  // stay on the desk for it: readings that are not gravity never move the
-  // debouncer off the face it last believed, so one picked up and shaken is
-  // still, as far as this is concerned, the cube that was lying face up.
-  if (faceUp && haveReading && isShaken(ax, ay, az)) {
-    if (shaken_ == 0 || nowMs - shakeStarted_ > SHAKE_WINDOW_MS) {
-      shaken_ = 0;
-      shakeStarted_ = nowMs;
+    // A side counts once it has held for FLIP_HOLD_MS, and a flip is the cube
+    // coming to face up from face down. Going face up again without having
+    // been face down in between is not another flip, and nor is a side face:
+    // standing the cube on a timer face and back is a quarter turn, not a flip.
+    const Side reading = sideOf(ax, ay, az);
+    if (reading != candidate_) {
+      candidate_ = reading;
+      candidateSince_ = nowMs;
+    } else if (reading != Side::Neither && reading != side_ &&
+               nowMs - candidateSince_ >= FLIP_HOLD_MS) {
+      side_ = reading;
+      if (side_ == Side::Up) {
+        if (++flips_ >= SWITCH_ON_FLIPS) return SwitchOnVerdict::On;
+        deadline_ = nowMs + SWITCH_ON_FLIP_WINDOW_MS;
+      }
     }
-    if (++shaken_ >= SHAKE_READINGS) return SwitchOnVerdict::On;
   }
 
+  const Orientation face = getDebouncedOriState();
   const bool resting = haveReading && isGravityOnly(ax, ay, az) &&
                        calcOrientation(ax, ay, az) == face;
   if (!resting) lastDisturbed_ = nowMs;
 
-  // Left lying on some other face: not being switched on, so no reason to wait
-  // out the window.
-  if (!faceUp && face != Orientation::UNDEFINED &&
+  // Left lying on some other face before it was ever flipped: not being
+  // switched on, so no reason to wait out the window.
+  if (flips_ == 0 && face != Orientation::FACE_UP && face != Orientation::UNDEFINED &&
       nowMs - lastDisturbed_ >= SWITCH_ON_GIVE_UP_MS) {
     return SwitchOnVerdict::StayOff;
   }
