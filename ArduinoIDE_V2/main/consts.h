@@ -17,6 +17,13 @@
 
 #define ORI_DEBOUNCE_DELAY 300
 
+// How many accelerometer reads in a row have to fail before the I2C bus and
+// the QMI8658 are recovered and set up again (see QMI::getAccelerometer), and
+// how long to leave between attempts while it stays silent. 25 is half a second
+// of 20 ms passes: no glitch lasts that long, and no face change is missed for it.
+constexpr unsigned QMI_RECOVER_AFTER_FAILURES = 25;
+constexpr unsigned long QMI_RECOVER_INTERVAL_MS = 5000;
+
 // A reading only says which way is down when it is gravity and very little
 // else. Outside this band the cube is being accelerated -- carried, tapped, set
 // down hard -- or the QMI8658 is still coming up after being configured, which

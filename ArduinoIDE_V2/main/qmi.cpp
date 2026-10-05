@@ -4,12 +4,54 @@
 
 SensorQMI8658 qmi;
 
-void QMI::setup() {
-  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+// Whether the tap engine is meant to be on, so a recovery can put it back.
+static bool tapEnabled = false;
 
-  // Initialize IMU
-  if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN)) {
-    Serial.println("QMI8658 initialization failed!");
+// The QMI8658 runs off the battery rail, so it keeps its power through every
+// reset of the ESP32 -- the watchdog, the EN line, the RTS pulse after a flash.
+// A reset that lands in the middle of a read leaves the sensor part-way through
+// sending a byte, holding SDA low and waiting for clocks that never come. Every
+// transaction after that fails, and on the board several reboots in a row came
+// up with the sensor still silent. So before the bus is opened, clock the sensor out of whatever
+// it was sending -- at most nine pulses, a byte and its ack -- and finish with
+// a STOP, which is the standard I2C bus recovery.
+static void recoverBus() {
+  pinMode(I2C_SDA_PIN, INPUT_PULLUP);
+  pinMode(I2C_SCL_PIN, OUTPUT_OPEN_DRAIN);
+  digitalWrite(I2C_SCL_PIN, HIGH);
+  delayMicroseconds(10);
+  const int sdaBefore = digitalRead(I2C_SDA_PIN);
+  int pulses = 0;
+  while (digitalRead(I2C_SDA_PIN) == LOW && pulses < 9) {
+    digitalWrite(I2C_SCL_PIN, LOW);
+    delayMicroseconds(10);
+    digitalWrite(I2C_SCL_PIN, HIGH);
+    delayMicroseconds(10);
+    pulses++;
+  }
+  // STOP: SDA rising while SCL is high.
+  pinMode(I2C_SDA_PIN, OUTPUT_OPEN_DRAIN);
+  digitalWrite(I2C_SDA_PIN, LOW);
+  delayMicroseconds(10);
+  digitalWrite(I2C_SDA_PIN, HIGH);
+  delayMicroseconds(10);
+  Serial.printf("[trace] I2C recover sdaBefore=%d pulses=%d sdaAfter=%d scl=%d\n", sdaBefore,
+                pulses, digitalRead(I2C_SDA_PIN), digitalRead(I2C_SCL_PIN));
+}
+
+void QMI::setup() {
+  // A few tries, each from a recovered bus: the sensor also answers its soft
+  // reset, which begin() issues, so a second attempt starts it from scratch.
+  bool up = false;
+  for (int attempt = 1; attempt <= 3 && !up; attempt++) {
+    Wire.end();
+    recoverBus();
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+    up = qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, I2C_SDA_PIN, I2C_SCL_PIN);
+    if (!up) Serial.printf("QMI8658 initialization failed (attempt %d)\n", attempt);
+    // Each failed attempt can spend the better part of a second in the
+    // library's reset wait; three of them must not trip the loop watchdog.
+    feedLoopWDT();
   }
 
   qmi.configAccelerometer(
@@ -40,6 +82,7 @@ void QMI::enableTapDetection() {
                 0.15f,   // peakMagThr, g^2
                 0.4f);   // UDMThr, g^2
   qmi.enableTap(SensorQMI8658::INTERRUPT_PIN_1);
+  tapEnabled = true;
 }
 
 QMI::Tap QMI::takeTap() {
@@ -66,6 +109,7 @@ void QMI::setupWakeup() {
   // would clear this anyway; it is here so the intent survives a library
   // version that stops doing that.
   qmi.disableTap();
+  tapEnabled = false;
 
   qmi.configWakeOnMotion(
     WAKE_ON_MOTION_THRESHOLD_MG,            // WoMThreshold, in milli-g
@@ -78,5 +122,24 @@ void QMI::setupWakeup() {
 }
 
 bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
-  return qmi.getAccelerometer(ax, ay, az);
+  // The sensor can wedge while the cube is running, too -- seen as a timer
+  // that counted on at a crawl and ignored being turned, every read failing. A run of failures long enough not to be
+  // a glitch gets the same recovery as a boot, no more often than every few
+  // seconds so a sensor that stays gone does not stall every pass.
+  static uint32_t failures = 0;
+  static unsigned long lastRecovery = 0;
+  if (qmi.getAccelerometer(ax, ay, az)) {
+    failures = 0;
+    return true;
+  }
+  ax = ay = az = 0;
+  if (++failures >= QMI_RECOVER_AFTER_FAILURES &&
+      millis() - lastRecovery >= QMI_RECOVER_INTERVAL_MS) {
+    lastRecovery = millis();
+    Serial.printf("[trace] QMI recover t=%lu failures=%u\n", millis(), (unsigned)failures);
+    failures = 0;
+    setup();
+    if (tapEnabled) enableTapDetection();
+  }
+  return false;
 }
