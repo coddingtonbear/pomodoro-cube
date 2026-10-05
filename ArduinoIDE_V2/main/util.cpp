@@ -166,6 +166,20 @@ int Util::backlightPercent(const BacklightView &view) {
     return BACKLIGHT_FULL_PERCENT;
   }
 
+  // A flow lap closing, from a moment before to a moment after: the arc comes
+  // round, a pomodoro is scored, and the colour snaps to the next lap's. Not
+  // the start of the first lap, which is no closing at all -- and is lit
+  // anyway, as the face change it is.
+  if (!view.paused && view.countingUp && view.remainingSeconds >= 0) {
+    const unsigned long lapMs = (unsigned long)FLOW_LAP_SECONDS * 1000UL;
+    const unsigned long elapsedMs = (unsigned long)view.remainingSeconds * 1000UL +
+                                    (view.sinceTickMs < 1000UL ? view.sinceTickMs : 999UL);
+    const unsigned long intoLap = elapsedMs % lapMs;
+    const bool closing = intoLap >= lapMs - BACKLIGHT_LAP_MS;
+    const bool closed = elapsedMs >= lapMs && intoLap < BACKLIGHT_LAP_MS;
+    if (closing || closed) return BACKLIGHT_FULL_PERCENT;
+  }
+
   return BACKLIGHT_IDLE_PERCENT;
 }
 

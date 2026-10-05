@@ -90,8 +90,9 @@ struct BacklightView {
   // Remaining on a countdown, including 0 for one that has finished and is
   // buzzing -- the state that most needs to be seen from across a room.
   int remainingSeconds;
-  // A stint counting up has no end to approach, so it never brightens on its
-  // own; only turning the cube off it is a moment.
+  // A stint counting up has no end to approach. What it has instead is laps,
+  // and it brightens either side of each one closing; otherwise only turning
+  // the cube off it is a moment.
   bool countingUp;
   // Since the cube was last tapped, which is someone asking to read it. Must be
   // past the window when there has been no tap at all: zero reads as "just
@@ -102,6 +103,10 @@ struct BacklightView {
   // a default: the device builds as C++11, where a default would stop this
   // being an aggregate, and left off a braced list it is false anyway.
   bool paused;
+  // Into the current second, 0-999. Counting up, `remainingSeconds` is the
+  // elapsed time, and this is what places a lap's closing finer than a whole
+  // second. Left off, it is 0: the start of the second.
+  unsigned long sinceTickMs;
 };
 
 // How bright the backlight should be, as a percentage.

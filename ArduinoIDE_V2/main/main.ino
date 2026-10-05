@@ -86,7 +86,7 @@ bool countingUp() {
 // it is what turning the cube over would give you.
 Display::TimerView timerView() {
   const int banked = RtcState::flowBank(RtcState::data());
-  return {remSeconds, selSeconds, countingUp(), onFlowFace,
+  return {remSeconds, selSeconds, countingUp(), onFlowFace, timerKind == TimerKind::Work,
           countingUp() ? Util::flowBankPreview(banked, remSeconds) : banked};
 }
 
@@ -199,7 +199,7 @@ Display::TimerView pausedView(const RtcState::Data &stored) {
   const Util::TimerSpec spec = Util::getTimerSpec(stored.pausedFace, banked);
   const bool up = stored.pausedCountingUp;
   return {(int)stored.pausedRemaining, (int)stored.pausedSelected, up, spec.flow,
-          up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
+          spec.kind == TimerKind::Work, up ? Util::flowBankPreview(banked, (int)stored.pausedRemaining) : banked};
 }
 
 // Hold the parked timer on the panel with the cube awake. The pause itself is
@@ -572,7 +572,8 @@ void loop() {
 
   // Last, so it sees the tick this pass produced rather than the one before it.
   const int backlight = Util::backlightPercent(
-      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap(), paused});
+      {millis() - lastFaceChange, remSeconds, countingUp(), sinceTap(), paused,
+       millis() - lastTick});
   Display::setBacklight(backlight);
   // Takes effect from the next pass's render, which is the first one it could.
   static uint32_t cpuMhz = CPU_MHZ_IDLE;

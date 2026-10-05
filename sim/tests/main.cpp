@@ -12,6 +12,8 @@ void testLapPercent();
 void testClockFieldsSwitchToHoursPastAnHour();
 void testFlowArcColorMatchesTheCountdownRamp();
 void testArcColorStops();
+void testRampFor();
+void testFlowLapsHandOver();
 void testPalette();
 void testAlertPalette();
 void testArcColorIsGradual();
@@ -65,6 +67,8 @@ int main() {
   testClockFieldsSwitchToHoursPastAnHour();
   testFlowArcColorMatchesTheCountdownRamp();
   testArcColorStops();
+  testRampFor();
+  testFlowLapsHandOver();
   testPalette();
   testAlertPalette();
   testArcColorIsGradual();

@@ -9,19 +9,32 @@ namespace Indicators {
 // selSeconds is zero.
 int remainingPercent(int remSeconds, int selSeconds);
 
-// Arc colour as 0xRRGGBB, interpolated between the stops in consts.h: full at
-// 100%, mid at ARC_MID_PERCENT, low at and below ARC_LOW_PERCENT.
-uint32_t arcColor(int remainingPercent);
+// Which colours the arc runs between. The colour at the end of an interval is
+// what it is asking you to do next: green for a break, red for work.
+enum class Ramp {
+  // Work: red through amber to green.
+  ToGreen,
+  // A break: green through amber to red.
+  ToRed,
+  // Flow's laps after the first: green straight to cyan.
+  ToCyan,
+};
+
+// The ramp for an interval. `seconds` is only read counting up, where it is the
+// elapsed time and says which lap the stint is on: the first runs to green, like
+// any work, and every one after it runs on from that green to cyan.
+Ramp rampFor(bool work, bool countingUp, int seconds);
+
+// Arc colour as 0xRRGGBB for how much of the interval is left, interpolated
+// between the stops in ui_colors.h: the first colour at 100%, amber at
+// ARC_MID_PERCENT (ToCyan passes straight through), the last at and below
+// ARC_LOW_PERCENT. `flow` picks the darker stops drawn on the white panel. A
+// lap passes `100 - lapPercent`, since a fresh lap has all of itself to run.
+uint32_t rampColor(Ramp ramp, int remainingPercent, bool flow);
 
 // Counting up has no total to measure against, so the arc becomes a lap
 // indicator: 0-100 filling over FLOW_LAP_SECONDS, then starting again.
 int lapPercent(int elapsedSeconds);
-
-// The same ramp for flow's white panel, a step darker at every stop: the
-// countdown palette was picked against black, and amber on white is all but
-// invisible. Takes how much is *left*, like arcColor -- a lap passes
-// `100 - lapPercent`, since a fresh lap has all of itself still to run.
-uint32_t flowArcColor(int remainingPercent);
 
 // Every colour on the panel for one moment. Gathered rather than set from
 // scattered branches, so the bright and dim schemes can be read side by side --
@@ -38,7 +51,7 @@ struct Palette {
 };
 
 // The panel's colours for one moment. `rampAt` is how much is left, as
-// arcColor() takes it.
+// rampColor() takes it.
 //
 // Bright is the arrangement the cube has always had: a black or white field
 // with the ramp drawn on it as a thin arc. Dim swaps the two -- the ramp
@@ -47,16 +60,17 @@ struct Palette {
 // backlight, where a thin arc is not, and since the background no longer tells
 // the modes apart, the arc does: black over the countdown's brighter ramp,
 // white over flow's darker one.
-Palette palette(int rampAt, bool flow, bool dim);
+Palette palette(Ramp ramp, int rampAt, bool flow, bool dim);
 
-// The two halves a finished timer alternates between: black face with red
-// digits, then red face with black ones. The arc is not in it -- an alarm has
-// nothing left to measure, and a ring still on screen is the one thing that
-// could read as a timer still running. Whole-face rather than a detail, because
-// what a finished timer has to do is be noticed from wherever you have wandered
-// off to. The same on every face: at this point which interval it was no longer
-// matters.
-Palette alertPalette(bool inverted);
+// The two halves a finished timer alternates between: black face with coloured
+// digits, then a coloured face with black ones. Green when work has finished
+// and red when a break has -- the colour its ramp was arriving at, so the alarm
+// says what to do next as well as that it is time. The arc is not in it -- an
+// alarm has nothing left to measure, and a ring still on screen is the one
+// thing that could read as a timer still running. Whole-face rather than a
+// detail, because what a finished timer has to do is be noticed from wherever
+// you have wandered off to.
+Palette alertPalette(bool inverted, bool work);
 
 // How the countdown label should be split. Past an hour there are not enough
 // digits for MM:SS at the size the panel needs, so it becomes HH:MM -- and the

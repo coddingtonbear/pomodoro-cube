@@ -62,6 +62,9 @@ struct TimerView {
   bool countingUp;
   // One of flow's faces, either of them: the panel inverts for both.
   bool flow;
+  // A work interval rather than a break, which decides which way the arc's
+  // colours run and what colour the alarm flashes when it finishes.
+  bool work;
   // Break time banked. Shown above the counter on the flow work face, where it
   // includes what the running stint has earned so far.
   int bankSeconds;

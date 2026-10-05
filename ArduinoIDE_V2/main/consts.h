@@ -221,6 +221,13 @@ constexpr uint32_t CPU_MHZ_IDLE = 80;
 // seconds of a countdown.
 constexpr int BACKLIGHT_ATTENTION_SECONDS = 5;
 
+// How long either side of a flow lap closing the panel lights for. A lap
+// closing is a pomodoro scored, and the arc snapping back round in a new
+// colour is the thing to see -- so the window straddles the moment rather than
+// leading up to it, as a countdown's does. Milliseconds, because a whole
+// second either side is noticeably less of a moment.
+constexpr unsigned long BACKLIGHT_LAP_MS = 2500;
+
 // How long a tap holds the panel at full brightness. Longer than a face change
 // is worth, because a tap is someone asking to read the thing rather than
 // someone having just set it down and already looking at it.
@@ -236,9 +243,10 @@ constexpr int BACKLIGHT_TAP_SECONDS = 10;
 // is there for the pause that was forgotten rather than for the pack.
 constexpr unsigned long PAUSE_AWAKE_MS = 30UL * 60UL * 1000UL;
 
-// The countdown arc runs full to empty, shading from ARC_COLOR_FULL through
-// ARC_COLOR_MID to ARC_COLOR_LOW as the remaining percentage falls past these
-// stops. Below ARC_LOW_PERCENT it stays at ARC_COLOR_LOW.
+// Every arc ramp starts at its first colour with the interval whole, reaches
+// amber at ARC_MID_PERCENT left -- green to cyan has no amber and passes
+// straight through -- and arrives at its last colour at ARC_LOW_PERCENT,
+// holding there to the end.
 constexpr int ARC_MID_PERCENT = 50;
 constexpr int ARC_LOW_PERCENT = 25;
 

@@ -323,14 +323,52 @@ void testAFinishedTimerStaysLit() {
   CHECK(Util::backlightPercent({kSettled, 0, false, kNoTap}) == BACKLIGHT_FULL_PERCENT);
 }
 
-// A stint has no end to approach, so it dims and stays dim however long it runs.
-// The moment worth lighting is turning the cube off it, and that is a face
-// change like any other.
+// A stint has no end to approach, so between laps it dims and stays dim however
+// long it runs. Turning the cube off it is a face change like any other.
 void testAFlowStintDimsAndStaysDim() {
   CHECK(Util::backlightPercent({kJustSetDown, 0, true, kNoTap}) == BACKLIGHT_FULL_PERCENT);
   CHECK(Util::backlightPercent({kSettled, 0, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
   CHECK(Util::backlightPercent({kSettled, 1, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
   CHECK(Util::backlightPercent({kSettled, FLOW_MAX_SECONDS, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
+}
+
+// A lap closing lights the panel from BACKLIGHT_LAP_MS before it to
+// BACKLIGHT_LAP_MS after, so the arc coming round is seen. The seconds count
+// the stint's elapsed time; the last field places the moment within one.
+void testAFlowLapClosingLightsThePanel() {
+  const int lap = FLOW_LAP_SECONDS;
+  const auto at = [](int seconds, unsigned long ms) {
+    return Util::backlightPercent({kSettled, seconds, true, kNoTap, false, ms});
+  };
+
+  // Approaching the first lap's end: dim until 2.5 s out, lit from there.
+  CHECK(at(lap - 3, 499) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(at(lap - 3, 500) == BACKLIGHT_FULL_PERCENT);
+  CHECK(at(lap - 1, 999) == BACKLIGHT_FULL_PERCENT);
+
+  // Into the second lap: lit for 2.5 s, then dim.
+  CHECK(at(lap, 0) == BACKLIGHT_FULL_PERCENT);
+  CHECK(at(lap + 2, 499) == BACKLIGHT_FULL_PERCENT);
+  CHECK(at(lap + 2, 500) == BACKLIGHT_IDLE_PERCENT);
+
+  // The middle of a lap is dim, and every later boundary lights the same way.
+  CHECK(at(lap + lap / 2, 0) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(at(3 * lap - 2, 0) == BACKLIGHT_FULL_PERCENT);
+  CHECK(at(3 * lap + 2, 0) == BACKLIGHT_FULL_PERCENT);
+  CHECK(at(3 * lap + 3, 0) == BACKLIGHT_IDLE_PERCENT);
+
+  // The start of the first lap closes nothing.
+  CHECK(at(0, 0) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(at(2, 0) == BACKLIGHT_IDLE_PERCENT);
+
+  // A late pass is still within the second it was in, not seconds past it.
+  CHECK(at(lap + 1, 5000) == BACKLIGHT_FULL_PERCENT);
+  CHECK(at(lap - 4, 5000) == BACKLIGHT_IDLE_PERCENT);
+
+  // Paused across a boundary it is going nowhere, and a countdown is not a lap.
+  CHECK(Util::backlightPercent({kSettled, lap, true, kNoTap, true, 0}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, lap, false, kNoTap, false, 0}) ==
+        BACKLIGHT_IDLE_PERCENT);
 }
 
 // A tap is someone asking to read a face that has gone dim. It buys longer than
@@ -524,6 +562,7 @@ void testBacklightPolicy() {
   testTheLastSecondsOfACountdownLightThePanel();
   testAFinishedTimerStaysLit();
   testAFlowStintDimsAndStaysDim();
+  testAFlowLapClosingLightsThePanel();
   testATapLightsThePanel();
   testATapLightsARunningFlowStint();
   testAPausedTimerLiesDim();

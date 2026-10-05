@@ -38,13 +38,13 @@ void ui_Screen1_screen_init(void)
     // background: flow mode swaps it for a light one and has to swap it back.
     lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_TRACK_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_COLOR_FULL), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_COLOR_RED), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_opa(ui_Arc1, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_width(ui_Arc1, 15, LV_PART_INDICATOR | LV_STATE_DEFAULT);
 
     // The knob tracks the indicator colour, so the leading dot doesn't sit
     // there in the theme's blue while the arc shades green to red.
-    lv_obj_set_style_bg_color(ui_Arc1, lv_color_hex(ARC_COLOR_FULL), LV_PART_KNOB | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_Arc1, lv_color_hex(ARC_COLOR_RED), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_color(ui_Arc1, lv_color_hex(0x5D5D5D), LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_opa(ui_Arc1, 255, LV_PART_KNOB | LV_STATE_DEFAULT);
     lv_obj_set_style_shadow_width(ui_Arc1, 3, LV_PART_KNOB | LV_STATE_DEFAULT);

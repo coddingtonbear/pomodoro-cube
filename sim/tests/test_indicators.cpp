@@ -10,6 +10,7 @@ namespace {
 
 int red(uint32_t c) { return (int)((c >> 16) & 0xFF); }
 int green(uint32_t c) { return (int)((c >> 8) & 0xFF); }
+int blue(uint32_t c) { return (int)(c & 0xFF); }
 
 }  // namespace
 
@@ -29,37 +30,99 @@ void testRemainingPercent() {
   CHECK(Indicators::remainingPercent(99999, 25 * 60) == 100);
 }
 
-void testArcColorStops() {
-  CHECK(Indicators::arcColor(100) == ARC_COLOR_FULL);
-  CHECK(Indicators::arcColor(ARC_MID_PERCENT) == ARC_COLOR_MID);
-  CHECK(Indicators::arcColor(ARC_LOW_PERCENT) == ARC_COLOR_LOW);
+using Indicators::Ramp;
 
-  // Below the last stop it stays red rather than continuing to darken.
-  CHECK(Indicators::arcColor(10) == ARC_COLOR_LOW);
-  CHECK(Indicators::arcColor(0) == ARC_COLOR_LOW);
+void testArcColorStops() {
+  // Work runs red to green: green is the break it is heading for.
+  CHECK(Indicators::rampColor(Ramp::ToGreen, 100, false) == ARC_COLOR_RED);
+  CHECK(Indicators::rampColor(Ramp::ToGreen, ARC_MID_PERCENT, false) == ARC_COLOR_AMBER);
+  CHECK(Indicators::rampColor(Ramp::ToGreen, ARC_LOW_PERCENT, false) == ARC_COLOR_GREEN);
+  CHECK(Indicators::rampColor(Ramp::ToGreen, 0, false) == ARC_COLOR_GREEN);
+
+  // A break runs green to red: red is the work waiting at the end of it.
+  CHECK(Indicators::rampColor(Ramp::ToRed, 100, false) == ARC_COLOR_GREEN);
+  CHECK(Indicators::rampColor(Ramp::ToRed, ARC_MID_PERCENT, false) == ARC_COLOR_AMBER);
+  CHECK(Indicators::rampColor(Ramp::ToRed, ARC_LOW_PERCENT, false) == ARC_COLOR_RED);
+
+  // Below the last stop it holds rather than continuing to shift.
+  CHECK(Indicators::rampColor(Ramp::ToRed, 10, false) == ARC_COLOR_RED);
+  CHECK(Indicators::rampColor(Ramp::ToRed, 0, false) == ARC_COLOR_RED);
+
+  // Flow's later laps run green to cyan, arriving where the others do.
+  CHECK(Indicators::rampColor(Ramp::ToCyan, 100, true) == FLOW_ARC_COLOR_GREEN);
+  CHECK(Indicators::rampColor(Ramp::ToCyan, ARC_LOW_PERCENT, true) == FLOW_ARC_COLOR_CYAN);
+  CHECK(Indicators::rampColor(Ramp::ToCyan, 0, true) == FLOW_ARC_COLOR_CYAN);
 }
+
+constexpr Ramp kRamps[] = {Ramp::ToGreen, Ramp::ToRed, Ramp::ToCyan};
+constexpr bool kPanels[] = {false, true};
 
 void testArcColorIsGradual() {
   // Between stops the colour interpolates, so neighbouring percentages differ
   // by a little rather than jumping at a threshold.
-  CHECK(Indicators::arcColor(75) != ARC_COLOR_FULL);
-  CHECK(Indicators::arcColor(75) != ARC_COLOR_MID);
-  CHECK(Indicators::arcColor(37) != ARC_COLOR_MID);
-  CHECK(Indicators::arcColor(37) != ARC_COLOR_LOW);
+  CHECK(Indicators::rampColor(Ramp::ToRed, 75, false) != ARC_COLOR_GREEN);
+  CHECK(Indicators::rampColor(Ramp::ToRed, 75, false) != ARC_COLOR_AMBER);
+  CHECK(Indicators::rampColor(Ramp::ToRed, 37, false) != ARC_COLOR_AMBER);
+  CHECK(Indicators::rampColor(Ramp::ToRed, 37, false) != ARC_COLOR_RED);
 
-  // Red only ever climbs as the timer runs down, and no single percent moves
-  // a channel far enough to read as a jump between two flat colours.
-  for (int percent = 100; percent > ARC_LOW_PERCENT; percent--) {
-    const uint32_t here = Indicators::arcColor(percent);
-    const uint32_t next = Indicators::arcColor(percent - 1);
-    CHECK_MSG(red(next) >= red(here), "red must not fall as time runs out");
-    CHECK_MSG(abs(red(next) - red(here)) <= 8, "red must change gradually");
-    CHECK_MSG(abs(green(next) - green(here)) <= 8, "green must change gradually");
+  // No single percent moves a channel far enough to read as a jump between two
+  // flat colours, on any ramp or either panel. Ten levels, because amber to
+  // green takes red from 0xFF to 0x35 over the last quarter: a touch over 8.
+  for (const Ramp ramp : kRamps) {
+    for (const bool flow : kPanels) {
+      for (int percent = 100; percent > ARC_LOW_PERCENT; percent--) {
+        const uint32_t here = Indicators::rampColor(ramp, percent, flow);
+        const uint32_t next = Indicators::rampColor(ramp, percent - 1, flow);
+        CHECK_MSG(abs(red(next) - red(here)) <= 10, "red must change gradually");
+        CHECK_MSG(abs(green(next) - green(here)) <= 10, "green must change gradually");
+        CHECK_MSG(abs(blue(next) - blue(here)) <= 10, "blue must change gradually");
+      }
+    }
   }
 
-  // Overall the arc loses green as it drains, even though amber carries
-  // slightly more green than the full-timer colour does.
-  CHECK(green(Indicators::arcColor(ARC_LOW_PERCENT)) < green(Indicators::arcColor(100)));
+  // Red only ever climbs as a break runs down, and only ever falls as work does.
+  for (int percent = 100; percent > ARC_LOW_PERCENT; percent--) {
+    CHECK(red(Indicators::rampColor(Ramp::ToRed, percent - 1, false)) >=
+          red(Indicators::rampColor(Ramp::ToRed, percent, false)));
+    CHECK(red(Indicators::rampColor(Ramp::ToGreen, percent - 1, false)) <=
+          red(Indicators::rampColor(Ramp::ToGreen, percent, false)));
+  }
+
+  // Green to cyan goes straight across, with no amber on the way: blue only
+  // ever climbs.
+  for (int percent = 100; percent > ARC_LOW_PERCENT; percent--) {
+    CHECK(blue(Indicators::rampColor(Ramp::ToCyan, percent - 1, true)) >=
+          blue(Indicators::rampColor(Ramp::ToCyan, percent, true)));
+  }
+}
+
+// Which ramp each interval runs. Work and breaks are fixed; a flow stint's
+// first lap is work like any other, and every lap after it runs on to cyan.
+void testRampFor() {
+  CHECK(Indicators::rampFor(true, false, TIMER_WORK_SECONDS) == Ramp::ToGreen);
+  CHECK(Indicators::rampFor(true, false, 0) == Ramp::ToGreen);
+  CHECK(Indicators::rampFor(false, false, TIMER_SHORT_BREAK_SECONDS) == Ramp::ToRed);
+
+  CHECK(Indicators::rampFor(true, true, 0) == Ramp::ToGreen);
+  CHECK(Indicators::rampFor(true, true, FLOW_LAP_SECONDS - 1) == Ramp::ToGreen);
+  CHECK(Indicators::rampFor(true, true, FLOW_LAP_SECONDS) == Ramp::ToCyan);
+  CHECK(Indicators::rampFor(true, true, 3 * FLOW_LAP_SECONDS + 1) == Ramp::ToCyan);
+}
+
+// The first lap ends on the green the second starts on, so that handover is
+// seamless. Every lap after that ends on cyan and the next snaps back to green:
+// the snap is a pomodoro scored.
+void testFlowLapsHandOver() {
+  const auto lapColour = [](int elapsed) {
+    return Indicators::rampColor(Indicators::rampFor(true, true, elapsed),
+                                 100 - Indicators::lapPercent(elapsed), true);
+  };
+  CHECK(lapColour(0) == FLOW_ARC_COLOR_RED);
+  CHECK(lapColour(FLOW_LAP_SECONDS - 1) == FLOW_ARC_COLOR_GREEN);
+  CHECK(lapColour(FLOW_LAP_SECONDS) == FLOW_ARC_COLOR_GREEN);
+  CHECK(lapColour(2 * FLOW_LAP_SECONDS - 1) == FLOW_ARC_COLOR_CYAN);
+  CHECK(lapColour(2 * FLOW_LAP_SECONDS) == FLOW_ARC_COLOR_GREEN);
+  CHECK(lapColour(3 * FLOW_LAP_SECONDS - 1) == FLOW_ARC_COLOR_CYAN);
 }
 
 void testLowBatteryThreshold() {
@@ -83,19 +146,17 @@ void testLapPercent() {
 }
 
 void testFlowArcColorMatchesTheCountdownRamp() {
-  // Same direction as arcColor -- how much is left -- so both flow faces read
-  // the same way round. A lap inverts at the call site instead.
-  CHECK(Indicators::flowArcColor(100) == FLOW_ARC_COLOR_FULL);
-  CHECK(Indicators::flowArcColor(0) == FLOW_ARC_COLOR_LOW);
-  CHECK(Indicators::flowArcColor(ARC_MID_PERCENT) == FLOW_ARC_COLOR_MID);
-
-  // A fresh lap has all of itself left, so it is the green end.
-  CHECK(Indicators::flowArcColor(100 - 0) == FLOW_ARC_COLOR_FULL);
-  CHECK(Indicators::flowArcColor(100 - 100) == FLOW_ARC_COLOR_LOW);
-
-  // And darker than the countdown's at every stop, because it is drawn on white.
-  CHECK(Indicators::flowArcColor(100) != Indicators::arcColor(100));
-  CHECK(Indicators::flowArcColor(0) != Indicators::arcColor(0));
+  // Flow's stops are the countdown's a step darker, because they are drawn on
+  // white -- the same ramps, just not the same colours.
+  for (const Ramp ramp : kRamps) {
+    CHECK(Indicators::rampColor(ramp, 100, true) != Indicators::rampColor(ramp, 100, false));
+    CHECK(Indicators::rampColor(ramp, 0, true) != Indicators::rampColor(ramp, 0, false));
+  }
+  CHECK(Indicators::rampColor(Ramp::ToRed, 100, true) == FLOW_ARC_COLOR_GREEN);
+  CHECK(Indicators::rampColor(Ramp::ToRed, ARC_MID_PERCENT, true) == FLOW_ARC_COLOR_AMBER);
+  CHECK(Indicators::rampColor(Ramp::ToRed, 0, true) == FLOW_ARC_COLOR_RED);
+  CHECK(Indicators::rampColor(Ramp::ToGreen, 100, true) == FLOW_ARC_COLOR_RED);
+  CHECK(Indicators::rampColor(Ramp::ToGreen, 0, true) == FLOW_ARC_COLOR_GREEN);
 }
 
 void testClockFieldsSwitchToHoursPastAnHour() {
@@ -128,23 +189,23 @@ void testClockFieldsSwitchToHoursPastAnHour() {
 // background, which is also what tells the two modes apart once the field no
 // longer does.
 void testBrightPaletteIsUnchanged() {
-  const Indicators::Palette normal = Indicators::palette(100, false, false);
+  const Indicators::Palette normal = Indicators::palette(Ramp::ToRed, 100, false, false);
   CHECK(normal.background == SCREEN_BG_COLOR);
   CHECK(normal.text == COUNTDOWN_COLOR);
-  CHECK(normal.arc == Indicators::arcColor(100));
+  CHECK(normal.arc == Indicators::rampColor(Ramp::ToRed, 100, false));
   CHECK(normal.track == ARC_TRACK_COLOR);
   CHECK(normal.battery == LOW_BATTERY_COLOR);
 
-  const Indicators::Palette flow = Indicators::palette(100, true, false);
+  const Indicators::Palette flow = Indicators::palette(Ramp::ToRed, 100, true, false);
   CHECK(flow.background == FLOW_BG_COLOR);
   CHECK(flow.text == COUNTDOWN_COLOR_FLOW);
-  CHECK(flow.arc == Indicators::flowArcColor(100));
+  CHECK(flow.arc == Indicators::rampColor(Ramp::ToRed, 100, true));
   CHECK(flow.track == FLOW_ARC_TRACK_COLOR);
 }
 
 void testDimSwapsTheRampOntoTheBackground() {
-  const Indicators::Palette p = Indicators::palette(100, false, true);
-  CHECK(p.background == Indicators::arcColor(100));
+  const Indicators::Palette p = Indicators::palette(Ramp::ToRed, 100, false, true);
+  CHECK(p.background == Indicators::rampColor(Ramp::ToRed, 100, false));
   // Black, which is what the background was.
   CHECK(p.arc == SCREEN_BG_COLOR);
   CHECK(p.text == SCREEN_BG_COLOR);
@@ -155,35 +216,39 @@ void testDimSwapsTheRampOntoTheBackground() {
 
 // Flow keeps its darker ramp, so the one colour drawn over it is white.
 void testDimFlowDrawsInWhite() {
-  const Indicators::Palette p = Indicators::palette(100, true, true);
-  CHECK(p.background == Indicators::flowArcColor(100));
+  const Indicators::Palette p = Indicators::palette(Ramp::ToRed, 100, true, true);
+  CHECK(p.background == Indicators::rampColor(Ramp::ToRed, 100, true));
   CHECK(p.arc == FLOW_BG_COLOR);
   CHECK(p.text == FLOW_BG_COLOR);
   CHECK(p.track == p.background);
 
   // The two dim schemes must never draw in the same colour, because that is the
   // only thing left distinguishing them.
-  CHECK(Indicators::palette(100, false, true).arc != p.arc);
+  CHECK(Indicators::palette(Ramp::ToRed, 100, false, true).arc != p.arc);
 }
 
 // Red on a red field is nothing at all, and the end of a countdown is exactly
 // when the warning matters.
 void testDimBatteryWarningLeavesTheRampColour() {
-  const Indicators::Palette low = Indicators::palette(0, false, true);
-  CHECK(low.background == ARC_COLOR_LOW);
-  CHECK(low.battery != ARC_COLOR_LOW);
+  const Indicators::Palette low = Indicators::palette(Ramp::ToRed, 0, false, true);
+  CHECK(low.background == ARC_COLOR_RED);
+  CHECK(low.battery != ARC_COLOR_RED);
   CHECK(low.battery == SCREEN_BG_COLOR);
 
-  CHECK(Indicators::palette(0, true, true).battery == FLOW_BG_COLOR);
+  CHECK(Indicators::palette(Ramp::ToRed, 0, true, true).battery == FLOW_BG_COLOR);
 }
 
-// The background follows the ramp the whole way down, so the field shifts green
-// to red as the timer runs out.
+// The background follows the ramp the whole way down, so the field shifts
+// green to red as a break runs out, and red to green as work does.
 void testDimBackgroundFollowsTheRamp() {
-  CHECK(Indicators::palette(100, false, true).background == ARC_COLOR_FULL);
-  CHECK(Indicators::palette(ARC_MID_PERCENT, false, true).background == ARC_COLOR_MID);
-  CHECK(Indicators::palette(ARC_LOW_PERCENT, false, true).background == ARC_COLOR_LOW);
-  CHECK(Indicators::palette(0, false, true).background == ARC_COLOR_LOW);
+  CHECK(Indicators::palette(Ramp::ToRed, 100, false, true).background == ARC_COLOR_GREEN);
+  CHECK(Indicators::palette(Ramp::ToRed, ARC_MID_PERCENT, false, true).background == ARC_COLOR_AMBER);
+  CHECK(Indicators::palette(Ramp::ToRed, ARC_LOW_PERCENT, false, true).background == ARC_COLOR_RED);
+  CHECK(Indicators::palette(Ramp::ToRed, 0, false, true).background == ARC_COLOR_RED);
+
+  CHECK(Indicators::palette(Ramp::ToGreen, 100, false, true).background == ARC_COLOR_RED);
+  CHECK(Indicators::palette(Ramp::ToGreen, 0, false, true).background == ARC_COLOR_GREEN);
+  CHECK(Indicators::palette(Ramp::ToCyan, 0, true, true).background == FLOW_ARC_COLOR_CYAN);
 }
 
 void testPalette() {
@@ -194,15 +259,16 @@ void testPalette() {
   testDimBackgroundFollowsTheRamp();
 }
 
-// The alarm is the whole face, not a detail on it: black with red digits, then
-// red with black ones.
+// The alarm is the whole face, not a detail on it: black with coloured digits,
+// then coloured with black ones. Green when work is done -- go and take the
+// break -- and red when a break is.
 void testAlertFlashInvertsTheWholeFace() {
-  const Indicators::Palette dark = Indicators::alertPalette(false);
+  const Indicators::Palette dark = Indicators::alertPalette(false, false);
   CHECK(dark.background == SCREEN_BG_COLOR);
-  CHECK(dark.text == ARC_COLOR_LOW);
+  CHECK(dark.text == ARC_COLOR_RED);
 
-  const Indicators::Palette lit = Indicators::alertPalette(true);
-  CHECK(lit.background == ARC_COLOR_LOW);
+  const Indicators::Palette lit = Indicators::alertPalette(true, false);
+  CHECK(lit.background == ARC_COLOR_RED);
   CHECK(lit.text == SCREEN_BG_COLOR);
 
   // The two halves are each other's inverse, which is what makes the flash a
@@ -211,31 +277,46 @@ void testAlertFlashInvertsTheWholeFace() {
   CHECK(dark.text == lit.background);
 }
 
+// Each alarm is the colour its interval's ramp was arriving at.
+void testAlertIsTheColourTheRampEndedOn() {
+  CHECK(Indicators::alertPalette(true, true).background ==
+        Indicators::rampColor(Indicators::rampFor(true, false, 0), 0, false));
+  CHECK(Indicators::alertPalette(true, false).background ==
+        Indicators::rampColor(Indicators::rampFor(false, false, 0), 0, false));
+  CHECK(Indicators::alertPalette(false, true).text == ARC_COLOR_GREEN);
+}
+
 constexpr bool kFlashHalves[] = {false, true};
+constexpr bool kKinds[] = {false, true};
 
 // The ring is hidden while alerting, but a groove left in the old track colour
 // would still draw a circle on the face.
 void testAlertLeavesNoRingBehind() {
-  for (const bool inverted : kFlashHalves) {
-    const Indicators::Palette p = Indicators::alertPalette(inverted);
-    CHECK(p.track == p.background);
-    CHECK(p.arc == p.background);
+  for (const bool work : kKinds) {
+    for (const bool inverted : kFlashHalves) {
+      const Indicators::Palette p = Indicators::alertPalette(inverted, work);
+      CHECK(p.track == p.background);
+      CHECK(p.arc == p.background);
+    }
   }
 }
 
-// Red on red is nothing at all, and a flat pack is worth knowing about while
-// the alarm has your attention.
+// A colour on itself is nothing at all, and a flat pack is worth knowing about
+// while the alarm has your attention.
 void testAlertBatteryWarningStaysVisible() {
-  CHECK(Indicators::alertPalette(true).battery == SCREEN_BG_COLOR);
-  CHECK(Indicators::alertPalette(false).battery == ARC_COLOR_LOW);
-  for (const bool inverted : kFlashHalves) {
-    const Indicators::Palette p = Indicators::alertPalette(inverted);
-    CHECK(p.battery != p.background);
+  CHECK(Indicators::alertPalette(true, false).battery == SCREEN_BG_COLOR);
+  CHECK(Indicators::alertPalette(false, false).battery == ARC_COLOR_RED);
+  for (const bool work : kKinds) {
+    for (const bool inverted : kFlashHalves) {
+      const Indicators::Palette p = Indicators::alertPalette(inverted, work);
+      CHECK(p.battery != p.background);
+    }
   }
 }
 
 void testAlertPalette() {
   testAlertFlashInvertsTheWholeFace();
+  testAlertIsTheColourTheRampEndedOn();
   testAlertLeavesNoRingBehind();
   testAlertBatteryWarningStaysVisible();
 }

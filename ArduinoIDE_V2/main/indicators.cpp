@@ -16,9 +16,9 @@ uint32_t mix(uint32_t from, uint32_t to, int ratio) {
          mixChannel(from, to, 0, ratio);
 }
 
-// Shared by both arcs: full at 100%, mid at ARC_MID_PERCENT, low at and below
+// Three stops: `full` at 100%, `mid` at ARC_MID_PERCENT, `low` at and below
 // ARC_LOW_PERCENT, interpolated in between.
-uint32_t ramp(int percent, uint32_t full, uint32_t mid, uint32_t low) {
+uint32_t threeStop(int percent, uint32_t full, uint32_t mid, uint32_t low) {
   if (percent >= 100) return full;
 
   if (percent >= ARC_MID_PERCENT) {
@@ -34,6 +34,15 @@ uint32_t ramp(int percent, uint32_t full, uint32_t mid, uint32_t low) {
   return low;
 }
 
+// Two stops, blended straight across: `full` at 100%, `low` at and below
+// ARC_LOW_PERCENT, so it lands on its last colour when the three-stop ramps
+// do.
+uint32_t twoStop(int percent, uint32_t full, uint32_t low) {
+  if (percent >= 100) return full;
+  if (percent <= ARC_LOW_PERCENT) return low;
+  return mix(low, full, ((percent - ARC_LOW_PERCENT) * 255) / (100 - ARC_LOW_PERCENT));
+}
+
 }  // namespace
 
 int Indicators::remainingPercent(int remSeconds, int selSeconds) {
@@ -42,8 +51,26 @@ int Indicators::remainingPercent(int remSeconds, int selSeconds) {
   return (remSeconds * 100) / selSeconds;
 }
 
-uint32_t Indicators::arcColor(int remainingPercent) {
-  return ramp(remainingPercent, ARC_COLOR_FULL, ARC_COLOR_MID, ARC_COLOR_LOW);
+Indicators::Ramp Indicators::rampFor(bool work, bool countingUp, int seconds) {
+  if (countingUp) return seconds < FLOW_LAP_SECONDS ? Ramp::ToGreen : Ramp::ToCyan;
+  return work ? Ramp::ToGreen : Ramp::ToRed;
+}
+
+uint32_t Indicators::rampColor(Ramp ramp, int remainingPercent, bool flow) {
+  const uint32_t green = flow ? FLOW_ARC_COLOR_GREEN : ARC_COLOR_GREEN;
+  const uint32_t amber = flow ? FLOW_ARC_COLOR_AMBER : ARC_COLOR_AMBER;
+  const uint32_t red = flow ? FLOW_ARC_COLOR_RED : ARC_COLOR_RED;
+  const uint32_t cyan = flow ? FLOW_ARC_COLOR_CYAN : ARC_COLOR_CYAN;
+
+  switch (ramp) {
+    case Ramp::ToGreen:
+      return threeStop(remainingPercent, red, amber, green);
+    case Ramp::ToRed:
+      return threeStop(remainingPercent, green, amber, red);
+    case Ramp::ToCyan:
+      return twoStop(remainingPercent, green, cyan);
+  }
+  return green;
 }
 
 int Indicators::lapPercent(int elapsedSeconds) {
@@ -51,12 +78,8 @@ int Indicators::lapPercent(int elapsedSeconds) {
   return ((elapsedSeconds % FLOW_LAP_SECONDS) * 100) / FLOW_LAP_SECONDS;
 }
 
-uint32_t Indicators::flowArcColor(int remainingPercent) {
-  return ramp(remainingPercent, FLOW_ARC_COLOR_FULL, FLOW_ARC_COLOR_MID, FLOW_ARC_COLOR_LOW);
-}
-
-Indicators::Palette Indicators::palette(int rampAt, bool flow, bool dim) {
-  const uint32_t ramped = flow ? flowArcColor(rampAt) : arcColor(rampAt);
+Indicators::Palette Indicators::palette(Ramp ramp, int rampAt, bool flow, bool dim) {
+  const uint32_t ramped = rampColor(ramp, rampAt, flow);
 
   if (!dim) {
     if (flow) {
@@ -79,16 +102,19 @@ Indicators::Palette Indicators::palette(int rampAt, bool flow, bool dim) {
   return {ramped, foreground, foreground, ramped, foreground};
 }
 
-Indicators::Palette Indicators::alertPalette(bool inverted) {
-  // ARC_COLOR_LOW rather than a red of its own: it is the colour an expiring
-  // timer has been shading towards for the last quarter of its run, so the
-  // alarm arrives as the end of that journey rather than as a new idea.
-  const uint32_t face = inverted ? ARC_COLOR_LOW : SCREEN_BG_COLOR;
-  const uint32_t drawn = inverted ? SCREEN_BG_COLOR : ARC_COLOR_LOW;
+Indicators::Palette Indicators::alertPalette(bool inverted, bool work) {
+  // The black panel's stops rather than colours of its own: each is what the
+  // interval's ramp has been shading towards for its last quarter, so the alarm
+  // arrives as the end of that journey rather than as a new idea. Flow's darker
+  // stops are left out -- the flash is a black field either way, and a break
+  // finishing reads the same whichever face it was taken on.
+  const uint32_t colour = work ? ARC_COLOR_GREEN : ARC_COLOR_RED;
+  const uint32_t face = inverted ? colour : SCREEN_BG_COLOR;
+  const uint32_t drawn = inverted ? SCREEN_BG_COLOR : colour;
 
   // Track set to the face so the ring leaves no groove behind even if something
   // fails to hide the arc itself. Battery takes the drawn colour for the same
-  // reason it does when dim: red on red is nothing at all.
+  // reason it does when dim: a colour on itself is nothing at all.
   return {face, drawn, face, face, drawn};
 }
 

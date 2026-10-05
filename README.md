@@ -40,12 +40,16 @@ six states: the four timer faces, face up, or face down.
 
 Standing the cube on a timer face starts that face's timer — or, if you'd
 paused one on that same face, picks it back up where you left off. The
-countdown faces show an arc that drains as the time runs out:
+countdown faces show an arc that drains as the time runs out, and its colour
+says what comes next: a work timer shades from red through amber to green,
+heading for the break, and a break shades from green to red, heading back to
+work:
 
 ![The arc draining over a five-minute timer](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/countdown.png?v=2)
 
 When a countdown reaches zero, the vibration motor buzzes and the whole face
-flashes red until you turn the cube to another face; if you don't, it gives up
+flashes — green when it's time for a break, red when it's time to get back to
+work — until you turn the cube to another face; if you don't, it gives up
 and goes to sleep after thirty seconds:
 
 ![A finished timer flashing](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/finished.gif)
@@ -95,7 +99,10 @@ if you stopped right now:
 ![Flow mode counting up with its bank, and the break it earned](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/flow.png)
 
 The arc on the work face fills over 25 minutes and then starts over, counting a
-pomodoro each time it comes back around.
+pomodoro each time it comes back around. The first lap shades from red to green
+like any work timer; every lap after that runs on from green to cyan, so the
+arc snaps back to green each time a pomodoro is scored. The panel lights up for
+a couple of seconds either side of that moment so you can see it happen.
 
 ## Bluetooth
 

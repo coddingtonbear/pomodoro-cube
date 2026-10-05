@@ -126,8 +126,13 @@ void beginPanelOnce() {
 
 // The face last drawn, kept so a change of brightness can repaint it in the
 // other scheme without the caller having to hand the timer over again.
+Indicators::Ramp lastRamp = Indicators::Ramp::ToGreen;
 int lastRampAt = 100;
 bool lastFlow = false;
+// Whether the timer last drawn was work, which is what the alarm flashes for
+// once it has run out: updateTimer() has always drawn the 00:00 before
+// cycleTimerFinish() takes the panel.
+bool lastWork = true;
 bool dimScheme = false;
 
 // A finished timer owns the panel until something ends it, so the ordinary
@@ -408,7 +413,7 @@ namespace {
 
 void repaintPalette() {
   if (alerting || pausedFrame) return;
-  applyPalette(Indicators::palette(lastRampAt, lastFlow, dimScheme));
+  applyPalette(Indicators::palette(lastRamp, lastRampAt, lastFlow, dimScheme));
 }
 
 }  // namespace
@@ -622,8 +627,10 @@ void Display::updateTimer(const TimerView &view) {
   // indicator, its colour running the ramp over what is left of the lap.
   const int remaining = view.countingUp ? Indicators::lapPercent(view.seconds)
                                         : Indicators::remainingPercent(view.seconds, view.selSeconds);
+  lastRamp = Indicators::rampFor(view.work, view.countingUp, view.seconds);
   lastRampAt = view.countingUp ? 100 - remaining : remaining;
   lastFlow = view.flow;
+  lastWork = view.work;
   lv_arc_set_value(ui_Arc1, remaining);
 
   // Repaints every colour from scratch, which also undoes showPaused() without
@@ -652,6 +659,6 @@ void Display::cycleTimerFinish() {
     show(ui_Arc1, false);
   }
 
-  applyPalette(Indicators::alertPalette(finishInverted));
+  applyPalette(Indicators::alertPalette(finishInverted, lastWork));
   lastFinishChange = now;
 }
