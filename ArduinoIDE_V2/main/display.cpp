@@ -593,26 +593,6 @@ static void setCountdownText(int seconds) {
   const Indicators::ClockFields fields = Indicators::clockFields(seconds);
   lv_label_set_text_fmt(ui_Countdown, "%02d:%02d", fields.left, fields.right);
   show(ui_UnitMarker, fields.hours);
-
-  // The trailing colon hangs off the minutes, and the pair is centred as a
-  // whole so the digits don't sit visibly off to one side of the arc.
-  constexpr lv_coord_t kMarkerGap = 2;
-  lv_coord_t shift = 0;
-  if (fields.hours) {
-    lv_obj_update_layout(ui_Screen1);
-    shift = (lv_obj_get_width(ui_UnitMarker) + kMarkerGap) / 2;
-  }
-  if (lv_obj_get_x(ui_Countdown) != -shift) lv_obj_set_x(ui_Countdown, -shift);
-  if (fields.hours) {
-    lv_obj_update_layout(ui_Screen1);
-    // On the countdown's baseline. Each font puts its baseline base_line pixels
-    // above the bottom of its line, so lining up the bottoms is off by the
-    // difference.
-    const lv_coord_t baselineOffset =
-        ui_font_SecondsColon.base_line - ui_font_Countdown_54.base_line;
-    lv_obj_align_to(ui_UnitMarker, ui_Countdown, LV_ALIGN_OUT_RIGHT_BOTTOM, kMarkerGap,
-                    baselineOffset);
-  }
 }
 
 // The bank in the smallest form that stays unambiguous: no marker to explain,
