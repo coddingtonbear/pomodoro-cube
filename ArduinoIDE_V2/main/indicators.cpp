@@ -2,6 +2,8 @@
 
 #include "consts.h"
 
+#include <stdio.h>
+
 namespace {
 
 // Blend one channel of `from` towards `to`; ratio runs 0 (all from) to 255.
@@ -122,6 +124,14 @@ Indicators::ClockFields Indicators::clockFields(int seconds) {
   if (seconds < 0) seconds = 0;
   if (seconds >= 3600) return {seconds / 3600, (seconds % 3600) / 60, true};
   return {seconds / 60, seconds % 60, false};
+}
+
+Indicators::ClockText Indicators::clockText(int seconds) {
+  const ClockFields fields = clockFields(seconds);
+  ClockText out;
+  snprintf(out.text, sizeof out.text, fields.hours ? "%dh%02d" : "%02d:%02d", fields.left,
+           fields.right);
+  return out;
 }
 
 bool Indicators::showLowBattery(float batteryVoltage) {

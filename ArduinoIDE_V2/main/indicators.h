@@ -73,14 +73,22 @@ Palette palette(Ramp ramp, int rampAt, bool flow, bool dim);
 Palette alertPalette(bool inverted, bool work);
 
 // How the countdown label should be split. Past an hour there are not enough
-// digits for MM:SS at the size the panel needs, so it becomes HH:MM -- and the
-// two are indistinguishable on screen, which is what `hours` is for.
+// digits for MM:SS at the size the panel needs, so it becomes hours and
+// minutes -- which `hours` says, since the two would otherwise read alike.
 struct ClockFields {
   int left;
   int right;
   bool hours;
 };
 ClockFields clockFields(int seconds);
+
+// The countdown as the label shows it: 25:00, or past an hour 1h25. The h
+// stands where the colon would, so an hour and a quarter can't pass for a
+// minute and a quarter.
+struct ClockText {
+  char text[8];
+};
+ClockText clockText(int seconds);
 
 // Whether the low-battery warning should be on screen, given the smoothed
 // pack voltage in volts.

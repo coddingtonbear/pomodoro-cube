@@ -2,6 +2,7 @@
 #include "indicators.h"
 
 #include <cstdlib>
+#include <cstring>
 
 #include "check.h"
 #include "consts.h"
@@ -182,6 +183,18 @@ void testClockFieldsSwitchToHoursPastAnHour() {
   // The longest a stint can run still fits two digits on each side.
   const Indicators::ClockFields cap = Indicators::clockFields(FLOW_MAX_SECONDS);
   CHECK(cap.left == 4 && cap.right == 0 && cap.hours);
+}
+
+void testClockTextMarksHoursWithAnH() {
+  CHECK(std::strcmp(Indicators::clockText(0).text, "00:00") == 0);
+  CHECK(std::strcmp(Indicators::clockText(TIMER_WORK_SECONDS).text, "25:00") == 0);
+  CHECK(std::strcmp(Indicators::clockText(3599).text, "59:59") == 0);
+
+  // Past an hour the h stands where the colon was, so 1h05 can't be read as
+  // a minute and five seconds.
+  CHECK(std::strcmp(Indicators::clockText(3600).text, "1h00") == 0);
+  CHECK(std::strcmp(Indicators::clockText(3600 + 5 * 60 + 59).text, "1h05") == 0);
+  CHECK(std::strcmp(Indicators::clockText(FLOW_MAX_SECONDS).text, "4h00") == 0);
 }
 
 // Bright keeps the arrangement the cube has always had. Dim swaps the ramp onto

@@ -129,7 +129,7 @@ brighten.
 `tests/` holds host tests for the firmware's pure logic — the face-to-timer
 mapping and the flow bank's arithmetic in `util.cpp`, the
 accelerometer vectors the faces correspond to, and the arc fill, arc colour,
-flow lap indicator, MM:SS-to-HH:MM switch and low-battery threshold in
+flow lap indicator, switch from 25:00 to 1h25 and low-battery threshold in
 `indicators.cpp`. They build as part of the same project:
 
 ```bash

@@ -20,8 +20,10 @@ which for Oswald is Regular, and Regular is too light for the panel.
 Regenerate the countdown font with:
 
 ```
-tools/convert-font.sh fonts/Oswald-SemiBold.ttf 62
+RANGE=0x30-0x3A,0x68 tools/convert-font.sh fonts/Oswald-SemiBold.ttf 62
 ```
+
+The range adds `h` to the digits and colon, for the hours past an hour (1h25).
 
 62px rather than the script's default 54: Oswald is condensed, so it can run
 taller before the digits reach the arc.

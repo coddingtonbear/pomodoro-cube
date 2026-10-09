@@ -317,7 +317,7 @@ environment variables, and what the simulator can't tell you.
 
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
 flow bank's arithmetic, the arc's fill and colour ramp, the lap indicator
-and what scores off it, the MM:SS to HH:MM switch, the low-battery threshold,
+and what scores off it, the switch from 25:00 to 1h25 past an hour, the low-battery threshold,
 the angle the face is drawn at, the RTC guard, the vibration patterns, the
 order the sleep path shuts things down in, and the BTHome encoder's exact output
 bytes:

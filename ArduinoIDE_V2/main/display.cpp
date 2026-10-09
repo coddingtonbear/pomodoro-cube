@@ -170,8 +170,7 @@ void applyLean() {
   }
 
   lv_obj_update_layout(ui_Screen1);
-  lv_obj_t *const leaning[] = {ui_LowBattery, ui_LowBatteryTip, ui_Countdown, ui_UnitMarker,
-                               ui_BankLabel};
+  lv_obj_t *const leaning[] = {ui_LowBattery, ui_LowBatteryTip, ui_Countdown, ui_BankLabel};
   for (lv_obj_t *obj : leaning) {
     const lv_coord_t pivotX = kPanelCentre - obj->coords.x1;
     const lv_coord_t pivotY = kPanelCentre - obj->coords.y1;
@@ -401,7 +400,7 @@ static void setBatteryColor(uint32_t color) {
 static void applyPalette(const Indicators::Palette &p) {
   setColor(ui_Screen1, LV_STYLE_BG_COLOR, p.background, LV_PART_MAIN);
   setColor(ui_Arc1, LV_STYLE_ARC_COLOR, p.track, LV_PART_MAIN);
-  lv_obj_t *const labels[] = {ui_Countdown, ui_UnitMarker, ui_BankLabel};
+  lv_obj_t *const labels[] = {ui_Countdown, ui_BankLabel};
   for (lv_obj_t *label : labels) {
     setColor(label, LV_STYLE_TEXT_COLOR, p.text, LV_PART_MAIN);
   }
@@ -590,9 +589,7 @@ void Display::rotateScreen(Orientation ori) {
 }
 
 static void setCountdownText(int seconds) {
-  const Indicators::ClockFields fields = Indicators::clockFields(seconds);
-  lv_label_set_text_fmt(ui_Countdown, "%02d:%02d", fields.left, fields.right);
-  show(ui_UnitMarker, fields.hours);
+  lv_label_set_text(ui_Countdown, Indicators::clockText(seconds).text);
 }
 
 // The bank in the smallest form that stays unambiguous: no marker to explain,
