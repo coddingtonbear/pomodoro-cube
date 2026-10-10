@@ -191,10 +191,11 @@ constexpr int FLOW_BREAK_DIVISOR = 5;
 // face by design -- a pomodoro is a pomodoro however it was counted.
 constexpr int FLOW_LAP_SECONDS = TIMER_WORK_SECONDS;
 
-// Where a stint gives up and finishes on its own. A cube left standing on the
-// flow face would otherwise hold the backlight on until the pack went flat, and
-// the advertisement's uint24 of milliseconds runs out shortly after this.
-constexpr int FLOW_MAX_SECONDS = 4 * 60 * 60;
+// A stint has no ceiling: it runs until the cube is turned off the face, or
+// until the pack goes flat. Between laps the panel sits at the idle level, so
+// nothing is lit at full for the length of it. Past about four and a half hours
+// the advertisement's uint24 of milliseconds pins at its maximum rather than
+// wrapping, and the clock reads hours and minutes up to 99h59.
 
 // The backlight is the largest single draw while the cube is awake -- of the
 // same order as the whole rest of the board -- so full brightness is rationed

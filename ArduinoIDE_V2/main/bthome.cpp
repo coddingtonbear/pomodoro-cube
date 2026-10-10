@@ -74,8 +74,8 @@ uint16_t millivolts(float volts) {
 }
 
 // Durations are sent in milliseconds, which a uint24 runs out of after about
-// four and a half hours -- far beyond the longest face, but clamp rather than
-// wrap, since a wrapped duration would read as a plausible short timer.
+// four and a half hours -- which a long flow stint can pass -- so clamp rather
+// than wrap, since a wrapped duration would read as a plausible short timer.
 uint32_t durationMs(int seconds) {
   if (seconds <= 0) return 0;
   const uint32_t ms = (uint32_t)seconds * 1000u;

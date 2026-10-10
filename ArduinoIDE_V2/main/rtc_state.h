@@ -77,8 +77,7 @@ bool hasPause(const Data &data);
 // pause is abandoned. Either way the stored pause is consumed.
 bool takePause(Data &data, Orientation face, int &remaining, int &selected, bool &countingUp);
 
-// Credit break seconds a flow stint earned. Clamped at FLOW_MAX_SECONDS, for
-// the same reason a stint is.
+// Credit break seconds a flow stint earned.
 void addFlowBank(Data &data, int seconds);
 
 // The balance. Reading it does not spend it: the break face counts it down and

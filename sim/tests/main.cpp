@@ -28,7 +28,7 @@ void testPauseRoundTrip();
 void testAPausedFlowStintResumesCountingUp();
 void testFlowBankAccumulates();
 void testFlowBankIsWrittenBackAsABreakIsSpent();
-void testFlowBankIsClamped();
+void testFlowBankFloorsAtZero();
 void testFlowBankIsSeparateFromThePause();
 void testPauseOnlyResumesOnItsOwnFace();
 void testNothingWorthResumingIsNotStored();
@@ -84,7 +84,7 @@ int main() {
   testAPausedFlowStintResumesCountingUp();
   testFlowBankAccumulates();
   testFlowBankIsWrittenBackAsABreakIsSpent();
-  testFlowBankIsClamped();
+  testFlowBankFloorsAtZero();
   testFlowBankIsSeparateFromThePause();
   testPauseOnlyResumesOnItsOwnFace();
   testNothingWorthResumingIsNotStored();

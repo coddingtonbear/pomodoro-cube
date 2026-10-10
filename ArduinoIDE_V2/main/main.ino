@@ -528,16 +528,6 @@ void loop() {
     // when the stint ends: two hours of flow is four pomodoros, and the count
     // reaches Home Assistant while the stint is still running.
     if (Util::completesFlowLap(remSeconds)) RtcState::data().pomodoroCount++;
-    if (remSeconds >= FLOW_MAX_SECONDS) {
-      // A stint has to end somewhere: left standing on the flow face the cube
-      // would hold the backlight on until the pack went flat. Ending it here
-      // rather than at the face change means bankFlowStint() still runs once.
-      bankFlowStint(remSeconds);
-      timerMode = TimerMode::Countdown;
-      selSeconds = FLOW_MAX_SECONDS;
-      remSeconds = 0;
-      startedAlarm = millis();
-    }
     Display::updateTimer(timerView());
   }
 

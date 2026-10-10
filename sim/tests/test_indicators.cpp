@@ -180,9 +180,10 @@ void testClockFieldsSwitchToHoursPastAnHour() {
   const Indicators::ClockFields long_ = Indicators::clockFields(3 * 3600 + 25 * 60 + 40);
   CHECK(long_.left == 3 && long_.right == 25 && long_.hours);
 
-  // The longest a stint can run still fits two digits on each side.
-  const Indicators::ClockFields cap = Indicators::clockFields(FLOW_MAX_SECONDS);
-  CHECK(cap.left == 4 && cap.right == 0 && cap.hours);
+  // A stint runs as long as the battery does, and a day of it still fits two
+  // digits on each side.
+  const Indicators::ClockFields day = Indicators::clockFields(24 * 3600 + 7 * 60);
+  CHECK(day.left == 24 && day.right == 7 && day.hours);
 }
 
 void testClockTextMarksHoursWithAnH() {
@@ -194,7 +195,8 @@ void testClockTextMarksHoursWithAnH() {
   // a minute and five seconds.
   CHECK(std::strcmp(Indicators::clockText(3600).text, "1h00") == 0);
   CHECK(std::strcmp(Indicators::clockText(3600 + 5 * 60 + 59).text, "1h05") == 0);
-  CHECK(std::strcmp(Indicators::clockText(FLOW_MAX_SECONDS).text, "4h00") == 0);
+  CHECK(std::strcmp(Indicators::clockText(4 * 3600).text, "4h00") == 0);
+  CHECK(std::strcmp(Indicators::clockText(12 * 3600 + 30 * 60).text, "12h30") == 0);
 }
 
 // Bright keeps the arrangement the cube has always had. Dim swaps the ramp onto

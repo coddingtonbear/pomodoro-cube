@@ -90,7 +90,6 @@ int RtcState::flowBank(const Data &data) {
 
 void RtcState::setFlowBank(Data &data, int seconds) {
   if (seconds < 0) seconds = 0;
-  if (seconds > FLOW_MAX_SECONDS) seconds = FLOW_MAX_SECONDS;
   data.flowBankSeconds = seconds;
 }
 

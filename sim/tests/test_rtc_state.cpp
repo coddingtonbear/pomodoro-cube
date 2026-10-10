@@ -174,7 +174,7 @@ void testFlowBankIsWrittenBackAsABreakIsSpent() {
   CHECK(RtcState::flowBank(data) == 0);
 }
 
-void testFlowBankIsClamped() {
+void testFlowBankFloorsAtZero() {
   RtcState::Data data;
   RtcState::initialise(data);
 
@@ -182,11 +182,10 @@ void testFlowBankIsClamped() {
   RtcState::setFlowBank(data, -1);
   CHECK(RtcState::flowBank(data) == 0);
 
-  // And capped, so a day of stints can't bank a break longer than the
-  // advertisement's duration can carry.
-  RtcState::addFlowBank(data, FLOW_MAX_SECONDS);
-  RtcState::addFlowBank(data, FLOW_MAX_SECONDS);
-  CHECK(RtcState::flowBank(data) == FLOW_MAX_SECONDS);
+  // And uncapped: a long day of stints banks everything it earned.
+  RtcState::addFlowBank(data, 4 * 60 * 60);
+  RtcState::addFlowBank(data, 4 * 60 * 60);
+  CHECK(RtcState::flowBank(data) == 8 * 60 * 60);
 }
 
 void testFlowBankIsSeparateFromThePause() {

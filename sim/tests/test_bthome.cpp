@@ -99,8 +99,8 @@ void testFitsInALegacyAdvertisement() {
   state.packetId = 255;
   state.pomodoroCount = 65535;
   state.batteryVolts = 4.2f;
-  state.remainingSeconds = FLOW_MAX_SECONDS;
-  state.selectedSeconds = FLOW_MAX_SECONDS;
+  state.remainingSeconds = 12 * 60 * 60;
+  state.selectedSeconds = 12 * 60 * 60;
 
   uint8_t advert[BTHome::MAX_ADVERTISEMENT];
   const size_t length = BTHome::encode(state, advert, sizeof(advert));

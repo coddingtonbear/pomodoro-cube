@@ -235,10 +235,7 @@ int Util::flowBreakCredit(int workedSeconds) {
 
 int Util::flowBankPreview(int bankedSeconds, int elapsedSeconds) {
   if (bankedSeconds < 0) bankedSeconds = 0;
-  const int preview = bankedSeconds + flowBreakCredit(elapsedSeconds);
-  // Clamped the way the bank itself is, so the figure on screen is one the
-  // cube can actually honour.
-  return preview > FLOW_MAX_SECONDS ? FLOW_MAX_SECONDS : preview;
+  return bankedSeconds + flowBreakCredit(elapsedSeconds);
 }
 
 bool Util::completesFlowLap(int elapsedSeconds) {

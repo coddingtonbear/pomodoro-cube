@@ -99,9 +99,9 @@ void testTheBankPreviewIncludesTheRunningStint() {
   CHECK(Util::flowBankPreview(4 * 60, 25 * 60) == 9 * 60);
   CHECK(Util::flowBankPreview(0, 5) == 1);
 
-  // Clamped where the bank is, so the figure on screen is one the cube can
-  // actually honour.
-  CHECK(Util::flowBankPreview(FLOW_MAX_SECONDS, FLOW_MAX_SECONDS) == FLOW_MAX_SECONDS);
+  // Uncapped, like the bank and the stint: eight hours of flow on top of a
+  // banked hour is an hour and thirty-six minutes more.
+  CHECK(Util::flowBankPreview(60 * 60, 8 * 60 * 60) == 60 * 60 + 96 * 60);
   CHECK(Util::flowBankPreview(-5, 0) == 0);
 }
 
@@ -329,7 +329,7 @@ void testAFlowStintDimsAndStaysDim() {
   CHECK(Util::backlightPercent({kJustSetDown, 0, true, kNoTap}) == BACKLIGHT_FULL_PERCENT);
   CHECK(Util::backlightPercent({kSettled, 0, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
   CHECK(Util::backlightPercent({kSettled, 1, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
-  CHECK(Util::backlightPercent({kSettled, FLOW_MAX_SECONDS, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
+  CHECK(Util::backlightPercent({kSettled, 12 * 60 * 60 + 60, true, kNoTap}) == BACKLIGHT_IDLE_PERCENT);
 }
 
 // A lap closing lights the panel from BACKLIGHT_LAP_MS before it to
