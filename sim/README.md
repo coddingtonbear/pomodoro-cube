@@ -78,7 +78,7 @@ SDL_VIDEODRIVER=dummy SIM_ORIENTATION=180 \
 | Variable | Effect |
 | --- | --- |
 | `SIM_ORIENTATION` | Boot on a face: `0`, `90`, `180`, `270`, `up` or `down` |
-| `SIM_BATTERY` | Starting pack voltage in volts, e.g. `3.65` |
+| `SIM_BATTERY` | Starting pack voltage in volts, e.g. `3.35` |
 | `SIM_SCREENSHOT` | Where to write the frame |
 | `SIM_SCREENSHOT_MS` | When to grab it, in ms since boot |
 | `SIM_KEYS` | Keys to press, e.g. `b`, `mv`, or `u@12000` for 12s in |

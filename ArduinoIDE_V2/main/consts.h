@@ -255,7 +255,7 @@ constexpr int ARC_LOW_PERCENT = 25;
 // volts rather than as a percentage because the percentage was a linear fiction
 // over a range that has never been checked against real hardware, and because
 // the warning shows the measured voltage for exactly that calibration job.
-constexpr float LOW_BATTERY_VOLTAGE = 3.6f;
+constexpr float LOW_BATTERY_VOLTAGE = 3.3f;
 
 // A finished timer flashes the whole face rather than pulsing the arc, so it
 // cannot be mistaken for a running one or missed from across a room. Fast

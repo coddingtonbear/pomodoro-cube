@@ -52,7 +52,7 @@ size_t g_screenshotIndex = 0;
 
 // A voltage on each side of LOW_BATTERY_VOLTAGE, so the forced states go
 // through the firmware's own threshold rather than around it.
-constexpr float kForcedLowVoltage = 3.55f;
+constexpr float kForcedLowVoltage = 3.25f;
 constexpr float kForcedHealthyVoltage = 3.90f;
 
 const char *batteryStateName() {
