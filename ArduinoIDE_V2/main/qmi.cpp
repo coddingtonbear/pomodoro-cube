@@ -1,6 +1,7 @@
 #include "qmi.h"
 #include "SensorQMI8658.hpp"  // By Lewis He V0.4.1
 #include "consts.h"
+#include "util.h"
 
 SensorQMI8658 qmi;
 
@@ -126,18 +127,32 @@ bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
   // that counted on at a crawl and ignored being turned, every read failing. A run of failures long enough not to be
   // a glitch gets the same recovery as a boot, no more often than every few
   // seconds so a sensor that stays gone does not stall every pass.
+  //
+  // A sensor can also stall without failing: it stops sampling, goes on
+  // answering, and hands back its last sample as a fresh one. That is worse
+  // than silence, because it names a face -- a cube stalled on the work face and
+  // then put away face down went on starting pomodoros on every wake, and
+  // buzzed at the end of each. A repeat is treated as the failed read it is.
   static uint32_t failures = 0;
+  static uint32_t repeats = 0;
   static unsigned long lastRecovery = 0;
+  static Util::RepeatWatch watch;
   if (qmi.getAccelerometer(ax, ay, az)) {
-    failures = 0;
-    return true;
+    if (!watch.repeats(ax, ay, az)) {
+      failures = 0;
+      repeats = 0;
+      return true;
+    }
+    repeats++;
   }
   ax = ay = az = 0;
   if (++failures >= QMI_RECOVER_AFTER_FAILURES &&
       millis() - lastRecovery >= QMI_RECOVER_INTERVAL_MS) {
     lastRecovery = millis();
-    Serial.printf("[trace] QMI recover t=%lu failures=%u\n", millis(), (unsigned)failures);
+    Serial.printf("[trace] QMI recover t=%lu failures=%u repeats=%u\n", millis(),
+                  (unsigned)failures, (unsigned)repeats);
     failures = 0;
+    repeats = 0;
     setup();
     if (tapEnabled) enableTapDetection();
   }

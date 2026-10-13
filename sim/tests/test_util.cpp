@@ -789,7 +789,25 @@ void testSwitchingOn() {
   testMovementPutsOffGivingUp();
 }
 
+namespace {
+
+// A stalled sensor's one reading, over and over, is caught from the second
+// time it arrives -- and a live one's noise never is.
+void testARepeatedReadingIsCaught() {
+  Util::RepeatWatch watch;
+  CHECK(!watch.repeats(-0.98f, 0.02f, 0.11f));
+  CHECK(watch.repeats(-0.98f, 0.02f, 0.11f));
+  CHECK(watch.repeats(-0.98f, 0.02f, 0.11f));
+
+  // One count on one axis is a sample, not a repeat.
+  CHECK(!watch.repeats(-0.98f, 0.02f, 0.11f + 1.0f / 8192.0f));
+  CHECK(!watch.repeats(-0.98f, 0.02f, 0.11f));
+}
+
+}  // namespace
+
 void testOrientationDebounce() {
+  testARepeatedReadingIsCaught();
   testAnAmbiguousAttitudeStillNamesAFace();
   testAReadingMustHoldStillToBeAccepted();
   testAFaceInPassingIsNotAcceptedAsAFaceChange();

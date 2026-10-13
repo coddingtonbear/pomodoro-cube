@@ -178,6 +178,22 @@ class SwitchOnListener {
   unsigned long candidateSince_ = 0;
 };
 
+// Spots a sensor that has stopped sampling but still answers on the bus. The
+// QMI8658's data registers keep their last sample when it stops, and reading
+// them still succeeds, so a stalled sensor reports one reading forever -- as
+// good as any other, and naming whatever face the cube was on when it stalled.
+// A working one never does: at the range it runs at, its noise moves at least
+// one axis by a count or more between any two samples, even lying still.
+class RepeatWatch {
+ public:
+  // True when this reading is bit-for-bit the one before it.
+  bool repeats(float ax, float ay, float az);
+
+ private:
+  bool have_ = false;
+  float ax_ = 0, ay_ = 0, az_ = 0;
+};
+
 // Feed a raw accelerometer reading in and get back whether the debounced face
 // just changed. Takes the vector rather than an orientation because the two
 // reasons to distrust a reading -- it is not gravity, or it does not clearly

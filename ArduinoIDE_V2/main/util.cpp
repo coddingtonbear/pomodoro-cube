@@ -298,6 +298,15 @@ Util::SwitchOnVerdict Util::SwitchOnListener::update(bool haveReading, float ax,
   return SwitchOnVerdict::Listening;
 }
 
+bool Util::RepeatWatch::repeats(float ax, float ay, float az) {
+  const bool same = have_ && ax == ax_ && ay == ay_ && az == az_;
+  have_ = true;
+  ax_ = ax;
+  ay_ = ay;
+  az_ = az;
+  return same;
+}
+
 // The face the cube is currently being read as, and the one it has been read as
 // for long enough to believe.
 Orientation candidateState = Orientation::UNDEFINED;
