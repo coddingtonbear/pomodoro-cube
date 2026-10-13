@@ -112,9 +112,26 @@ void testFarewellSpansASleepHoldingThePausedFrame() {
   CHECK(indexOf(calls, "Haptic::holdForSleep") >= 0);
 }
 
+// Only motion wakes a sleeping cube. A nap in the loop arms a timer wake that
+// is never disarmed by waking from it, and a deep sleep entered with that still
+// armed came back up a moment later on the face it was standing on -- so a
+// finished pomodoro left standing started another, and buzzed again at its end.
+void testOnlyMotionWakesTheCube() {
+  esp_sleep_enable_timer_wakeup(200 * 1000ULL);
+  sleepCalls(Util::SleepMode::Off, false);
+  CHECK(!SimHost::wakeSourceArmed(ESP_SLEEP_WAKEUP_TIMER));
+  CHECK(SimHost::wakeSourceArmed(ESP_SLEEP_WAKEUP_EXT0));
+
+  esp_sleep_enable_timer_wakeup(200 * 1000ULL);
+  sleepCalls(Util::SleepMode::Paused, false);
+  CHECK(!SimHost::wakeSourceArmed(ESP_SLEEP_WAKEUP_TIMER));
+  CHECK(SimHost::wakeSourceArmed(ESP_SLEEP_WAKEUP_EXT0));
+}
+
 }  // namespace
 
 void testSleepSequence() {
+  testOnlyMotionWakesTheCube();
   testFarewellSpansASleepWithTheScreenOff();
   testFarewellSpansASleepHoldingThePausedFrame();
   testTheMotorIsQuietBeforeTheWakeIsArmed();

@@ -63,7 +63,20 @@ static EspClass ESP;
 void gpio_hold_en(gpio_num_t pin);
 void gpio_hold_dis(gpio_num_t pin);
 void gpio_deep_sleep_hold_en();
+// Wake sources stay armed until disabled, whichever sleep they were armed
+// for; the shim keeps the same set so a test can see what a deep sleep would
+// have been woken by. Values as in esp_sleep.h.
+typedef enum {
+  ESP_SLEEP_WAKEUP_UNDEFINED = 0,
+  ESP_SLEEP_WAKEUP_ALL = 1,
+  ESP_SLEEP_WAKEUP_EXT0 = 2,
+  ESP_SLEEP_WAKEUP_TIMER = 4,
+} esp_sleep_source_t;
+typedef esp_sleep_source_t esp_sleep_wakeup_cause_t;
 void esp_sleep_enable_ext0_wakeup(gpio_num_t pin, int level);
+void esp_sleep_enable_timer_wakeup(uint64_t us);
+void esp_sleep_disable_wakeup_source(esp_sleep_source_t source);
+esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause();
 [[noreturn]] void esp_deep_sleep_start();
 
 // ---- Watchdog and reset reason --------------------------------------------

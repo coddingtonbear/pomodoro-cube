@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Arduino.h"
+
 namespace SimHost {
 
 // Installed by the SDL layer so that blocking delay() calls inside the
@@ -14,5 +16,9 @@ double timeScale();
 
 // How long a stretch of simulated time takes on the wall clock.
 unsigned long wallMs(unsigned long simMs);
+
+// Whether the shim's esp_sleep_* calls have left `source` armed, which is what
+// a deep sleep started now would wake on.
+bool wakeSourceArmed(esp_sleep_source_t source);
 
 }  // namespace SimHost

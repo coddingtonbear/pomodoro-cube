@@ -285,8 +285,9 @@ void setup() {
   // is covered too, which is why the settle below feeds it on its way out.
   enableLoopWDT();
   // A watchdog reboot looks like any other boot from the outside; this is how
-  // to tell one apart on the serial log.
-  Serial.printf("[trace] RESET reason=%d\n", (int)esp_reset_reason());
+  // to tell one apart on the serial log, and a motion wake from any other.
+  Serial.printf("[trace] RESET reason=%d wake=%d\n", (int)esp_reset_reason(),
+                (int)esp_sleep_get_wakeup_cause());
 
   // First, so the motor's pin is driven low from the earliest moment there is
   // code to drive it, on every path out of here.

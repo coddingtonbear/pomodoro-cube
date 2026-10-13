@@ -105,6 +105,12 @@ void Util::deepSleep(SleepMode mode, bool announce) {
   rtc_gpio_pullup_dis(IMU_INT_PIN);
   rtc_gpio_pulldown_en(IMU_INT_PIN);
 
+  // Motion is the only thing that wakes a sleeping cube. Every nap the loop took
+  // armed a timer wake, and a wake source stays armed until it is disabled,
+  // whichever sleep it was armed for -- so without this the deep sleep that
+  // ends an alarm woke a fraction of a second later, on the face the cube was
+  // still standing on, and started that face's timer all over again.
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
   esp_sleep_enable_ext0_wakeup(IMU_INT_PIN, 1);  // 1 = Wakeup at HIGH
 
   Haptic::holdForSleep();

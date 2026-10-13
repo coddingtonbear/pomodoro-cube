@@ -112,7 +112,30 @@ uint32_t getCpuFrequencyMhz() { return g_cpuMhz; }
 void gpio_hold_en(gpio_num_t pin) { (void)pin; }
 void gpio_hold_dis(gpio_num_t pin) { (void)pin; }
 void gpio_deep_sleep_hold_en() {}
-void esp_sleep_enable_ext0_wakeup(gpio_num_t pin, int level) { (void)pin; (void)level; }
+namespace {
+// Bit n is wake source n.
+uint32_t g_wakeSources = 0;
+}  // namespace
+
+bool SimHost::wakeSourceArmed(esp_sleep_source_t source) {
+  return (g_wakeSources & (1u << source)) != 0;
+}
+
+void esp_sleep_enable_ext0_wakeup(gpio_num_t pin, int level) {
+  (void)pin;
+  (void)level;
+  g_wakeSources |= 1u << ESP_SLEEP_WAKEUP_EXT0;
+}
+void esp_sleep_enable_timer_wakeup(uint64_t us) {
+  (void)us;
+  g_wakeSources |= 1u << ESP_SLEEP_WAKEUP_TIMER;
+}
+void esp_sleep_disable_wakeup_source(esp_sleep_source_t source) {
+  if (source == ESP_SLEEP_WAKEUP_ALL) g_wakeSources = 0;
+  else g_wakeSources &= ~(1u << source);
+}
+// Every run of the sim is a power-on, which no wake source caused.
+esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_WAKEUP_UNDEFINED; }
 
 void esp_deep_sleep_start() { throw SimDeepSleep{}; }
 
