@@ -259,6 +259,23 @@ constexpr unsigned long PAUSE_AWAKE_MS = 30UL * 60UL * 1000UL;
 constexpr int ARC_MID_PERCENT = 50;
 constexpr int ARC_LOW_PERCENT = 25;
 
+// The ring the time is shown on: RING_SLICES slices round a horseshoe of
+// RING_SWEEP_DEGREES, starting RING_START_DEGREES clockwise of three o'clock --
+// bottom left, so the opening sits at the bottom. A slice lights as the time
+// reaches it, so the one in progress is simply the last one lit.
+//
+// Each slice is a short radial stroke with round ends: RING_SLICE_WIDTH_PX
+// across, which makes its corners half that in radius, and long enough that
+// with its ends it fills a band RING_BAND_PX deep centred on RING_RADIUS_PX.
+// Fifty leaves about 10 px of arc per slice, so a 6 px stroke has about 4 px of
+// gap either side.
+constexpr int RING_SLICES = 50;
+constexpr int RING_START_DEGREES = 135;
+constexpr int RING_SWEEP_DEGREES = 270;
+constexpr float RING_RADIUS_PX = 105.0f;
+constexpr float RING_BAND_PX = 15.0f;
+constexpr int RING_SLICE_WIDTH_PX = 6;
+
 // The battery warning is hidden entirely above this pack voltage. Expressed in
 // volts rather than as a percentage because the percentage was a linear fiction
 // over a range that has never been checked against real hardware, and because

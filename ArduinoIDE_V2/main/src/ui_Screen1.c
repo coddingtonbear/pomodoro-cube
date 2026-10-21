@@ -6,7 +6,7 @@
 #include "ui.h"
 
 lv_obj_t * ui_Screen1 = NULL;
-lv_obj_t * ui_Arc1 = NULL;
+lv_obj_t * ui_Ring = NULL;
 lv_obj_t * ui_LowBattery = NULL;
 lv_obj_t * ui_LowBatteryTip = NULL;
 lv_obj_t * ui_LowBatteryVoltage = NULL;
@@ -25,29 +25,15 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(SCREEN_BG_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Screen1, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_Arc1 = lv_arc_create(ui_Screen1);
-    lv_obj_set_width(ui_Arc1, 225);
-    lv_obj_set_height(ui_Arc1, 225);
-    lv_obj_set_align(ui_Arc1, LV_ALIGN_CENTER);
-    lv_obj_clear_flag(ui_Arc1, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE |
-                      LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE);     /// Flags
-    lv_arc_set_value(ui_Arc1, 100);
-    lv_obj_set_style_arc_width(ui_Arc1, 15, LV_PART_MAIN | LV_STATE_DEFAULT);
-    // Explicit rather than the theme's, for the same reason as the screen's
-    // background: flow mode swaps it for a light one and has to swap it back.
-    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_TRACK_COLOR), LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(ARC_COLOR_RED), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_opa(ui_Arc1, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_width(ui_Arc1, 15, LV_PART_INDICATOR | LV_STATE_DEFAULT);
-
-    // The knob tracks the indicator colour, so the leading dot doesn't sit
-    // there in the theme's blue while the arc shades green to red.
-    lv_obj_set_style_bg_color(ui_Arc1, lv_color_hex(ARC_COLOR_RED), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_color(ui_Arc1, lv_color_hex(0x5D5D5D), LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_opa(ui_Arc1, 255, LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_width(ui_Arc1, 3, LV_PART_KNOB | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_spread(ui_Arc1, 1, LV_PART_KNOB | LV_STATE_DEFAULT);
+    // The ring of slices the time is shown on. A bare object the size of the
+    // panel: display.cpp draws the slices on it and knows which of them need
+    // redrawing, which a stock widget would not.
+    ui_Ring = lv_obj_create(ui_Screen1);
+    lv_obj_remove_style_all(ui_Ring);
+    lv_obj_set_width(ui_Ring, 240);
+    lv_obj_set_height(ui_Ring, 240);
+    lv_obj_set_align(ui_Ring, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_Ring, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);     /// Flags
 
     // Low-battery warning: an empty battery outline, drawn rather than taken
     // from a font so its size doesn't depend on which montserrat sizes the
@@ -124,7 +110,7 @@ void ui_Screen1_screen_destroy(void)
 
     // NULL screen variables
     ui_Screen1 = NULL;
-    ui_Arc1 = NULL;
+    ui_Ring = NULL;
     ui_LowBattery = NULL;
     ui_LowBatteryTip = NULL;
     ui_LowBatteryVoltage = NULL;

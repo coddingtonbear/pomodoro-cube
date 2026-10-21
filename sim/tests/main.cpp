@@ -9,6 +9,8 @@ void testOrientationDebounce();
 void testSwitchingOn();
 void testRemainingPercent();
 void testLapPercent();
+void testLitSlices();
+void testSliceEnds();
 void testClockFieldsSwitchToHoursPastAnHour();
 void testClockTextMarksHoursWithAnH();
 void testFlipFrameTurnsOverAndBack();
@@ -66,6 +68,8 @@ int main() {
   testSwitchingOn();
   testRemainingPercent();
   testLapPercent();
+  testLitSlices();
+  testSliceEnds();
   testClockFieldsSwitchToHoursPastAnHour();
   testClockTextMarksHoursWithAnH();
   testFlipFrameTurnsOverAndBack();

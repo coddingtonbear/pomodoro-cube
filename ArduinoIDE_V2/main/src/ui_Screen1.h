@@ -14,7 +14,7 @@ extern "C" {
 extern void ui_Screen1_screen_init(void);
 extern void ui_Screen1_screen_destroy(void);
 extern lv_obj_t * ui_Screen1;
-extern lv_obj_t * ui_Arc1;
+extern lv_obj_t * ui_Ring;
 extern lv_obj_t * ui_LowBattery;
 extern lv_obj_t * ui_LowBatteryTip;
 extern lv_obj_t * ui_LowBatteryVoltage;

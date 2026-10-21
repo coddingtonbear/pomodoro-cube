@@ -18,10 +18,9 @@
 // that every ramp has both.
 #define ARC_COLOR_CYAN 0x30D0F0
 
-// The groove the arc runs in. Nearly invisible against the dark panel, which is
-// the intent; flow mode's white one needs its own or the ring reads as a solid
-// dark band.
-#define ARC_TRACK_COLOR 0x202020
+// The ring's unlit slices. Visible against the dark panel, so the ring reads as
+// a whole with part of it lit, but well short of competing with the lit part.
+#define ARC_TRACK_COLOR 0x303030
 
 // A paused timer is frozen on screen while the CPU sleeps, so it has to look
 // unmistakably different from a running one at a glance.
@@ -37,8 +36,9 @@
 
 // The same stops as the countdown arc, a step darker at every one: those
 // colours were picked against black, and amber -- or cyan -- on white is all
-// but invisible. The cyan is a deep teal for the same reason.
-#define FLOW_ARC_TRACK_COLOR 0xDCDCDC
+// but invisible. The cyan is a deep teal for the same reason. The unlit
+// slices take the same step from white that the countdown's take from black.
+#define FLOW_ARC_TRACK_COLOR 0xCFCFCF
 #define FLOW_ARC_COLOR_GREEN 0x1E7B34
 #define FLOW_ARC_COLOR_AMBER 0x8A6D00
 #define FLOW_ARC_COLOR_RED 0xC1271D

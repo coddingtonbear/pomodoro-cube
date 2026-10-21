@@ -1,6 +1,7 @@
 // Tests for the arc's fill and colour, and the low-battery threshold.
 #include "indicators.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
@@ -145,6 +146,77 @@ void testLapPercent() {
   CHECK(Indicators::lapPercent(FLOW_LAP_SECONDS) == 0);
   CHECK(Indicators::lapPercent(FLOW_LAP_SECONDS + FLOW_LAP_SECONDS / 4) == 25);
   CHECK(Indicators::lapPercent(5 * FLOW_LAP_SECONDS) == 0);
+}
+
+void testLitSlices() {
+  // A countdown starts with every slice lit and drains to none.
+  CHECK(Indicators::litSlices(25 * 60, 25 * 60) == RING_SLICES);
+  CHECK(Indicators::litSlices(0, 25 * 60) == 0);
+
+  // The slice the time is in stays lit until the time leaves it: a second
+  // gone leaves the first still whole, and the last goes out only at 0:00.
+  CHECK(Indicators::litSlices(25 * 60 - 1, 25 * 60) == RING_SLICES);
+  CHECK(Indicators::litSlices(1, 25 * 60) == 1);
+
+  // At 25 minutes each slice is 30 seconds, so the 49th boundary is 24:30.
+  CHECK(Indicators::litSlices(24 * 60 + 30, 25 * 60) == 49);
+  CHECK(Indicators::litSlices(24 * 60 + 31, 25 * 60) == 50);
+
+  // A lap lights its first slice as soon as it starts.
+  CHECK(Indicators::litSlices(1, FLOW_LAP_SECONDS) == 1);
+  CHECK(Indicators::litSlices(FLOW_LAP_SECONDS / 2, FLOW_LAP_SECONDS) == RING_SLICES / 2);
+
+  // Defensive, as remainingPercent() is.
+  CHECK(Indicators::litSlices(60, 0) == 0);
+  CHECK(Indicators::litSlices(-5, 25 * 60) == 0);
+  CHECK(Indicators::litSlices(99999, 25 * 60) == RING_SLICES);
+}
+
+namespace {
+
+float distance(float x0, float y0, float x1, float y1) {
+  return sqrtf((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+}
+
+}  // namespace
+
+void testSliceEnds() {
+  constexpr float kCentre = 119.5f;
+  for (int i = 0; i < RING_SLICES; i++) {
+    const Indicators::SliceEnds e = Indicators::sliceEnds(i, 0);
+    // Every stroke spans the band, give or take the rounding to pixels.
+    const float reach = RING_BAND_PX / 2.0f - RING_SLICE_WIDTH_PX / 2.0f;
+    CHECK(fabsf(distance(kCentre, kCentre, e.innerX, e.innerY) - (RING_RADIUS_PX - reach)) < 1.0f);
+    CHECK(fabsf(distance(kCentre, kCentre, e.outerX, e.outerY) - (RING_RADIUS_PX + reach)) < 1.0f);
+
+    // The ring is symmetric about the upright, so the opening sits square at
+    // the bottom.
+    const Indicators::SliceEnds m = Indicators::sliceEnds(RING_SLICES - 1 - i, 0);
+    CHECK(e.innerX + m.innerX == 239 && e.innerY == m.innerY);
+    CHECK(e.outerX + m.outerX == 239 && e.outerY == m.outerY);
+
+    // Neighbours sit far enough apart for a gap between the strokes, however
+    // the rounding fell.
+    if (i > 0) {
+      const Indicators::SliceEnds p = Indicators::sliceEnds(i - 1, 0);
+      const float apart = distance(p.innerX, p.innerY, e.innerX, e.innerY);
+      CHECK(apart >= RING_SLICE_WIDTH_PX + 2.0f);
+    }
+  }
+
+  // The first slice is at the bottom left and the ring runs clockwise, over
+  // the top, to the last at the bottom right.
+  const Indicators::SliceEnds first = Indicators::sliceEnds(0, 0);
+  const Indicators::SliceEnds middle = Indicators::sliceEnds(RING_SLICES / 2, 0);
+  const Indicators::SliceEnds last = Indicators::sliceEnds(RING_SLICES - 1, 0);
+  CHECK(first.outerX < 120 && first.outerY > 120);
+  CHECK(middle.outerY < 30);
+  CHECK(last.outerX > 120 && last.outerY > 120);
+
+  // Turning the face a quarter turn clockwise carries the bottom left slice
+  // to the top left.
+  const Indicators::SliceEnds turned = Indicators::sliceEnds(0, 90);
+  CHECK(turned.outerX < 120 && turned.outerY < 120);
 }
 
 void testFlowArcColorMatchesTheCountdownRamp() {

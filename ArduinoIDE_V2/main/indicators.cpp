@@ -54,6 +54,29 @@ int Indicators::remainingPercent(int remSeconds, int selSeconds) {
   return (remSeconds * 100) / selSeconds;
 }
 
+int Indicators::litSlices(int amount, int whole) {
+  if (whole <= 0 || amount <= 0) return 0;
+  if (amount >= whole) return RING_SLICES;
+  return (amount * RING_SLICES + whole - 1) / whole;
+}
+
+Indicators::SliceEnds Indicators::sliceEnds(int index, int rotationDegrees) {
+  // Pixel indices run 0-239, so the panel's middle falls between 119 and 120.
+  constexpr float kCentre = 119.5f;
+  // The strokes' round ends reach half their width past where they stop.
+  constexpr float kReach = RING_BAND_PX / 2.0f - RING_SLICE_WIDTH_PX / 2.0f;
+  constexpr float kDegrees = 3.14159265f / 180.0f;
+
+  const float degrees = RING_START_DEGREES + rotationDegrees +
+                        (index + 0.5f) * RING_SWEEP_DEGREES / RING_SLICES;
+  const float c = cosf(degrees * kDegrees);
+  const float s = sinf(degrees * kDegrees);
+  const float inner = RING_RADIUS_PX - kReach;
+  const float outer = RING_RADIUS_PX + kReach;
+  return {(int)lroundf(kCentre + inner * c), (int)lroundf(kCentre + inner * s),
+          (int)lroundf(kCentre + outer * c), (int)lroundf(kCentre + outer * s)};
+}
+
 Indicators::Ramp Indicators::rampFor(bool work, bool countingUp, int seconds) {
   if (countingUp) return seconds < FLOW_LAP_SECONDS ? Ramp::ToGreen : Ramp::ToCyan;
   return work ? Ramp::ToGreen : Ramp::ToRed;

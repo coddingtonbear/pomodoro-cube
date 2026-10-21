@@ -149,20 +149,111 @@ int lean = 0;
 
 constexpr lv_coord_t kPanelCentre = 120;
 
+// The ring as it was last drawn, which is what says which slices a change has
+// to redraw: a tick usually lights or darkens one, and only that slice's
+// corner of the panel needs to cross the bus.
+struct Ring {
+  int lit = 0;
+  uint32_t litColor = 0;
+  uint32_t unlitColor = 0;
+  int rotation = 0;
+  Indicators::SliceEnds ends[RING_SLICES];
+};
+Ring ring;
+
+// Past this many slices it is cheaper to redraw the ring as a whole than to
+// queue an area for each, and LVGL gives up on a long queue and redraws the
+// whole panel anyway.
+constexpr int kMostSlicesInvalidated = 8;
+
+lv_area_t sliceArea(int index) {
+  const Indicators::SliceEnds &e = ring.ends[index];
+  // Round ends reach half the stroke past each end, and anti-aliasing a pixel
+  // further.
+  const lv_coord_t reach = RING_SLICE_WIDTH_PX / 2 + 1;
+  lv_area_t area;
+  area.x1 = (lv_coord_t)(LV_MIN(e.innerX, e.outerX) - reach);
+  area.y1 = (lv_coord_t)(LV_MIN(e.innerY, e.outerY) - reach);
+  area.x2 = (lv_coord_t)(LV_MAX(e.innerX, e.outerX) + reach);
+  area.y2 = (lv_coord_t)(LV_MAX(e.innerY, e.outerY) + reach);
+  lv_area_move(&area, ui_Ring->coords.x1, ui_Ring->coords.y1);
+  return area;
+}
+
+// Queue slices `from` up to but not including `to` for redrawing.
+void invalidateSlices(int from, int to) {
+  if (to - from > kMostSlicesInvalidated) {
+    lv_obj_invalidate(ui_Ring);
+    return;
+  }
+  for (int i = from; i < to; i++) {
+    lv_area_t area = sliceArea(i);
+    lv_obj_invalidate_area(ui_Ring, &area);
+  }
+}
+
+void drawRing(lv_event_t *e) {
+  lv_draw_ctx_t *const ctx = lv_event_get_draw_ctx(e);
+  lv_draw_line_dsc_t dsc;
+  lv_draw_line_dsc_init(&dsc);
+  dsc.width = RING_SLICE_WIDTH_PX;
+  dsc.round_start = 1;
+  dsc.round_end = 1;
+  dsc.opa = LV_OPA_COVER;
+
+  const lv_color_t lit = lv_color_hex(ring.litColor);
+  const lv_color_t unlit = lv_color_hex(ring.unlitColor);
+  const lv_coord_t x = ui_Ring->coords.x1;
+  const lv_coord_t y = ui_Ring->coords.y1;
+  for (int i = 0; i < RING_SLICES; i++) {
+    // Drawn a band at a time, so most slices are nowhere near the one in hand.
+    lv_area_t area = sliceArea(i);
+    if (!_lv_area_intersect(&area, &area, ctx->clip_area)) continue;
+    const Indicators::SliceEnds &s = ring.ends[i];
+    const lv_point_t inner = {(lv_coord_t)(x + s.innerX), (lv_coord_t)(y + s.innerY)};
+    const lv_point_t outer = {(lv_coord_t)(x + s.outerX), (lv_coord_t)(y + s.outerY)};
+    dsc.color = i < ring.lit ? lit : unlit;
+    lv_draw_line(ctx, &dsc, &inner, &outer);
+  }
+}
+
+void placeSlices() {
+  for (int i = 0; i < RING_SLICES; i++) ring.ends[i] = Indicators::sliceEnds(i, ring.rotation);
+}
+
+void setRingLit(int lit) {
+  if (lit == ring.lit) return;
+  invalidateSlices(LV_MIN(lit, ring.lit), LV_MAX(lit, ring.lit));
+  ring.lit = lit;
+}
+
+void setRingColors(uint32_t lit, uint32_t unlit) {
+  if (lit != ring.litColor) {
+    ring.litColor = lit;
+    invalidateSlices(0, ring.lit);
+  }
+  if (unlit != ring.unlitColor) {
+    ring.unlitColor = unlit;
+    invalidateSlices(ring.lit, RING_SLICES);
+  }
+}
+
+void setRingRotation(int degrees) {
+  if (degrees == ring.rotation) return;
+  ring.rotation = degrees;
+  placeSlices();
+  lv_obj_invalidate(ui_Ring);
+}
+
 // Turn everything on the face by the lean, about the centre of the panel.
 //
-// The arc turns itself, by starting its sweep somewhere else. Everything else
+// The ring turns itself, by drawing its slices somewhere else. Everything else
 // is drawn flat into a layer and turned on the way to the screen, about a pivot
 // LVGL measures from the object's own corner -- so the pivot is the centre of
 // the panel restated for each object, and has to be restated whenever one
 // changes size, which a label does with its text.
 void applyLean() {
-  // Redraws the whole ring whether or not the angle moved, and refreshLean()
-  // comes through here every second while only a label has changed size.
-  const uint16_t arcRotation = (uint16_t)((lean + 360) % 360);
-  if (reinterpret_cast<lv_arc_t *>(ui_Arc1)->rotation != arcRotation) {
-    lv_arc_set_rotation(ui_Arc1, arcRotation);
-  }
+  setRingRotation(lean);
 
   lv_obj_update_layout(ui_Screen1);
   lv_obj_t *const leaning[] = {ui_LowBattery, ui_LowBatteryTip, ui_Countdown, ui_BankLabel};
@@ -210,7 +301,7 @@ void Display::setBacklight(int percent) {
   backlightLevel = percent;
 
   // Dropping the backlight also swaps the scheme: at this brightness a field of
-  // colour reads where a thin arc does not. Repaint only on the crossing, so
+  // colour reads where a thin ring does not. Repaint only on the crossing, so
   // the every-20ms call in loop() stays free.
   const bool dim = percent < BACKLIGHT_FULL_PERCENT;
   if (dim != dimScheme) {
@@ -328,6 +419,8 @@ void Display::setup() {
   disp->driver->draw_ctx->draw_img_decoded = drawTransformedWithoutAa;
 
   ui_init();
+  placeSlices();
+  lv_obj_add_event_cb(ui_Ring, drawRing, LV_EVENT_DRAW_MAIN, nullptr);
 
   // PWM only once TFT_eSPI has finished with the pin. It leaves TFT_BL alone
   // unless TFT_BACKLIGHT_ON is defined, which tft_setup.h does not define -- but
@@ -345,7 +438,7 @@ void Display::setup() {
 
 // Checked first for the same reason as the style setters below: showing an
 // object redraws the whole of it even when it was already showing, and the
-// arc's whole is most of the panel.
+// ring's whole is most of the panel.
 static void show(lv_obj_t *obj, bool visible) {
   if (visible == !lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) return;
   if (visible) lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
@@ -373,28 +466,13 @@ void Display::updateBattery(float voltage) {
 // the screen's background that way redrew all 240x240 pixels once a second, a
 // frame that takes long enough to cross the SPI bus that it could be seen
 // arriving in bands. Skipping the no-ops leaves the tick redrawing only the
-// digits and the part of the arc that moved.
+// digits and the slice of the ring that changed.
 static void setColor(lv_obj_t *obj, lv_style_prop_t prop, uint32_t color, lv_part_t part) {
   const lv_color_t c = lv_color_hex(color);
   if (lv_obj_get_style_prop(obj, part, prop).color.full == c.full) return;
   lv_style_value_t v;
   v.color = c;
   lv_obj_set_local_style_prop(obj, prop, v, part);
-}
-
-static void setOpa(lv_obj_t *obj, lv_style_prop_t prop, lv_opa_t opa, lv_part_t part) {
-  if (lv_obj_get_style_prop(obj, part, prop).num == opa) return;
-  lv_style_value_t v;
-  v.num = opa;
-  lv_obj_set_local_style_prop(obj, prop, v, part);
-}
-
-// Paint the arc and its knob in one colour, at one opacity.
-static void setArcAppearance(uint32_t color, lv_opa_t opa) {
-  setColor(ui_Arc1, LV_STYLE_ARC_COLOR, color, LV_PART_INDICATOR);
-  setOpa(ui_Arc1, LV_STYLE_ARC_OPA, opa, LV_PART_INDICATOR);
-  setColor(ui_Arc1, LV_STYLE_BG_COLOR, color, LV_PART_KNOB);
-  setOpa(ui_Arc1, LV_STYLE_BG_OPA, opa, LV_PART_KNOB);
 }
 
 // The low-battery outline is three objects with three different style
@@ -408,12 +486,11 @@ static void setBatteryColor(uint32_t color) {
 // Paint every colour on the panel at once, so a swap can't half-apply.
 static void applyPalette(const Indicators::Palette &p) {
   setColor(ui_Screen1, LV_STYLE_BG_COLOR, p.background, LV_PART_MAIN);
-  setColor(ui_Arc1, LV_STYLE_ARC_COLOR, p.track, LV_PART_MAIN);
   lv_obj_t *const labels[] = {ui_Countdown, ui_BankLabel};
   for (lv_obj_t *label : labels) {
     setColor(label, LV_STYLE_TEXT_COLOR, p.text, LV_PART_MAIN);
   }
-  setArcAppearance(p.arc, LV_OPA_COVER);
+  setRingColors(p.arc, p.track);
   setBatteryColor(p.battery);
 }
 
@@ -489,7 +566,7 @@ void Display::showPaused() {
   // left lit on the panel for as long as the cube sits there.
   alerting = false;
   pausedFrame = true;
-  show(ui_Arc1, true);
+  show(ui_Ring, true);
   applyPalette({SCREEN_BG_COLOR, COUNTDOWN_COLOR_PAUSED, ARC_COLOR_PAUSED, ARC_TRACK_COLOR,
                 LOW_BATTERY_COLOR});
 
@@ -688,7 +765,7 @@ void Display::updateTimer(const TimerView &view) {
   // seconds on it again. Take the ring back before anything is painted.
   alerting = false;
   pausedFrame = false;
-  show(ui_Arc1, true);
+  show(ui_Ring, true);
 
   setCountdownText(view.seconds);
 
@@ -698,7 +775,7 @@ void Display::updateTimer(const TimerView &view) {
   if (showBank) setBankText(view.bankSeconds);
   show(ui_BankLabel, showBank);
 
-  // Counting up has no total to drain against, so the arc fills as a lap
+  // Counting up has no total to drain against, so the ring fills as a lap
   // indicator, its colour running the ramp over what is left of the lap.
   const int remaining = view.countingUp ? Indicators::lapPercent(view.seconds)
                                         : Indicators::remainingPercent(view.seconds, view.selSeconds);
@@ -706,7 +783,9 @@ void Display::updateTimer(const TimerView &view) {
   lastRampAt = view.countingUp ? 100 - remaining : remaining;
   lastFlow = view.flow;
   lastWork = view.work;
-  lv_arc_set_value(ui_Arc1, remaining);
+  setRingLit(view.countingUp
+                 ? Indicators::litSlices(LV_MAX(view.seconds, 0) % FLOW_LAP_SECONDS, FLOW_LAP_SECONDS)
+                 : Indicators::litSlices(view.seconds, view.selSeconds));
 
   // Repaints every colour from scratch, which also undoes showPaused() without
   // needing to know whether it ran.
@@ -731,7 +810,7 @@ void Display::cycleTimerFinish() {
     // flash reads as something arriving rather than something leaving.
     alerting = true;
     finishInverted = false;
-    show(ui_Arc1, false);
+    show(ui_Ring, false);
   }
 
   applyPalette(Indicators::alertPalette(finishInverted, lastWork));

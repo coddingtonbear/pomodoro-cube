@@ -26,7 +26,7 @@ source is in [cad/](cad/README.md).
   counts as break time. The break face spends that bank. Fifty minutes of work
   buys ten of break, which is the fixed pair flow mode replaced; an hour and a
   half buys eighteen. Every 25 minutes it counts scores a pomodoro, which is
-  what the arc's lap is showing. See [Flow mode](#flow-mode).
+  what the ring's lap is showing. See [Flow mode](#flow-mode).
 - **Home Assistant over BLE** — the cube broadcasts its state as a
   [BTHome v2](https://bthome.io/format/) advertisement, which Home Assistant
   discovers natively: no custom component, no MQTT, no ESPHome. See
@@ -40,8 +40,9 @@ six states: the four timer faces, face up, or face down.
 
 Standing the cube on a timer face starts that face's timer — or, if you'd
 paused one on that same face, picks it back up where you left off. The
-countdown faces show an arc that drains as the time runs out, and its colour
-says what comes next: a work timer shades from red through amber to green,
+countdown faces show a ring of fifty slices that go out one by one as the time
+runs out -- the slice you are in is the last one lit -- and its colour says what
+comes next: a work timer shades from red through amber to green,
 heading for the break, and a break shades from green to red, heading back to
 work:
 
@@ -99,10 +100,10 @@ if you stopped right now:
 
 ![Flow mode counting up with its bank, and the break it earned](https://coddingtonbear-public.s3.amazonaws.com/github/pomodoro-cube/flow.png)
 
-The arc on the work face fills over 25 minutes and then starts over, counting a
+The ring on the work face fills over 25 minutes and then starts over, counting a
 pomodoro each time it comes back around. The first lap shades from red to green
 like any work timer; every lap after that runs on from green to cyan, so the
-arc snaps back to green each time a pomodoro is scored. The panel lights up for
+ring snaps back to green each time a pomodoro is scored. The panel lights up for
 a couple of seconds either side of that moment so you can see it happen.
 
 ## Bluetooth
@@ -317,7 +318,7 @@ See [sim/README.md](sim/README.md) for the controls, the scripted-screenshot
 environment variables, and what the simulator can't tell you.
 
 Host tests cover the parts that are pure logic — the face-to-timer mapping, the
-flow bank's arithmetic, the arc's fill and colour ramp, the lap indicator
+flow bank's arithmetic, the ring's fill and colour ramp, the lap indicator
 and what scores off it, the switch from 25:00 to 1h25 past an hour, the low-battery threshold,
 the angle the face is drawn at, the RTC guard, the vibration patterns, the
 order the sleep path shuts things down in, and the BTHome encoder's exact output
@@ -341,7 +342,7 @@ centred label that slides the whole time every second.
 
 The current face is [Oswald](https://github.com/google/fonts/tree/main/ofl/oswald)
 SemiBold at 62px, chosen because it's condensed: on a 240px round panel with an
-arc eating the edges, height is the scarce resource. See
+ring eating the edges, height is the scarce resource. See
 [fonts/README.md](fonts/README.md) for why the weight is pinned to a static
 instance.
 

@@ -36,13 +36,30 @@ uint32_t rampColor(Ramp ramp, int remainingPercent, bool flow);
 // indicator: 0-100 filling over FLOW_LAP_SECONDS, then starting again.
 int lapPercent(int elapsedSeconds);
 
+// How many of the ring's RING_SLICES are lit with `amount` of `whole` to show:
+// remaining seconds of the interval counting down, seconds into the lap
+// counting up. Rounded up, so the slice the time is in is lit from the moment
+// it is reached -- the last slice stays lit until 0:00, and a fresh lap lights
+// its first at once. Clamped, and safe when `whole` is zero.
+int litSlices(int amount, int whole);
+
+// Where one slice's stroke runs, in panel pixels: from its inner end to its
+// outer one, on a ring turned `rotationDegrees` clockwise with the face.
+struct SliceEnds {
+  int innerX;
+  int innerY;
+  int outerX;
+  int outerY;
+};
+SliceEnds sliceEnds(int index, int rotationDegrees);
+
 // Every colour on the panel for one moment. Gathered rather than set from
 // scattered branches, so the bright and dim schemes can be read side by side --
 // and so the dim one can be tested without LVGL.
 struct Palette {
   uint32_t background;
   uint32_t text;
-  // The filled part of the ring, and the groove it runs in.
+  // The ring's lit slices, and its unlit ones.
   uint32_t arc;
   uint32_t track;
   // The low-battery outline. Its own field because bright mode wants it red and
