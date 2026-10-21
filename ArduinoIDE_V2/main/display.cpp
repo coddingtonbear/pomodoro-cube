@@ -18,11 +18,6 @@
 #endif
 #include "src/ui.h"    // SquareLine Studio generated header
 
-// The switch-on prompt's count: Oswald at 150px, the digits 1 and 2 alone. See
-// fonts/README.md.
-LV_FONT_DECLARE(ui_font_FlipCount);
-
-
 TFT_eSPI tft = TFT_eSPI();
 
 static lv_disp_draw_buf_t draw_buf;
@@ -248,17 +243,31 @@ static void drawTransformedWithoutAa(lv_draw_ctx_t *ctx, const lv_draw_img_dsc_t
 }
 
 // Whether setup() has run this boot. A switched-off cube brings the panel up to
-// count the flips down, and switching it on can then go on to draw a paused
+// prompt for the flips, and switching it on can then go on to draw a paused
 // frame, which asks again; LVGL cannot be initialised twice.
 bool displayUp = false;
 
-// The screen showMessage() and showFlipsToGo() put up, while it is up: the text
-// of a message or the caption under the count, and the count itself, which is
-// hidden for a message.
+// The screen showMessage() and showFlipPrompt() put up, while it is up: the text
+// of a message, and the prompt, which is hidden for a message -- the card, and a
+// pip for each flip, filled once it has been made.
 lv_obj_t *messageScreen = nullptr;
 lv_obj_t *messageLabel = nullptr;
-lv_obj_t *figureLabel = nullptr;
+lv_obj_t *prompt = nullptr;
+lv_obj_t *promptCard = nullptr;
+lv_obj_t *promptCaption = nullptr;
+lv_obj_t *promptPips[SWITCH_ON_FLIPS] = {};
 bool messageInverted = false;
+// When the prompt went up, which is where the card's loop starts from, and how
+// many of its pips are filled; -1 while it is not up.
+unsigned long promptSinceMs = 0;
+int promptFlipsShown = -1;
+
+// The prompt's card, at its full width, and how far above centre it sits.
+constexpr int kPromptCardPx = 56;
+constexpr int kPromptCardY = -34;
+constexpr int kPromptLineThickness = 3;
+constexpr int kPromptPipPx = 12;
+constexpr int kPromptPipGap = 10;
 
 // Push whatever LVGL has pending to the panel now, for the paths that are about
 // to block or sleep rather than return to a loop() that would do it.
@@ -489,6 +498,15 @@ void Display::showPaused() {
   pumpLvgl();
 }
 
+// A plain rectangle with nothing of the theme's on it -- no padding, no
+// scrollbars, nothing to press -- for the prompt to draw with.
+static lv_obj_t *bareObject(lv_obj_t *parent) {
+  lv_obj_t *obj = lv_obj_create(parent);
+  lv_obj_remove_style_all(obj);
+  lv_obj_clear_flag(obj, (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+  return obj;
+}
+
 // Puts the message screen up if it is not already. A screen of its own rather
 // than labels over the face: nothing of the timer belongs on it, and dropping it
 // afterwards leaves the face as it was.
@@ -503,10 +521,36 @@ void ensureMessageScreen() {
   lv_obj_set_style_text_align(messageLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   lv_label_set_text(messageLabel, "");
 
-  figureLabel = lv_label_create(messageScreen);
-  lv_obj_set_style_text_font(figureLabel, &ui_font_FlipCount, LV_PART_MAIN);
-  lv_label_set_text(figureLabel, "");
-  lv_obj_add_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
+  // The prompt as one layer over the whole screen, so a message only has to
+  // hide the one thing.
+  prompt = bareObject(messageScreen);
+  lv_obj_set_size(prompt, LV_PCT(100), LV_PCT(100));
+  lv_obj_center(prompt);
+  lv_obj_add_flag(prompt, LV_OBJ_FLAG_HIDDEN);
+
+  promptCard = bareObject(prompt);
+  lv_obj_set_style_radius(promptCard, 8, LV_PART_MAIN);
+  lv_obj_set_style_border_width(promptCard, kPromptLineThickness, LV_PART_MAIN);
+  lv_obj_set_size(promptCard, kPromptCardPx, kPromptCardPx);
+  lv_obj_align(promptCard, LV_ALIGN_CENTER, 0, kPromptCardY);
+
+  promptCaption = lv_label_create(prompt);
+  lv_obj_set_style_text_font(promptCaption, &lv_font_montserrat_20, LV_PART_MAIN);
+  lv_label_set_text(promptCaption, "Flip again");
+  lv_obj_align(promptCaption, LV_ALIGN_CENTER, 0, kPromptCardY + kPromptCardPx / 2 + 26);
+
+  // The pips in a row under the caption, centred as a row.
+  const int rowPx = SWITCH_ON_FLIPS * kPromptPipPx + (SWITCH_ON_FLIPS - 1) * kPromptPipGap;
+  for (int i = 0; i < SWITCH_ON_FLIPS; i++) {
+    lv_obj_t *pip = bareObject(prompt);
+    lv_obj_set_style_radius(pip, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_border_width(pip, 2, LV_PART_MAIN);
+    lv_obj_set_size(pip, kPromptPipPx, kPromptPipPx);
+    lv_obj_align(pip, LV_ALIGN_CENTER,
+                 -rowPx / 2 + kPromptPipPx / 2 + i * (kPromptPipPx + kPromptPipGap),
+                 kPromptCardY + kPromptCardPx / 2 + 58);
+    promptPips[i] = pip;
+  }
 
   lv_scr_load(messageScreen);
 }
@@ -520,41 +564,71 @@ void presentMessageScreen(bool inverted) {
   const lv_color_t fg = inverted ? lv_color_black() : lv_color_white();
   lv_obj_set_style_bg_color(messageScreen, bg, LV_PART_MAIN);
   lv_obj_set_style_text_color(messageLabel, fg, LV_PART_MAIN);
-  lv_obj_set_style_text_color(figureLabel, fg, LV_PART_MAIN);
+  // The prompt's parts take the foreground too: the card and pips draw their
+  // lines and fills in it.
+  lv_obj_set_style_text_color(promptCaption, fg, LV_PART_MAIN);
+  lv_obj_set_style_border_color(promptCard, fg, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(promptCard, fg, LV_PART_MAIN);
+  for (lv_obj_t *pip : promptPips) {
+    lv_obj_set_style_border_color(pip, fg, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(pip, fg, LV_PART_MAIN);
+  }
   pumpLvgl();
   Display::setBacklight(BACKLIGHT_FULL_PERCENT);
 }
 
 void Display::showMessage(const char *text, bool inverted) {
   ensureMessageScreen();
-  const bool figureShown = !lv_obj_has_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
-  if (!figureShown && strcmp(lv_label_get_text(messageLabel), text) == 0 &&
+  if (promptFlipsShown < 0 && strcmp(lv_label_get_text(messageLabel), text) == 0 &&
       messageInverted == inverted) {
     return;
   }
 
-  lv_obj_add_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
+  promptFlipsShown = -1;
+  lv_obj_add_flag(prompt, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(messageLabel, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(messageLabel, text);
   lv_obj_center(messageLabel);
   presentMessageScreen(inverted);
 }
 
-void Display::showFlipsToGo(int flips) {
+// The card as it stands `ms` into its loop. Narrowed about its centre, as a
+// card turned on its upright axis is seen; never quite to nothing, since a card
+// edge-on is still the line of its edge.
+static void drawPromptCard(unsigned long ms) {
+  const Indicators::FlipFrame frame = Indicators::flipFrame(ms);
+  int width = kPromptCardPx * frame.widthPercent / 100;
+  if (width < 2 * kPromptLineThickness) width = 2 * kPromptLineThickness;
+  lv_obj_set_width(promptCard, width);
+  lv_obj_align(promptCard, LV_ALIGN_CENTER, 0, kPromptCardY);
+  lv_obj_set_style_bg_opa(promptCard, frame.backShowing ? LV_OPA_COVER : LV_OPA_TRANSP,
+                          LV_PART_MAIN);
+}
+
+void Display::showFlipPrompt(int flipsMade, unsigned long nowMs) {
   ensureMessageScreen();
-  char figure[12];
-  snprintf(figure, sizeof figure, "%d", flips);
-  const bool figureShown = !lv_obj_has_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
-  if (figureShown && strcmp(lv_label_get_text(figureLabel), figure) == 0 && !messageInverted) {
+
+  // Already up with these pips: only the card has moved. One pass of LVGL
+  // rather than the pump, which would hold up the listening for 80 ms a time;
+  // the caller is back within a pass, and only the card's corner of the screen
+  // is redrawn.
+  if (promptFlipsShown == flipsMade && !messageInverted) {
+    drawPromptCard(nowMs - promptSinceMs);
+    Display::render();
     return;
   }
 
-  // The figure a little above centre and the caption under it, so the pair sits
-  // centred on the round panel together rather than the figure alone.
-  lv_obj_clear_flag(figureLabel, LV_OBJ_FLAG_HIDDEN);
-  lv_label_set_text(figureLabel, figure);
-  lv_obj_align(figureLabel, LV_ALIGN_CENTER, 0, -22);
-  lv_label_set_text(messageLabel, "to go");
-  lv_obj_align_to(messageLabel, figureLabel, LV_ALIGN_OUT_BOTTOM_MID, 0, 8);
+  // Up for the first time, the card's loop starting square on. A later flip
+  // fills another pip and leaves the card where it is in its loop.
+  if (promptFlipsShown < 0) promptSinceMs = nowMs;
+  promptFlipsShown = flipsMade;
+  lv_obj_add_flag(messageLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(prompt, LV_OBJ_FLAG_HIDDEN);
+  for (int i = 0; i < SWITCH_ON_FLIPS; i++) {
+    lv_obj_set_style_bg_opa(promptPips[i], i < flipsMade ? LV_OPA_COVER : LV_OPA_TRANSP,
+                            LV_PART_MAIN);
+  }
+  drawPromptCard(nowMs - promptSinceMs);
   presentMessageScreen(false);
 }
 
@@ -564,7 +638,11 @@ void Display::hideMessage() {
   lv_obj_del(messageScreen);
   messageScreen = nullptr;
   messageLabel = nullptr;
-  figureLabel = nullptr;
+  prompt = nullptr;
+  promptCard = nullptr;
+  promptCaption = nullptr;
+  for (lv_obj_t *&pip : promptPips) pip = nullptr;
+  promptFlipsShown = -1;
 }
 
 void Display::setAngle(float degrees) {

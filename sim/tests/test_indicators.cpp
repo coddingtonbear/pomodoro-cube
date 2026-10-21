@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 
 #include "check.h"
 #include "consts.h"
@@ -334,4 +335,43 @@ void testAlertPalette() {
   testAlertIsTheColourTheRampEndedOn();
   testAlertLeavesNoRingBehind();
   testAlertBatteryWarningStaysVisible();
+}
+
+void testFlipFrameTurnsOverAndBack() {
+  constexpr unsigned long half = FLIP_GLYPH_HOLD_MS + FLIP_GLYPH_TURN_MS;
+
+  // Square on to the front, and still, for the whole of the hold.
+  for (unsigned long ms : {0UL, FLIP_GLYPH_HOLD_MS / 2, FLIP_GLYPH_HOLD_MS}) {
+    const Indicators::FlipFrame f = Indicators::flipFrame(ms);
+    CHECK(f.widthPercent == 100 && !f.backShowing);
+  }
+
+  // Edge-on halfway through the turn.
+  CHECK(Indicators::flipFrame(FLIP_GLYPH_HOLD_MS + FLIP_GLYPH_TURN_MS / 2).widthPercent <= 1);
+
+  // Narrowing all the way to edge-on, then widening again with the back out.
+  int last = 101;
+  for (unsigned long ms = FLIP_GLYPH_HOLD_MS; ms < FLIP_GLYPH_HOLD_MS + FLIP_GLYPH_TURN_MS / 2;
+       ms += 10) {
+    const Indicators::FlipFrame f = Indicators::flipFrame(ms);
+    CHECK(f.widthPercent <= last && !f.backShowing);
+    last = f.widthPercent;
+  }
+  last = -1;
+  for (unsigned long ms = FLIP_GLYPH_HOLD_MS + FLIP_GLYPH_TURN_MS / 2 + 10; ms < half; ms += 10) {
+    const Indicators::FlipFrame f = Indicators::flipFrame(ms);
+    CHECK(f.widthPercent >= last && f.backShowing);
+    last = f.widthPercent;
+  }
+
+  // Lands on its back and holds there, then turns back to the front.
+  const Indicators::FlipFrame landed = Indicators::flipFrame(half);
+  CHECK(landed.widthPercent == 100 && landed.backShowing);
+  CHECK(Indicators::flipFrame(half + FLIP_GLYPH_HOLD_MS).backShowing);
+  CHECK(!Indicators::flipFrame(2 * half - 10).backShowing);
+
+  // And loops for as long as it is asked.
+  const Indicators::FlipFrame again = Indicators::flipFrame(2 * half);
+  CHECK(again.widthPercent == 100 && !again.backShowing);
+  CHECK(Indicators::flipFrame(1000 * 2 * half + half).backShowing);
 }

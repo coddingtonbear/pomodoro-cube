@@ -163,6 +163,14 @@ constexpr uint32_t NAP_MIN_MS = 5;
 // down between the rest of them, so from there only the flip window applies.
 constexpr unsigned long SWITCH_ON_GIVE_UP_MS = 1500;
 
+// The switch-on prompt's glyph: a card that turns over and back, on a loop, to
+// show what "flip" means to someone who has never been told. Each half of the
+// loop holds still for the first figure and spends the second turning, so the
+// card is read as a card before it moves. The turn is quick, as a flip in the
+// hand is, and the hold long enough to see which side came up.
+constexpr unsigned long FLIP_GLYPH_HOLD_MS = 700;
+constexpr unsigned long FLIP_GLYPH_TURN_MS = 500;
+
 // How long a cube just switched on says so before the paused face comes up:
 // the timer that was parked, or a work timer not yet started.
 constexpr unsigned long SWITCHED_ON_MESSAGE_MS = 1500;

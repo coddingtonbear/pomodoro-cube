@@ -14,7 +14,7 @@
 #
 # Override RANGE or BPP in the environment to reach beyond the digits, and OUT
 # to write a different slot: lv_font_conv names the font after the file, so
-# OUT=.../ui_font_FlipCount.c defines ui_font_FlipCount.
+# OUT=.../ui_font_Big.c defines ui_font_Big.
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then

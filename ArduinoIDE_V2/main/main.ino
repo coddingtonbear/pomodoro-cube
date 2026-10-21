@@ -264,8 +264,10 @@ bool heardSwitchOn() {
     // Lit from the first flip, which lands face up and so is the first moment
     // there is anyone to read it. A wake in a bag never gets this far, and
     // stays dark. The panel then stays up until the cube sleeps or is switched
-    // on, face down between flips included.
-    if (listener.flipsToGo() < SWITCH_ON_FLIPS) Display::showFlipsToGo(listener.flipsToGo());
+    // on, face down between flips included, its card turning over each pass.
+    if (listener.flipsToGo() < SWITCH_ON_FLIPS) {
+      Display::showFlipPrompt(SWITCH_ON_FLIPS - listener.flipsToGo(), millis());
+    }
 
     delay(20);
   }

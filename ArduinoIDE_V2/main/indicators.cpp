@@ -2,6 +2,7 @@
 
 #include "consts.h"
 
+#include <math.h>
 #include <stdio.h>
 
 namespace {
@@ -136,4 +137,24 @@ Indicators::ClockText Indicators::clockText(int seconds) {
 
 bool Indicators::showLowBattery(float batteryVoltage) {
   return batteryVoltage < LOW_BATTERY_VOLTAGE;
+}
+
+Indicators::FlipFrame Indicators::flipFrame(unsigned long ms) {
+  constexpr unsigned long half = FLIP_GLYPH_HOLD_MS + FLIP_GLYPH_TURN_MS;
+  const unsigned long t = ms % (2 * half);
+  const bool startedOnBack = t >= half;
+  const unsigned long into = t % half;
+
+  // Eased in and out, as a hand turns it: slow to start, slow to land.
+  float turned = 0;
+  if (into > FLIP_GLYPH_HOLD_MS) {
+    const float x = (float)(into - FLIP_GLYPH_HOLD_MS) / (float)FLIP_GLYPH_TURN_MS;
+    turned = x * x * (3 - 2 * x);
+  }
+
+  // The width a card has seen from in front, turned this far through a half
+  // turn; past the quarter it is the other side that faces out.
+  const float angle = turned * (float)M_PI;
+  const int width = (int)lroundf(fabsf(cosf(angle)) * 100);
+  return {width, startedOnBack != (turned > 0.5f)};
 }

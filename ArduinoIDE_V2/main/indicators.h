@@ -94,4 +94,18 @@ ClockText clockText(int seconds);
 // pack voltage in volts.
 bool showLowBattery(float batteryVoltage);
 
+// One moment of the switch-on prompt's glyph, a card turning over about its
+// upright axis. Seen edge-on part way through, so all that changes is how wide
+// it is and which side faces out: the front drawn as an outline, the back
+// filled in.
+struct FlipFrame {
+  // Of the card's full width, 0-100.
+  int widthPercent;
+  bool backShowing;
+};
+
+// The glyph `ms` into its loop, which has no end: each FLIP_GLYPH_HOLD_MS +
+// FLIP_GLYPH_TURN_MS turns it over once, front to back and then back to front.
+FlipFrame flipFrame(unsigned long ms);
+
 }  // namespace Indicators

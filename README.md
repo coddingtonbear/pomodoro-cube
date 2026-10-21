@@ -75,10 +75,11 @@ cube stays dark however much it's jostled, and whatever was running is parked
 just as if you'd paused it.
 
 To switch it back on, flip it three times: turn it face up, then over onto
-its face and back up again, twice. The screen counts the flips down — a big
-**2**, then **1**, "to go" — and answers the third with a buzz and **Let's
-go**. Take more than five seconds over any one flip and it goes back to sleep,
-still off; the next flip starts the count again from three.
+its face and back up again, twice. From the first flip the screen shows how:
+a card turning over and back, **Flip again** under it, and a dot for each of
+the three flips that fills as you make it. The third is answered with a buzz
+and **Let's go**. Take more than five seconds over any one flip and it goes
+back to sleep, still off; the next flip starts the count again from three.
 
 ## Flow mode
 

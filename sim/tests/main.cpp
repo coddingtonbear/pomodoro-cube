@@ -11,6 +11,7 @@ void testRemainingPercent();
 void testLapPercent();
 void testClockFieldsSwitchToHoursPastAnHour();
 void testClockTextMarksHoursWithAnH();
+void testFlipFrameTurnsOverAndBack();
 void testFlowArcColorMatchesTheCountdownRamp();
 void testArcColorStops();
 void testRampFor();
@@ -67,6 +68,7 @@ int main() {
   testLapPercent();
   testClockFieldsSwitchToHoursPastAnHour();
   testClockTextMarksHoursWithAnH();
+  testFlipFrameTurnsOverAndBack();
   testFlowArcColorMatchesTheCountdownRamp();
   testArcColorStops();
   testRampFor();

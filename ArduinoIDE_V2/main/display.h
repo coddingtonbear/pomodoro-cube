@@ -35,10 +35,17 @@ void showPaused();
 // already up does nothing.
 void showMessage(const char *text, bool inverted = false);
 
-// The switch-on prompt: how many flips are still to make, as one large figure
-// over "to go", white on black. Otherwise as showMessage(), whose screen it
-// shares.
-void showFlipsToGo(int flips);
+// The switch-on prompt, white on black: a card turning over and back on a loop,
+// "Flip again" under it, and a row of SWITCH_ON_FLIPS pips with `flipsMade` of
+// them filled. Shows the gesture rather than naming it, since someone handed
+// the cube has no idea what a "flip" is meant to be, and the filled pip says
+// the one they just made counted.
+//
+// The card only moves while this is called: call it every pass, with the time,
+// and it draws the card's next frame. Otherwise as showMessage(), whose screen
+// it shares, except that a pass that only moves the card is a single frame and
+// not the pump.
+void showFlipPrompt(int flipsMade, unsigned long nowMs);
 
 // Back to the face. Does nothing if no message is up.
 void hideMessage();
