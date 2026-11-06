@@ -307,6 +307,28 @@ bool Util::RepeatWatch::repeats(float ax, float ay, float az) {
   return same;
 }
 
+bool Util::SilenceWatch::due(bool good, unsigned long nowMs) {
+  // Silence is timed from the first read there was, good or not: a sensor that
+  // never answers at all still has to be recovered.
+  if (!started_) {
+    started_ = true;
+    lastGoodMs_ = nowMs;
+  }
+  if (good) {
+    lastGoodMs_ = nowMs;
+    failures_ = 0;
+    return false;
+  }
+  failures_++;
+  if (failures_ < QMI_RECOVER_MIN_FAILURES) return false;
+  if (nowMs - lastGoodMs_ < QMI_RECOVER_AFTER_MS) return false;
+  if (recovered_ && nowMs - lastRecoveryMs_ < QMI_RECOVER_INTERVAL_MS) return false;
+  recovered_ = true;
+  lastRecoveryMs_ = nowMs;
+  failures_ = 0;
+  return true;
+}
+
 // The face the cube is currently being read as, and the one it has been read as
 // for long enough to believe.
 Orientation candidateState = Orientation::UNDEFINED;

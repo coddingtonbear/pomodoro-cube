@@ -133,25 +133,22 @@ bool QMI::getAccelerometer(float &ax, float &ay, float &az) {
   // than silence, because it names a face -- a cube stalled on the work face and
   // then put away face down went on starting pomodoros on every wake, and
   // buzzed at the end of each. A repeat is treated as the failed read it is.
-  static uint32_t failures = 0;
   static uint32_t repeats = 0;
-  static unsigned long lastRecovery = 0;
   static Util::RepeatWatch watch;
+  static Util::SilenceWatch silence;
   if (qmi.getAccelerometer(ax, ay, az)) {
     if (!watch.repeats(ax, ay, az)) {
-      failures = 0;
       repeats = 0;
+      silence.due(true, millis());
       return true;
     }
     repeats++;
   }
   ax = ay = az = 0;
-  if (++failures >= QMI_RECOVER_AFTER_FAILURES &&
-      millis() - lastRecovery >= QMI_RECOVER_INTERVAL_MS) {
-    lastRecovery = millis();
-    Serial.printf("[trace] QMI recover t=%lu failures=%u repeats=%u\n", millis(),
-                  (unsigned)failures, (unsigned)repeats);
-    failures = 0;
+  const unsigned failures = silence.failures() + 1;
+  if (silence.due(false, millis())) {
+    Serial.printf("[trace] QMI recover t=%lu failures=%u repeats=%u\n", millis(), failures,
+                  (unsigned)repeats);
     repeats = 0;
     setup();
     if (tapEnabled) enableTapDetection();

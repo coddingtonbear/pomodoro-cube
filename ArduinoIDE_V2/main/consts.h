@@ -17,11 +17,17 @@
 
 #define ORI_DEBOUNCE_DELAY 300
 
-// How many accelerometer reads in a row have to fail before the I2C bus and
-// the QMI8658 are recovered and set up again (see QMI::getAccelerometer), and
-// how long to leave between attempts while it stays silent. 25 is half a second
-// of 20 ms passes: no glitch lasts that long, and no face change is missed for it.
-constexpr unsigned QMI_RECOVER_AFTER_FAILURES = 25;
+// How long the accelerometer has to go without a good reading before the I2C
+// bus and the QMI8658 are recovered and set up again (see Util::SilenceWatch),
+// and how long to leave between attempts while it stays silent. Timed rather
+// than counted: a wedged sensor's reads fail by timing out, and the loop then
+// crawls at a pass every couple of seconds, so the 25 failures this used to wait
+// for -- meant as half a second of 20 ms passes -- took the best part of a
+// minute, and a finished timer flashed slowly through its whole alarm ignoring
+// every turn. A few failures are still asked for, so that one read failing
+// after something else held the loop up is not taken for a wedge.
+constexpr unsigned long QMI_RECOVER_AFTER_MS = 500;
+constexpr unsigned QMI_RECOVER_MIN_FAILURES = 3;
 constexpr unsigned long QMI_RECOVER_INTERVAL_MS = 5000;
 
 // A reading only says which way is down when it is gravity and very little

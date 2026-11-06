@@ -194,6 +194,25 @@ class RepeatWatch {
   float ax_ = 0, ay_ = 0, az_ = 0;
 };
 
+// Decides when a silent accelerometer is due a recovery: once it has gone
+// QMI_RECOVER_AFTER_MS without a good reading and failed at least
+// QMI_RECOVER_MIN_FAILURES times in a row, and no sooner than
+// QMI_RECOVER_INTERVAL_MS after the last attempt.
+class SilenceWatch {
+ public:
+  // Report one read. True when a recovery should be made now, which is taken
+  // as having been made.
+  bool due(bool good, unsigned long nowMs);
+  unsigned failures() const { return failures_; }
+
+ private:
+  bool started_ = false;
+  bool recovered_ = false;
+  unsigned long lastGoodMs_ = 0;
+  unsigned long lastRecoveryMs_ = 0;
+  unsigned failures_ = 0;
+};
+
 // Feed a raw accelerometer reading in and get back whether the debounced face
 // just changed. Takes the vector rather than an orientation because the two
 // reasons to distrust a reading -- it is not gravity, or it does not clearly

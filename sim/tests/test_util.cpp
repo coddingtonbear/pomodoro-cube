@@ -804,9 +804,51 @@ void testARepeatedReadingIsCaught() {
   CHECK(!watch.repeats(-0.98f, 0.02f, 0.11f));
 }
 
+// A wedged sensor's reads time out, so the loop crawls: a recovery has to come
+// from how long it has been silent, not from how many reads failed.
+void testASilentSensorIsRecoveredByTimeNotCount() {
+  Util::SilenceWatch silence;
+  CHECK(!silence.due(true, 1000));
+  // Two seconds a pass, as on the board.
+  CHECK(!silence.due(false, 3000));
+  CHECK(!silence.due(false, 5000));
+  CHECK(silence.due(false, 7000));
+
+  // Still silent: tried again only after the interval.
+  CHECK(!silence.due(false, 7000 + QMI_RECOVER_INTERVAL_MS - 1));
+  CHECK(!silence.due(false, 7000 + QMI_RECOVER_INTERVAL_MS - 1));
+  CHECK(silence.due(false, 7000 + QMI_RECOVER_INTERVAL_MS));
+}
+
+// Fast passes still wait out the silence before calling it a wedge, and one
+// failure after a long hold-up is not one.
+void testABriefSilenceIsNotRecovered() {
+  Util::SilenceWatch silence;
+  CHECK(!silence.due(true, 0));
+  for (unsigned long t = 20; t < QMI_RECOVER_AFTER_MS; t += 20) CHECK(!silence.due(false, t));
+  CHECK(silence.due(false, QMI_RECOVER_AFTER_MS));
+
+  Util::SilenceWatch heldUp;
+  CHECK(!heldUp.due(true, 0));
+  CHECK(!heldUp.due(false, 3000));
+  CHECK(!heldUp.due(true, 3020));
+}
+
+// A sensor that never answers at all is recovered too.
+void testASensorThatNeverAnswersIsRecovered() {
+  Util::SilenceWatch silence;
+  CHECK(!silence.due(false, 100));
+  CHECK(!silence.due(false, 120));
+  CHECK(!silence.due(false, 140));
+  CHECK(silence.due(false, 100 + QMI_RECOVER_AFTER_MS));
+}
+
 }  // namespace
 
 void testOrientationDebounce() {
+  testASilentSensorIsRecoveredByTimeNotCount();
+  testABriefSilenceIsNotRecovered();
+  testASensorThatNeverAnswersIsRecovered();
   testARepeatedReadingIsCaught();
   testAnAmbiguousAttitudeStillNamesAFace();
   testAReadingMustHoldStillToBeAccepted();
